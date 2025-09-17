@@ -62,9 +62,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Disable socket in development mode to prevent timeout errors
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Socket.io disabled in development mode');
+    // Disable socket in development and production mode to prevent timeout errors
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
+      console.log('Socket.io disabled in development/production mode');
       setSocket(null);
       setIsConnected(false);
       socketFallback.setConnected(false);
