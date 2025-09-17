@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { getDb, getOne, run } from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { v4 as uuidv4 } from 'uuid';
 import { serialize } from 'cookie';
@@ -18,17 +19,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Email and password required' }, { status: 400 });
     }
 
-    // Find user by email
-    const user = await prisma.user.findUnique({
-      where: { email }
-    });
+    let user: any = null;
+    let usePrisma = false;
+
+    // Try Prisma first (for production with Supabase)
+    try {
+      user = await prisma.user.findUnique({
+        where: { email }
+      });
+      usePrisma = true;
+      console.log('Using Prisma for database connection');
+    } catch (prismaError) {
+      console.log('Prisma connection failed, falling back to SQLite:', prismaError);
+      // Fallback to SQLite
+      await getDb();
+      user = await getOne('SELECT * FROM users WHERE email = ?', [email]);
+      usePrisma = false;
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Verify password
-    const valid = bcrypt.compareSync(password, user.passwordHash);
+    // Verify password (handle different field names)
+    const passwordHash = usePrisma ? user.passwordHash : user.password_hash;
+    const valid = bcrypt.compareSync(password, passwordHash);
     if (!valid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
@@ -38,31 +53,41 @@ export async function POST(req: NextRequest) {
     
     console.log('Creating session for user:', user.email, 'token:', token.substring(0, 8) + '...');
     
-    // Clean up old sessions (older than 24 hours)
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    await prisma.session.deleteMany({
-      where: {
-        userId: user.id,
-        createdAt: {
-          lt: oneDayAgo
+    if (usePrisma) {
+      // Use Prisma for session management
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      await prisma.session.deleteMany({
+        where: {
+          userId: user.id,
+          createdAt: {
+            lt: oneDayAgo
+          }
         }
-      }
-    });
-    
-    // Create new session
-    await prisma.session.create({
-      data: {
-        token,
-        userId: user.id,
-        createdAt: loginTime
-      }
-    });
-    
-    // Update last login time
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: loginTime }
-    });
+      });
+      
+      await prisma.session.create({
+        data: {
+          token,
+          userId: user.id,
+          createdAt: loginTime
+        }
+      });
+      
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: loginTime }
+      });
+    } else {
+      // Use SQLite for session management
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      await run('DELETE FROM sessions WHERE user_id = ? AND created_at < ?', [user.id, oneDayAgo]);
+      await run('INSERT INTO sessions (token, user_id, created_at) VALUES (?, ?, ?)', [token, user.id, loginTime.toISOString()]);
+      await run('UPDATE users SET lastLoginAt = ? WHERE id = ?', [loginTime.toISOString(), user.id]);
+      
+      // Persist SQLite changes
+      const db = await getDb();
+      await db.export();
+    }
     
     // Track mission progress
     await trackLogin(user.id);
@@ -72,8 +97,8 @@ export async function POST(req: NextRequest) {
       user: {
         id: user.id,
         email: user.email,
-        displayName: user.displayName,
-        avatarUrl: user.avatarUrl,
+        displayName: usePrisma ? user.displayName : user.displayName,
+        avatarUrl: usePrisma ? user.avatarUrl : user.avatar_url,
         role: user.role,
         xp: user.xp,
         level: user.level
@@ -96,7 +121,11 @@ export async function POST(req: NextRequest) {
     console.error('Login error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   } finally {
-    await prisma.$disconnect();
+    try {
+      await prisma.$disconnect();
+    } catch (e) {
+      // Ignore disconnect errors
+    }
   }
 }
 
