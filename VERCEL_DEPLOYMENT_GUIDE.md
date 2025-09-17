@@ -43,15 +43,10 @@ Before starting, make sure you have:
    ```
 
 2. Run the database setup:
-   ```bash
-   npm run db:setup
-   npm run db:migrate:deploy
-   ```
-
-3. Verify the schema was created:
-   ```bash
-   npm run db:studio
-   ```
+  ```bash
+  npm run supabase:setup
+  # Or use Supabase dashboard/CLI for migrations
+  ```
 
 ## 🔧 **Step 2: Prepare Your Application**
 
@@ -278,7 +273,6 @@ Supabase automatically handles backups, but you can:
 ```bash
 # Check build logs in Vercel dashboard
 # Common fixes:
-npm run db:generate  # Regenerate Prisma client
 npm run build        # Test build locally
 ```
 
@@ -301,8 +295,7 @@ npm run build        # Test build locally
 
 ### Debug Commands:
 ```bash
-# Test database connection
-npm run db:studio
+
 
 # Check environment variables
 vercel env ls

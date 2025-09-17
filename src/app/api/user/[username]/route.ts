@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOne } from '@/lib/db';
+import { secureDb } from '@/lib/secure-db';
 
 export async function GET(
   request: NextRequest,
@@ -12,14 +12,11 @@ export async function GET(
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    await getDb();
-
-    // Get user data by username (displayName)
-    const user = await getOne(`
-      SELECT id, displayName, role, xp, level, avatar_url as avatarUrl, created_at
-      FROM users 
-      WHERE displayName = ? OR email = ?
-    `, [username, username]);
+    // Get user data by username (displayName) or email
+    let user = await secureDb.findOne('users', { displayName: username });
+    if (!user) {
+      user = await secureDb.findOne('users', { email: username });
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });

@@ -60,32 +60,8 @@ async function vercelBuild() {
       logSuccess('All required environment variables are set');
     }
 
-    // Step 2: Generate Prisma client
-    logStep('2', 'Generating Prisma client...');
-    try {
-      execSync('npx prisma generate', { stdio: 'inherit' });
-      logSuccess('Prisma client generated');
-    } catch (error) {
-      logError('Failed to generate Prisma client');
-      throw error;
-    }
-
-    // Step 3: Run database migrations (if PostgreSQL)
-    if (process.env.DATABASE_TYPE === 'postgresql') {
-      logStep('3', 'Running database migrations...');
-      try {
-        execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-        logSuccess('Database migrations completed');
-      } catch (error) {
-        logWarning('Database migrations failed - this might be normal for first deployment');
-        logWarning('Make sure your DATABASE_URL is correct and accessible');
-      }
-    } else {
-      logStep('3', 'Skipping database migrations (SQLite detected)');
-    }
-
-    // Step 4: Build Next.js application
-    logStep('4', 'Building Next.js application...');
+    // Step 2: Build Next.js application
+    logStep('2', 'Building Next.js application...');
     try {
       execSync('next build', { stdio: 'inherit' });
       logSuccess('Next.js build completed');

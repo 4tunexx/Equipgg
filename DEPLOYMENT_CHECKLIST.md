@@ -141,7 +141,7 @@ SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
 ```bash
 # Check build logs in Vercel dashboard
 # Common fixes:
-npm run db:generate  # Regenerate Prisma client
+
 npm run build        # Test build locally
 ```
 
@@ -262,7 +262,7 @@ vercel logs
 - [Vercel Documentation](https://vercel.com/docs)
 - [Supabase Documentation](https://supabase.com/docs)
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Prisma Documentation](https://www.prisma.io/docs)
+
 
 ## 🆘 **Emergency Contacts**
 

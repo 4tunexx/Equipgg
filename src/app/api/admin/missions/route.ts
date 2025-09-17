@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { getDb, getAll, getOne, run } from '@/lib/db';
+import { secureDb } from '@/lib/secure-db';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {
@@ -14,42 +14,8 @@ export async function GET(request: NextRequest) {
       return createForbiddenResponse('You do not have permission to access admin functions.');
     }
 
-    await getDb();
-
-    // Mock mission data (in a real app, this would come from a missions table)
-    const missions = [
-      {
-        id: 'mission-1',
-        title: 'Daily Login',
-        description: 'Log in to the platform',
-        type: 'daily',
-        reward: { coins: 100, xp: 50 },
-        requirement: { type: 'login', value: 1 },
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'mission-2',
-        title: 'Place 5 Bets',
-        description: 'Place 5 bets on matches',
-        type: 'daily',
-        reward: { coins: 500, xp: 200 },
-        requirement: { type: 'bets', value: 5 },
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'mission-3',
-        title: 'Win 3 Bets',
-        description: 'Win 3 bets in a row',
-        type: 'weekly',
-        reward: { coins: 1000, xp: 500, gems: 10 },
-        requirement: { type: 'win_streak', value: 3 },
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
-
+    // Fetch missions from Supabase
+    const missions = await secureDb.findMany('missions', {}, { orderBy: 'createdAt DESC' });
     return NextResponse.json({
       success: true,
       missions
@@ -84,7 +50,7 @@ export async function POST(request: NextRequest) {
     const missionId = uuidv4();
     const timestamp = new Date().toISOString();
 
-    const newMission = {
+    const newMission = await secureDb.create('missions', {
       id: missionId,
       title,
       description,
@@ -93,8 +59,7 @@ export async function POST(request: NextRequest) {
       requirement,
       isActive: isActive !== false,
       createdAt: timestamp
-    };
-
+    });
     return NextResponse.json({
       success: true,
       message: 'Mission created successfully',
@@ -127,9 +92,18 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Mission ID is required' }, { status: 400 });
     }
 
+    const updatedMission = await secureDb.update('missions', { id }, {
+      title,
+      description,
+      type,
+      reward,
+      requirement,
+      isActive
+    });
     return NextResponse.json({
       success: true,
-      message: 'Mission updated successfully'
+      message: 'Mission updated successfully',
+      mission: updatedMission
     });
 
   } catch (error) {
@@ -159,6 +133,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Mission ID is required' }, { status: 400 });
     }
 
+    await secureDb.delete('missions', { id: missionId });
     return NextResponse.json({
       success: true,
       message: 'Mission deleted successfully'

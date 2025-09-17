@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getOne, getDb } from '@/lib/db';
 import { getAuthSession } from '@/lib/auth-utils';
+import { secureDb } from '@/lib/secure-db';
 
 interface User {
   id: string;
@@ -22,13 +22,23 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ user: null });
     }
     
-    await getDb();
-    const user = await getOne<User>('SELECT id, email, displayName, avatar_url as avatarUrl, xp, level, role, coins, gems FROM users WHERE id = ?', [session.user_id]);
-    
+    const user = await secureDb.findOne<User>('users', { id: session.user_id });
     if (user) {
-      return NextResponse.json({ user });
+      // Map to expected frontend fields
+      return NextResponse.json({
+        user: {
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          avatarUrl: user.avatarUrl || null,
+          xp: user.xp,
+          level: user.level,
+          role: user.role,
+          coins: user.coins,
+          gems: user.gems,
+        }
+      });
     }
-    
     return NextResponse.json({ user: null });
   } catch (error) {
     console.error('Error in /api/me:', error);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, getAll, run, runAndGetId } from '@/lib/db';
+import { secureDb } from '@/lib/secure-db';
 
 interface ForumCategory {
   id: string;
@@ -20,27 +20,10 @@ interface ForumTopic {
 
 export async function GET() {
   try {
-    // Initialize database
-    const db = await getDb();
-    
-    // Get forum categories and recent topics
-    const categories = await getAll<ForumCategory>(
-      `SELECT id, name, description, topic_count, post_count, icon 
-       FROM forum_categories 
-       ORDER BY display_order ASC`,
-      []
-    );
-    
-    const recentTopics = await getAll<ForumTopic>(
-      `SELECT t.id, t.title, t.category_id, t.author_id, t.created_at, t.reply_count, t.view_count,
-              u.displayName as username, u.avatar_url as avatar, u.role, c.name as category_name
-       FROM forum_topics t
-       JOIN users u ON t.author_id = u.id
-       JOIN forum_categories c ON t.category_id = c.id
-       ORDER BY t.created_at DESC
-       LIMIT 10`,
-      []
-    );
+    // Get forum categories
+    const categories = await secureDb.findMany<ForumCategory>('forum_categories', {}, { orderBy: 'display_order ASC' });
+    // Get recent topics (no join, so just get latest topics)
+    const recentTopics = await secureDb.findMany<ForumTopic>('forum_topics', {}, { orderBy: 'created_at DESC', limit: 10 });
     
     // If no data found, return mock data
     if (categories.length === 0) {
@@ -175,23 +158,24 @@ export async function POST(request: Request) {
       );
     }
     
-    // Initialize database
-    const db = await getDb();
+  // No DB init needed
     
     // For demo purposes, use a mock user ID
     const mockUserId = 'user_123';
     
     // Create new forum topic
-    const topicId = await runAndGetId(
-      `INSERT INTO forum_topics 
-       (title, content, category_id, author_id, created_at, reply_count, view_count) 
-       VALUES (?, ?, ?, ?, datetime('now'), 0, 0)`,
-      [title, content, categoryId, mockUserId]
-    );
-    
-    return NextResponse.json({ 
-      success: true, 
-      topicId,
+    const topic = await secureDb.create('forum_topics', {
+      title,
+      content,
+      category_id: categoryId,
+      author_id: mockUserId,
+      created_at: new Date().toISOString(),
+      reply_count: 0,
+      view_count: 0
+    });
+    return NextResponse.json({
+      success: true,
+      topicId: topic?.id,
       message: 'Topic created successfully'
     });
     
