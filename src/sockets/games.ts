@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, GameStartEvent, GameResultEvent } from './types';
 import { emitToGame, emitToUser, createEventData, joinGameRoom } from './utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export function setupGamesSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {
@@ -46,14 +46,27 @@ export function setupGamesSocket(io: Server) {
 
         // Update user balance if they won
         if (data.isWin && data.winnings > 0) {
-          const db = await getDb();
-          await run(
-            'UPDATE users SET coins = coins + ? WHERE id = ?',
-            [data.winnings, socket.userId]
-          );
+          // Update user balance in Supabase
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ coins: supabase.rpc('increment', { x: data.winnings }) })
+            .eq('id', socket.userId);
 
-          // Emit balance update
-          const user = await getOne('SELECT coins, gems, xp, level FROM users WHERE id = ?', [socket.userId]);
+          if (updateError) {
+            throw updateError;
+          }
+
+          // Fetch updated user info
+          const { data: user, error: fetchError } = await supabase
+            .from('users')
+            .select('coins, gems, xp, level')
+            .eq('id', socket.userId)
+            .single();
+
+          if (fetchError) {
+            throw fetchError;
+          }
+
           if (user) {
             emitToUser(io, socket.userId, 'balance-updated', {
               userId: socket.userId,

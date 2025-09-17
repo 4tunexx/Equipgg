@@ -354,34 +354,33 @@ export default function TestDatabasePage() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <h4 className="font-semibold mb-2">Local Development (SQLite)</h4>
+              <h4 className="font-semibold mb-2">Supabase (PostgreSQL)</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• Uses sql.js for in-memory SQLite</li>
-                <li>• No external database required</li>
-                <li>• Perfect for development and testing</li>
-                <li>• Data persists in .data/equipgg.sqlite</li>
+                <li>• Uses Supabase with PostgreSQL</li>
+                <li>• Scalable, production-ready, and cloud-hosted</li>
+                <li>• Full ACID compliance</li>
+                <li>• Modern developer experience</li>
               </ul>
             </div>
-            
             <div>
-              <h4 className="font-semibold mb-2">Production (PostgreSQL)</h4>
+              <h4 className="font-semibold mb-2">Development & Production</h4>
               <ul className="text-sm space-y-1 text-muted-foreground">
-                <li>• Uses Prisma with PostgreSQL</li>
-                <li>• Supports Neon, Supabase, or self-hosted</li>
-                <li>• Full ACID compliance</li>
-                <li>• Scalable and production-ready</li>
+                <li>• Unified codebase for all environments</li>
+                <li>• No SQLite or Prisma dependencies</li>
+                <li>• All queries use Supabase client</li>
+                <li>• Secure and validated DB access</li>
               </ul>
             </div>
           </div>
-          
           <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
-            <h4 className="font-semibold mb-2 text-blue-700 dark:text-blue-300">Switching Databases</h4>
+            <h4 className="font-semibold mb-2 text-blue-700 dark:text-blue-300">Supabase Configuration</h4>
             <p className="text-sm text-blue-600 dark:text-blue-400">
-              To switch between databases, simply change the DATABASE_TYPE environment variable:
+              All database operations are now handled by Supabase. Configure your Supabase credentials in the environment variables:
             </p>
             <div className="mt-2 bg-black text-green-400 p-2 rounded font-mono text-xs">
-              DATABASE_TYPE=sqlite # For local development<br/>
-              DATABASE_TYPE=postgresql # For production
+              SUPABASE_URL=...<br/>
+              SUPABASE_SERVICE_ROLE_KEY=...<br/>
+              SUPABASE_ANON_KEY=...
             </div>
           </div>
         </CardContent>

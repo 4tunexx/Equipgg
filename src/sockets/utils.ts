@@ -1,5 +1,5 @@
 import { AuthenticatedSocket } from './types';
-import { getOne } from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 
 export async function authenticateSocket(socket: any): Promise<AuthenticatedSocket | null> {
   try {
@@ -11,23 +11,25 @@ export async function authenticateSocket(socket: any): Promise<AuthenticatedSock
       return null;
     }
 
-    // Verify session in database
-    const session = await getOne(
-      'SELECT user_id, expires_at FROM user_sessions WHERE id = ? AND expires_at > ?',
-      [sessionId, new Date().toISOString()]
-    );
 
-    if (!session) {
+    // Verify session in Supabase
+    const { data: session, error: sessionError } = await supabase
+      .from('user_sessions')
+      .select('user_id, expires_at')
+      .eq('id', sessionId)
+      .gt('expires_at', new Date().toISOString())
+      .single();
+    if (sessionError || !session) {
       return null;
     }
 
-    // Get user info
-    const user = await getOne(
-      'SELECT id, displayName, role FROM users WHERE id = ?',
-      [session.user_id as string]
-    );
-
-    if (!user) {
+    // Get user info from Supabase
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, displayName, role')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return null;
     }
 

@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, BetPlacedEvent, BetResultEvent, OddsUpdateEvent } from './types';
 import { emitToAll, emitToUser, createEventData, isAdmin } from './utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export function setupBettingSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {
@@ -27,14 +27,20 @@ export function setupBettingSocket(io: Server) {
         });
 
         // Update user balance
-        const db = await getDb();
-        await run(
-          'UPDATE users SET coins = coins - ? WHERE id = ?',
-          [data.amount, socket.userId]
-        );
+        // Update user balance in Supabase
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ coins: supabase.rpc('decrement', { x: data.amount }) })
+          .eq('id', socket.userId);
+        if (updateError) throw updateError;
 
         // Emit balance update to user
-        const user = await getOne('SELECT coins, gems, xp, level FROM users WHERE id = ?', [socket.userId]);
+        const { data: user, error: fetchError } = await supabase
+          .from('users')
+          .select('coins, gems, xp, level')
+          .eq('id', socket.userId)
+          .single();
+        if (fetchError) throw fetchError;
         if (user) {
           emitToUser(io, socket.userId, 'balance-updated', {
             userId: socket.userId,
@@ -65,18 +71,24 @@ export function setupBettingSocket(io: Server) {
 
         // Update user balance if they won
         if (data.won && data.winnings > 0) {
-          const db = await getDb();
-          await run(
-            'UPDATE users SET coins = coins + ? WHERE id = ?',
-            [data.winnings, socket.userId]
-          );
+          // Update user balance in Supabase
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ coins: supabase.rpc('increment', { x: data.winnings }) })
+            .eq('id', socket.userId);
+          if (updateError) throw updateError;
         }
 
         // Emit to user specifically
         emitToUser(io, socket.userId, 'bet-result', betEvent);
 
         // Emit balance update
-        const user = await getOne('SELECT coins, gems, xp, level FROM users WHERE id = ?', [socket.userId]);
+        const { data: user, error: fetchError } = await supabase
+          .from('users')
+          .select('coins, gems, xp, level')
+          .eq('id', socket.userId)
+          .single();
+        if (fetchError) throw fetchError;
         if (user) {
           emitToUser(io, socket.userId, 'balance-updated', {
             userId: socket.userId,
@@ -112,11 +124,12 @@ export function setupBettingSocket(io: Server) {
         emitToAll(io, 'odds-updated', oddsEvent);
 
         // Update database
-        const db = await getDb();
-        await run(
-          'UPDATE matches SET odds1 = ?, odds2 = ?, updated_at = ? WHERE id = ?',
-          [data.team1Odds, data.team2Odds, new Date().toISOString(), data.matchId]
-        );
+        // Update odds in Supabase
+        const { error: oddsError } = await supabase
+          .from('matches')
+          .update({ odds1: data.team1Odds, odds2: data.team2Odds, updated_at: new Date().toISOString() })
+          .eq('id', data.matchId);
+        if (oddsError) throw oddsError;
 
         console.log(`Odds updated for match ${data.matchId} by admin ${socket.userId}`);
       } catch (error) {
@@ -144,11 +157,12 @@ export function setupBettingSocket(io: Server) {
         emitToAll(io, 'match-status-updated', statusEvent);
 
         // Update database
-        const db = await getDb();
-        await run(
-          'UPDATE matches SET status = ?, result = ?, updated_at = ? WHERE id = ?',
-          [data.status, JSON.stringify(data.result), new Date().toISOString(), data.matchId]
-        );
+        // Update match status in Supabase
+        const { error: statusError } = await supabase
+          .from('matches')
+          .update({ status: data.status, result: JSON.stringify(data.result), updated_at: new Date().toISOString() })
+          .eq('id', data.matchId);
+        if (statusError) throw statusError;
 
         console.log(`Match status updated for ${data.matchId} by admin ${socket.userId}`);
       } catch (error) {
@@ -176,21 +190,33 @@ export function setupBettingSocket(io: Server) {
           return;
         }
 
-        const db = await getDb();
-        const stats = await getOne(
-          `SELECT 
-            COUNT(*) as total_bets,
-            SUM(amount) as total_amount,
-            AVG(amount) as avg_amount,
-            COUNT(CASE WHEN team_id = (SELECT team1 FROM matches WHERE id = ?) THEN 1 END) as team1_bets,
-            COUNT(CASE WHEN team_id = (SELECT team2 FROM matches WHERE id = ?) THEN 1 END) as team2_bets
-           FROM user_bets WHERE match_id = ?`,
-          [data.matchId, data.matchId, data.matchId]
-        );
-
+        // Fetch betting stats from Supabase (aggregate in code)
+        const { data: bets, error: betsError } = await supabase
+          .from('user_bets')
+          .select('amount, team_id')
+          .eq('match_id', data.matchId);
+        if (betsError) throw betsError;
+        // Fetch match info for team ids
+        const { data: match, error: matchError } = await supabase
+          .from('matches')
+          .select('team1, team2')
+          .eq('id', data.matchId)
+          .single();
+        if (matchError) throw matchError;
+        const total_bets = bets?.length || 0;
+        const total_amount = bets?.reduce((sum, b) => sum + (b.amount || 0), 0) || 0;
+        const avg_amount = total_bets > 0 ? total_amount / total_bets : 0;
+        const team1_bets = bets?.filter(b => b.team_id === match?.team1).length || 0;
+        const team2_bets = bets?.filter(b => b.team_id === match?.team2).length || 0;
         socket.emit('betting-stats', {
           matchId: data.matchId,
-          stats,
+          stats: {
+            total_bets,
+            total_amount,
+            avg_amount,
+            team1_bets,
+            team2_bets
+          },
           timestamp: new Date().toISOString()
         });
       } catch (error) {

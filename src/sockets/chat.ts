@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, ChatMessageEvent, UserJoinedEvent, UserLeftEvent } from './types';
 import { emitToChat, emitToUser, createEventData, joinChatRoom, canModerate } from './utils';
-import { getDb, run } from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 
 export function setupChatSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {
@@ -101,14 +101,21 @@ export function setupChatSocket(io: Server) {
 
         const messageEvent = createEventData(socket.userId, data);
 
-        // Store message in database
-        const db = await getDb();
+        // Store message in Supabase
         const messageId = `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        await run(
-          `INSERT INTO chat_messages (id, user_id, channel, message, type, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)`,
-          [messageId, socket.userId, data.channel, data.message, data.type, new Date().toISOString()]
-        );
+        const { error: insertError } = await supabase.from('chat_messages').insert({
+          id: messageId,
+          user_id: socket.userId,
+          channel: data.channel,
+          message: data.message,
+          type: data.type,
+          created_at: new Date().toISOString()
+        });
+        if (insertError) {
+          console.error('Supabase error inserting chat message:', insertError);
+          socket.emit('error', { message: 'Failed to store chat message' });
+          return;
+        }
 
         // Emit to chat channel
         emitToChat(io, data.channel, 'chat-message', {
@@ -175,27 +182,30 @@ export function setupChatSocket(io: Server) {
           return;
         }
 
-        const db = await getDb();
         const limit = data.limit || 50;
-        
-        const { getAll } = await import('@/lib/db');
-        const messages = await getAll(
-          `SELECT cm.*, u.displayName as username, u.avatar_url as avatar
-           FROM chat_messages cm
-           JOIN users u ON cm.user_id = u.id
-           WHERE cm.channel = ?
-           ORDER BY cm.created_at DESC
-           LIMIT ?`,
-          [data.channel, limit]
-        );
-
+        const { data: messages, error } = await supabase
+          .from('chat_messages')
+          .select('*, users:users!chat_messages_user_id_fkey(displayName, avatar_url)')
+          .eq('channel', data.channel)
+          .order('created_at', { ascending: false })
+          .limit(limit);
+        if (error) {
+          console.error('Supabase error fetching chat history:', error);
+          socket.emit('error', { message: 'Failed to get chat history' });
+          return;
+        }
+        // Map messages to include username and avatar
+        const formatted = (messages || []).map(m => ({
+          ...m,
+          username: m.users?.displayName || 'Anonymous',
+          avatar: m.users?.avatar_url || null
+        })).reverse();
         socket.emit('chat-history', {
           channel: data.channel,
-          messages: messages.reverse(), // Reverse to show oldest first
+          messages: formatted,
           timestamp: new Date().toISOString()
         });
-
-        console.log(`Chat history requested: User ${socket.userId} - ${data.channel} (${messages.length} messages)`);
+        console.log(`Chat history requested: User ${socket.userId} - ${data.channel} (${formatted.length} messages)`);
       } catch (error) {
         console.error('Chat history error:', error);
         socket.emit('error', { message: 'Failed to get chat history' });
@@ -215,22 +225,21 @@ export function setupChatSocket(io: Server) {
           return;
         }
 
-        const db = await getDb();
         const moderationId = `mod_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        
-        await run(
-          `INSERT INTO moderation_actions (id, moderator_id, target_user_id, action, reason, duration, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            moderationId,
-            socket.userId,
-            data.targetUserId,
-            data.action,
-            data.reason,
-            data.duration || null,
-            new Date().toISOString()
-          ]
-        );
+        const { error: modError } = await supabase.from('moderation_actions').insert({
+          id: moderationId,
+          moderator_id: socket.userId,
+          target_user_id: data.targetUserId,
+          action: data.action,
+          reason: data.reason,
+          duration: data.duration || null,
+          created_at: new Date().toISOString()
+        });
+        if (modError) {
+          console.error('Supabase error inserting moderation action:', modError);
+          socket.emit('error', { message: 'Failed to perform moderation action' });
+          return;
+        }
 
         const moderationEvent = {
           moderatorId: socket.userId,

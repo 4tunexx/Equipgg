@@ -1,42 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, run } from '@/lib/db';
+import { secureDb } from '@/lib/secure-db';
 import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {
   try {
-    await getDb();
-    
     // Hash passwords
     const adminPassword = await bcrypt.hash('admin123', 10);
     const moderatorPassword = await bcrypt.hash('moderator123', 10);
     const testPassword = await bcrypt.hash('test123', 10);
-    
-    // Create users table if it doesn't exist
-    await run(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        email TEXT UNIQUE NOT NULL,
-        password_hash TEXT,
-        displayName TEXT,
-        avatar_url TEXT,
-        role TEXT DEFAULT 'user',
-        xp INTEGER DEFAULT 0,
-        level INTEGER DEFAULT 1,
-        coins INTEGER DEFAULT 0,
-        gems INTEGER DEFAULT 0,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        lastLoginAt TIMESTAMP
-      )
-    `);
-    
-    // Create sessions table if it doesn't exist
-    await run(`
-      CREATE TABLE IF NOT EXISTS sessions (
-        token TEXT PRIMARY KEY,
-        user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
     
     // Insert default users
     const users = [
@@ -79,30 +50,15 @@ export async function POST(req: NextRequest) {
     
     for (const user of users) {
       try {
-        await run(`
-          INSERT OR REPLACE INTO users 
-          (id, email, password_hash, displayName, role, xp, level, coins, gems, created_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-        `, [
-          user.id,
-          user.email,
-          user.password_hash,
-          user.displayName,
-          user.role,
-          user.xp,
-          user.level,
-          user.coins,
-          user.gems
-        ]);
+        await secureDb.create('users', {
+          ...user,
+          created_at: new Date().toISOString(),
+        });
         createdUsers.push(user.email);
       } catch (error) {
         console.log(`User ${user.email} already exists or error:`, error);
       }
     }
-    
-    // Persist database changes
-    const db = await getDb();
-    await db.export();
     
     return NextResponse.json({
       success: true,
@@ -114,7 +70,7 @@ export async function POST(req: NextRequest) {
     console.error('Error creating production users:', error);
     return NextResponse.json({
       success: false,
-      error: error.message
+      error: error instanceof Error ? error.message : String(error)
     }, { status: 500 });
   }
 }

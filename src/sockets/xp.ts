@@ -1,7 +1,8 @@
+
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, XpGainedEvent, MissionProgressEvent } from './types';
 import { emitToUser, emitToAll, createEventData } from './utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 
 export function setupXpSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {
@@ -42,9 +43,15 @@ export function setupXpSocket(io: Server) {
           });
         }
 
-        // Update user balance
-        const user = await getOne('SELECT coins, gems, xp, level FROM users WHERE id = ?', [socket.userId]);
-        if (user) {
+        // Update user balance using Supabase
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('coins, gems, xp, level')
+          .eq('id', socket.userId)
+          .single();
+        if (error) {
+          console.error('Supabase error fetching user balance:', error);
+        } else if (user) {
           emitToUser(io, socket.userId, 'balance-updated', {
             userId: socket.userId,
             coins: user.coins,
@@ -110,9 +117,15 @@ export function setupXpSocket(io: Server) {
         // Emit to user
         emitToUser(io, socket.userId, 'daily-bonus-claimed', bonusEvent);
 
-        // Update user balance
-        const user = await getOne('SELECT coins, gems, xp, level FROM users WHERE id = ?', [socket.userId]);
-        if (user) {
+        // Update user balance using Supabase
+        const { data: user, error } = await supabase
+          .from('users')
+          .select('coins, gems, xp, level')
+          .eq('id', socket.userId)
+          .single();
+        if (error) {
+          console.error('Supabase error fetching user balance:', error);
+        } else if (user) {
           emitToUser(io, socket.userId, 'balance-updated', {
             userId: socket.userId,
             coins: user.coins,

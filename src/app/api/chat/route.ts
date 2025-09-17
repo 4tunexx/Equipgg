@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getDb, getAll, run, getOne, runAndGetId } from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
+import { secureDb } from '@/lib/secure-db';
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChatMessage {
@@ -21,30 +22,16 @@ export async function GET(request: Request) {
     const before = searchParams.get('before'); // For pagination
     
     // Initialize database
-    const db = await getDb();
     
-    // Get recent chat messages
-    let query = `
-      SELECT m.id, m.message as content, m.created_at, m.user_id,
-             u.displayName as username, u.avatar_url as avatar, u.level, u.role
-      FROM chat_messages m
-      JOIN users u ON m.user_id = u.id
-    `;
-    
-    const params: (string | number)[] = [];
-    
+    // Get recent chat messages from Supabase with pagination
+    let query = supabase.from('chat_messages').select('*');
     if (before) {
-      query += ' WHERE m.created_at < ?';
-      params.push(before);
+      query = query.lt('created_at', before);
     }
-    
-    query += ' ORDER BY m.created_at DESC LIMIT ?';
-    params.push(limit);
-    
-    const messages = await getAll<ChatMessage>(query, params);
-    
-    // If no messages found, return mock messages
-    if (messages.length === 0) {
+    query = query.order('created_at', { ascending: false }).limit(limit);
+    const { data: messages, error } = await query;
+    if (error || !messages) {
+      // ...existing code for mockMessages...
       const mockMessages = [
         {
           id: '1',
@@ -53,7 +40,7 @@ export async function GET(request: Request) {
           avatar: 'https://picsum.photos/40/40?random=1',
           level: 100,
           role: 'admin',
-          timestamp: new Date(Date.now() - 300000).toISOString() // 5 minutes ago
+          timestamp: new Date(Date.now() - 300000).toISOString()
         },
         {
           id: '2',
@@ -62,7 +49,7 @@ export async function GET(request: Request) {
           avatar: 'https://picsum.photos/40/40?random=2',
           level: 45,
           role: 'user',
-          timestamp: new Date(Date.now() - 240000).toISOString() // 4 minutes ago
+          timestamp: new Date(Date.now() - 240000).toISOString()
         },
         {
           id: '3',
@@ -71,7 +58,7 @@ export async function GET(request: Request) {
           avatar: 'https://picsum.photos/40/40?random=3',
           level: 23,
           role: 'user',
-          timestamp: new Date(Date.now() - 180000).toISOString() // 3 minutes ago
+          timestamp: new Date(Date.now() - 180000).toISOString()
         },
         {
           id: '4',
@@ -80,7 +67,7 @@ export async function GET(request: Request) {
           avatar: 'https://picsum.photos/40/40?random=4',
           level: 67,
           role: 'moderator',
-          timestamp: new Date(Date.now() - 120000).toISOString() // 2 minutes ago
+          timestamp: new Date(Date.now() - 120000).toISOString()
         },
         {
           id: '5',
@@ -89,15 +76,79 @@ export async function GET(request: Request) {
           avatar: 'https://picsum.photos/40/40?random=5',
           level: 34,
           role: 'user',
-          timestamp: new Date(Date.now() - 60000).toISOString() // 1 minute ago
+          timestamp: new Date(Date.now() - 60000).toISOString()
         }
       ];
-      
       return NextResponse.json({ messages: mockMessages.reverse() });
     }
-    
-    // Reverse to show oldest first
-    return NextResponse.json({ messages: messages.reverse() });
+    // Attach user info
+    const messagesWithUser = await Promise.all(
+      (messages as any[]).map(async (m) => {
+        const user = await secureDb.findOne('users', { id: m.user_id });
+        return {
+          id: m.id,
+          content: m.content,
+          created_at: m.created_at,
+          user_id: m.user_id,
+          username: user?.displayName || 'Unknown',
+          avatar: user?.avatar_url || null,
+          level: user?.level || 1,
+          role: user?.role || 'user',
+        };
+      })
+    );
+    if (messagesWithUser.length === 0) {
+      // ...existing code for mockMessages...
+      const mockMessages = [
+        {
+          id: '1',
+          content: 'Welcome to the chat! 🎉',
+          username: 'Admin',
+          avatar: 'https://picsum.photos/40/40?random=1',
+          level: 100,
+          role: 'admin',
+          timestamp: new Date(Date.now() - 300000).toISOString()
+        },
+        {
+          id: '2',
+          content: 'Just won a big bet! 💰',
+          username: 'LuckyPlayer',
+          avatar: 'https://picsum.photos/40/40?random=2',
+          level: 45,
+          role: 'user',
+          timestamp: new Date(Date.now() - 240000).toISOString()
+        },
+        {
+          id: '3',
+          content: 'Anyone know when the next tournament starts?',
+          username: 'GameFan2024',
+          avatar: 'https://picsum.photos/40/40?random=3',
+          level: 23,
+          role: 'user',
+          timestamp: new Date(Date.now() - 180000).toISOString()
+        },
+        {
+          id: '4',
+          content: 'Good luck everyone! 🍀',
+          username: 'BettingPro',
+          avatar: 'https://picsum.photos/40/40?random=4',
+          level: 67,
+          role: 'moderator',
+          timestamp: new Date(Date.now() - 120000).toISOString()
+        },
+        {
+          id: '5',
+          content: 'The new update looks amazing!',
+          username: 'TechEnthusiast',
+          avatar: 'https://picsum.photos/40/40?random=5',
+          level: 34,
+          role: 'user',
+          timestamp: new Date(Date.now() - 60000).toISOString()
+        }
+      ];
+      return NextResponse.json({ messages: mockMessages.reverse() });
+    }
+    return NextResponse.json({ messages: messagesWithUser.reverse() });
     
   } catch (error) {
     console.error('Error fetching chat messages:', error);
@@ -182,61 +233,44 @@ export async function POST(request: Request) {
     }
     
     // Get user from session
-    const session = await getOne<{ user_id: string }>(
-      'SELECT user_id FROM sessions WHERE token = ?',
-      [sessionToken]
-    );
-    
+    const session = await secureDb.findOne('sessions', { token: sessionToken });
     if (!session) {
       return NextResponse.json(
         { error: 'Invalid session' },
         { status: 401 }
       );
     }
-    
     // Get user details
-    const user = await getOne<{ displayName: string; role: string }>(
-      'SELECT displayName, role FROM users WHERE id = ?',
-      [session.user_id]
-    );
-    
+    const user = await secureDb.findOne('users', { id: session.user_id });
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-    
     // Insert new chat message with sanitized content
     const messageId = uuidv4();
-    await run(
-      `INSERT INTO chat_messages 
-       (id, content, message, user_id, username, created_at) 
-       VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-      [messageId, sanitizedContent, sanitizedContent, session.user_id, user.displayName]
-    );
-    
-    // Get the created message with user info
-    const newMessage = await getOne<ChatMessage>(
-      `SELECT m.id, m.content, m.created_at, m.user_id,
-              u.displayName as username, u.avatar_url as avatar, u.level, u.role
-       FROM chat_messages m
-       JOIN users u ON m.user_id = u.id
-       WHERE m.id = ?`,
-      [messageId]
-    );
-    
+    await secureDb.create('chat_messages', {
+      id: messageId,
+      content: sanitizedContent,
+      user_id: session.user_id,
+      username: user.displayName,
+      created_at: new Date().toISOString(),
+    });
+    // Compose the created message with user info
+    const newMessage = {
+      id: messageId,
+      content: sanitizedContent,
+      created_at: new Date().toISOString(),
+      user_id: session.user_id,
+      username: user.displayName,
+      avatar: user.avatar_url || null,
+      level: user.level || 1,
+      role: user.role || 'user',
+    };
     return NextResponse.json({ 
       success: true, 
-      message: newMessage || {
-        id: messageId,
-        content: content.trim(),
-        username: user.displayName,
-        avatar: 'https://picsum.photos/40/40?random=7',
-        level: 1,
-        role: user.role, // Use the actual user role, not hardcoded 'user'
-        timestamp: new Date().toISOString()
-      }
+      message: newMessage
     });
     
   } catch (error) {

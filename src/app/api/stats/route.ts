@@ -1,23 +1,25 @@
 import { NextResponse } from 'next/server';
-import { getDb, getAll, getOne } from '@/lib/db';
+import { supabase } from '@/lib/supabaseClient';
 
 export async function GET() {
   try {
-    const db = await getDb();
-    
-    // Get real stats from database
-    const userCount = await getOne<{count: number}>('SELECT COUNT(*) as count FROM users');
-    const betCount = await getOne<{count: number}>('SELECT COUNT(*) as count FROM user_bets');
-    const totalCoins = await getOne<{total: number}>('SELECT SUM(coins) as total FROM users');
-    const activeUsers = await getOne<{count: number}>('SELECT COUNT(*) as count FROM users WHERE lastLoginAt > datetime("now", "-24 hours")');
-    
+    // Get real stats from Supabase
+    const [{ count: totalUsers }, { count: totalBets }, coinsRes, { count: usersOnline }] = await Promise.all([
+      supabase.from('users').select('*', { count: 'exact', head: true }),
+      supabase.from('user_bets').select('*', { count: 'exact', head: true }),
+      supabase.from('users').select('coins'),
+      supabase.from('users').select('*', { count: 'exact', head: true }).gte('lastLoginAt', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+    ]);
+    let totalCoins = 0;
+    if (Array.isArray(coinsRes.data)) {
+      totalCoins = coinsRes.data.reduce((sum: number, u: any) => sum + (u.coins || 0), 0);
+    }
     const stats = {
-      usersOnline: activeUsers?.count || 0,
-      totalCoins: totalCoins?.total || 0,
-      totalBets: betCount?.count || 0,
-      totalUsers: userCount?.count || 0
+      usersOnline: usersOnline || 0,
+      totalCoins,
+      totalBets: totalBets || 0,
+      totalUsers: totalUsers || 0,
     };
-    
     return NextResponse.json(stats);
   } catch (error) {
     console.error('Error fetching stats:', error);
