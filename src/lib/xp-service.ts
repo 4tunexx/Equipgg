@@ -1,5 +1,5 @@
 // Comprehensive XP Service for Progressive Leveling System
-import { getDb, getOne, run } from './db';
+// Removed: import { getDb, getOne, run } from './db';
 import { 
   getXPForLevel, 
   getLevelFromXP, 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 // Gem packages with real money pricing
@@ -30,15 +30,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid package' }, { status: 400 });
     }
 
-    await getDb();
-
     // Get user's current balance
-    const user = await getOne(
-      'SELECT id, gems FROM users WHERE id = ?',
-      [session.user_id]
-    );
-
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, gems')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -51,38 +49,38 @@ export async function POST(request: NextRequest) {
     const newGems = user.gems + packageData.gems;
 
     // Update user balance
-    run('UPDATE users SET gems = ? WHERE id = ?', [newGems, user.id]);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ gems: newGems })
+      .eq('id', user.id);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update gems' }, { status: 500 });
+    }
 
     // Record transaction
     const transactionId = uuidv4();
-    run(`
-      INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      transactionId,
-      user.id,
-      'purchase',
-      packageData.gems,
-      'gems',
-      `Purchased ${packageData.gems} gems for $${packageData.price} (${packageId} package)`,
-      new Date().toISOString()
-    ]);
+    await supabase.from('user_transactions').insert({
+      id: transactionId,
+      user_id: user.id,
+      type: 'purchase',
+      amount: packageData.gems,
+      currency: 'gems',
+      description: `Purchased ${packageData.gems} gems for $${packageData.price} (${packageId} package)`,
+      created_at: new Date().toISOString()
+    });
 
     // If Steam ID provided, record for potential skin delivery
     if (steamId) {
       const steamTransactionId = uuidv4();
-      run(`
-        INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [
-        steamTransactionId,
-        user.id,
-        'steam_linked',
-        0,
-        'steam',
-        `Linked Steam ID: ${steamId} for skin delivery`,
-        new Date().toISOString()
-      ]);
+      await supabase.from('user_transactions').insert({
+        id: steamTransactionId,
+        user_id: user.id,
+        type: 'steam_linked',
+        amount: 0,
+        currency: 'gems',
+        description: `Linked Steam ID: ${steamId} for skin delivery`,
+        created_at: new Date().toISOString()
+      });
     }
 
     return NextResponse.json({

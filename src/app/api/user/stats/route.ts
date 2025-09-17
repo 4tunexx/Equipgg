@@ -1,143 +1,85 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne } from '@/lib/db';
-import { getActivePerks, hasInventorySlotPerk } from '@/lib/perk-utils';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
-    
-    if (!session) {
-      return createUnauthorizedResponse();
+    // Get Supabase Auth session from header
+    const authHeader = request.headers.get('authorization');
+    const accessToken = authHeader?.replace('Bearer ', '');
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const db = await getDb();
-    
+    // Get user from Supabase Auth
+    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
+    if (userError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     // Get user's basic stats
-    const user = await getOne<{
-      xp: number;
-      level: number;
-      coins: number;
-      gems: number;
-    }>('SELECT xp, level, coins, gems FROM users WHERE id = ?', [session.user_id]);
-
-    if (!user) {
+    const { data: userData, error: userDataError } = await supabase
+      .from('users')
+      .select('xp, level, coins, gems')
+      .eq('id', user.id)
+      .single();
+    if (userDataError || !userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
-
     // Get betting stats
-    const betStats = await getOne<{
-      total_bets: number;
-      total_winnings: number;
-      wins: number;
-    }>(`
-      SELECT 
-        COUNT(*) as total_bets,
-        SUM(CASE WHEN result = 'win' THEN payout ELSE 0 END) as total_winnings,
-        SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as wins
-      FROM user_bets 
-      WHERE user_id = ?
-    `, [session.user_id]);
-
+    const { data: betStats } = await supabase
+      .from('user_bets')
+      .select('result, payout')
+      .eq('user_id', user.id);
+    const totalBets = betStats?.length || 0;
+    const betWinnings = betStats?.reduce((sum, b) => sum + (b.result === 'win' ? b.payout : 0), 0) || 0;
+    const betWins = betStats?.filter(b => b.result === 'win').length || 0;
+    const betWinRate = totalBets > 0 ? Math.round((betWins / totalBets) * 100) : 0;
     // Get game stats
-    const gameStats = await getOne<{
-      games_played: number;
-      games_won: number;
-      total_winnings: number;
-    }>(`
-      SELECT 
-        COUNT(*) as games_played,
-        SUM(CASE WHEN result = 'win' THEN 1 ELSE 0 END) as games_won,
-        SUM(winnings) as total_winnings
-      FROM game_history 
-      WHERE user_id = ?
-    `, [session.user_id]);
-
+    const { data: gameStats } = await supabase
+      .from('game_history')
+      .select('result, winnings')
+      .eq('user_id', user.id);
+    const gamesPlayed = gameStats?.length || 0;
+    const gameWinnings = gameStats?.reduce((sum, g) => sum + (g.winnings || 0), 0) || 0;
+    const gamesWon = gameStats?.filter(g => g.result === 'win').length || 0;
+    const gameWinRate = gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : 0;
     // Get inventory stats
-    const inventoryStats = await getOne<{
-      total_items: number;
-      total_value: number;
-    }>(`
-      SELECT 
-        COUNT(*) as total_items,
-        SUM(value) as total_value
-      FROM user_inventory 
-      WHERE user_id = ?
-    `, [session.user_id]);
-
+    const { count: inventoryItems } = await supabase
+      .from('user_inventory')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', user.id);
+    const { data: inventoryValueData } = await supabase
+      .from('user_inventory')
+      .select('value')
+      .eq('user_id', user.id);
+    const inventoryValue = inventoryValueData?.reduce((sum, i) => sum + (i.value || 0), 0) || 0;
     // Get mission completion stats
-    const missionStats = await getOne<{
-      completed_missions: number;
-      total_missions: number;
-    }>(`
-      SELECT 
-        SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_missions,
-        COUNT(*) as total_missions
-      FROM user_mission_progress 
-      WHERE user_id = ?
-    `, [session.user_id]);
-
-    // Get active perks (with error handling)
-    let activePerks = [];
-    let extraInventorySlots = 0;
-    try {
-      activePerks = await getActivePerks(session.user_id);
-      extraInventorySlots = hasInventorySlotPerk(activePerks);
-    } catch (perkError) {
-      console.error('Error getting active perks:', perkError);
-      // Continue without perks if there's an error
-    }
-
-    // Calculate win rates
-    const betWinRate = (betStats?.total_bets || 0) > 0 ? 
-      Math.round(((betStats?.wins || 0) / (betStats?.total_bets || 1)) * 100) : 0;
-    
-    const gameWinRate = (gameStats?.games_played || 0) > 0 ? 
-      Math.round(((gameStats?.games_won || 0) / (gameStats?.games_played || 1)) * 100) : 0;
-
+    const { data: missionStats } = await supabase
+      .from('user_mission_progress')
+      .select('completed')
+      .eq('user_id', user.id);
+    const completedMissions = missionStats?.filter(m => m.completed).length || 0;
+    const totalMissions = missionStats?.length || 0;
+    // Perks/slots (placeholder, needs Supabase perks table if exists)
+    const maxInventorySlots = 50; // TODO: add perks logic if needed
     const stats = {
-      // Basic user stats
-      xp: user.xp || 0,
-      level: user.level || 1,
-      coins: user.coins || 0,
-      gems: user.gems || 0,
-      
-      // Betting stats
-      totalBets: betStats?.total_bets || 0,
-      betWinnings: betStats?.total_winnings || 0,
+      xp: userData.xp || 0,
+      level: userData.level || 1,
+      coins: userData.coins || 0,
+      gems: userData.gems || 0,
+      totalBets,
+      betWinnings,
       betWinRate,
-      
-      // Gaming stats  
-      gamesPlayed: gameStats?.games_played || 0,
-      gameWinnings: gameStats?.total_winnings || 0,
+      gamesPlayed,
+      gameWinnings,
       gameWinRate,
-      
-      // Inventory stats
-      inventoryItems: inventoryStats?.total_items || 0,
-      inventoryValue: inventoryStats?.total_value || 0,
-      maxInventorySlots: 50 + extraInventorySlots, // Base 50 + perk bonuses
-      
-      // Mission stats
-      completedMissions: missionStats?.completed_missions || 0,
-      totalMissions: missionStats?.total_missions || 0,
-      missionCompletionRate: (missionStats?.total_missions || 0) > 0 ? 
-        Math.round(((missionStats?.completed_missions || 0) / (missionStats?.total_missions || 1)) * 100) : 0,
-      
-      // Overall stats
-      totalWinnings: (betStats?.total_winnings || 0) + (gameStats?.total_winnings || 0),
-      overallWinRate: Math.round((betWinRate + gameWinRate) / 2),
-      
-      // Active perks
-      activePerks: activePerks.map(perk => ({
-        name: perk.perk_name,
-        type: perk.perk_type,
-        expiresAt: perk.expires_at
-      }))
+      inventoryItems: inventoryItems || 0,
+      inventoryValue,
+      maxInventorySlots,
+      completedMissions,
+      totalMissions
     };
-
-    return NextResponse.json(stats);
+    return NextResponse.json({ stats });
   } catch (error) {
     console.error('Error fetching user stats:', error);
-    return NextResponse.json({ error: 'Failed to fetch user stats' }, { status: 500 });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

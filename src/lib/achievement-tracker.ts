@@ -1,4 +1,4 @@
-import { getDb, run, getOne, getAll } from './db';
+// Removed: import { getDb, run, getOne, getAll } from './db';
 
 export interface AchievementUpdate {
   userId: string;

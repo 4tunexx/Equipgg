@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-utils';
-import { getDb, getOne } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 // Economy balance limits to prevent inflation
 const BALANCE_LIMITS = {
@@ -27,15 +27,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    await getDb();
-
     // Get user's current stats
-    const user = await getOne(
-      'SELECT id, level, coins, gems, xp FROM users WHERE id = ?',
-      [session.user_id]
-    );
-
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, level, coins, gems, xp')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -92,15 +90,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    await getDb();
-
     // Get user's current balance
-    const user = await getOne(
-      'SELECT id, level, coins, gems FROM users WHERE id = ?',
-      [userId]
-    );
-
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, level, coins, gems')
+      .eq('id', userId)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -124,8 +120,13 @@ export async function POST(request: NextRequest) {
 
     // Update balance
     const updateField = currency === 'coins' ? 'coins' : 'gems';
-    const { run } = await import('@/lib/db');
-    run(`UPDATE users SET ${updateField} = ? WHERE id = ?`, [newBalance, userId]);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ [updateField]: newBalance })
+      .eq('id', userId);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,

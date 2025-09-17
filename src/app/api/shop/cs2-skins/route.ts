@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 // CS2 Skin inventory with gem prices
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    await getDb();
+  // No local DB
 
     // Find the skin
     let selectedSkin = null;
@@ -70,10 +70,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Get user's current gems
-    const user = await getOne(
-      'SELECT id, gems FROM users WHERE id = ?',
-      [session.user_id]
-    );
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, gems')
+      .eq('id', session.user_id)
+      .single();
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -89,39 +90,39 @@ export async function POST(request: NextRequest) {
 
     // Deduct gems
     const newGems = user.gems - selectedSkin.gems;
-    run('UPDATE users SET gems = ? WHERE id = ?', [newGems, user.id]);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ gems: newGems })
+      .eq('id', user.id);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update gems' }, { status: 500 });
+    }
 
     // Record transaction
     const transactionId = uuidv4();
-    run(`
-      INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      transactionId,
-      user.id,
-      'cs2_skin_purchase',
-      -selectedSkin.gems,
-      'gems',
-      `Purchased CS2 skin: ${selectedSkin.name} for ${selectedSkin.gems} gems`,
-      new Date().toISOString()
-    ]);
+    await supabase.from('user_transactions').insert({
+      id: transactionId,
+      user_id: user.id,
+      type: 'cs2_skin_purchase',
+      amount: -selectedSkin.gems,
+      currency: 'gems',
+      description: `Purchased CS2 skin: ${selectedSkin.name} for ${selectedSkin.gems} gems`,
+      created_at: new Date().toISOString()
+    });
 
     // Create skin delivery record
     const deliveryId = uuidv4();
-    run(`
-      INSERT INTO cs2_skin_deliveries (id, user_id, skin_id, skin_name, gems_paid, steam_id, steam_trade_url, status, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      deliveryId,
-      user.id,
-      skinId,
-      selectedSkin.name,
-      selectedSkin.gems,
-      steamId,
-      steamTradeUrl,
-      'pending',
-      new Date().toISOString()
-    ]);
+    await supabase.from('cs2_skin_deliveries').insert({
+      id: deliveryId,
+      user_id: user.id,
+      skin_id: skinId,
+      skin_name: selectedSkin.name,
+      gems_paid: selectedSkin.gems,
+      steam_id: steamId,
+      steam_trade_url: steamTradeUrl,
+      status: 'pending',
+      created_at: new Date().toISOString()
+    });
 
     return NextResponse.json({
       success: true,

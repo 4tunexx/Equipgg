@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 // Removed mock data import - now using database queries
 import { trackShopVisit } from '@/lib/mission-tracker';
 import { trackCollectionAchievement } from '@/lib/achievement-tracker';
@@ -19,10 +19,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const db = await getDb();
-    
     // Get user info
-    const user = await getOne<{id: string, coins: number}>('SELECT id, coins FROM users WHERE id = ?', [session.user_id]);
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, coins')
+      .eq('id', session.user_id)
+      .single();
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -37,10 +39,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Find item details in database
-    const item = await getOne(
-      'SELECT * FROM shop_items WHERE id = ? AND stock_quantity > 0',
-      [itemId]
-    );
+    const { data: item, error: itemError } = await supabase
+      .from('shop_items')
+      .select('*')
+      .eq('id', itemId)
+      .gt('stock_quantity', 0)
+      .single();
     
     if (!item) {
       return NextResponse.json({ error: 'Item not found or out of stock' }, { status: 404 });
@@ -50,21 +54,32 @@ export async function POST(request: NextRequest) {
     const newBalance = user.coins - price;
     
     // Update user balance
-    await run('UPDATE users SET coins = ? WHERE id = ?', [newBalance, user.id]);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ coins: newBalance })
+      .eq('id', user.id);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update user balance' }, { status: 500 });
+    }
     
     // Add item to inventory (if it's not a perk)
     if (item.item_type !== 'perk') {
       const inventoryId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      await run(`
-        INSERT INTO user_inventory (id, user_id, item_id, item_name, item_type, rarity, image_url, value, acquired_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [inventoryId, user.id, itemId, itemName, item.item_type, item.rarity, item.image_url, price, new Date().toISOString()]);
-      
+      await supabase.from('user_inventory').insert({
+        id: inventoryId,
+        user_id: user.id,
+        item_id: itemId,
+        item_name: itemName,
+        item_type: item.item_type,
+        rarity: item.rarity,
+        image_url: item.image_url,
+        value: price,
+        acquired_at: new Date().toISOString()
+      });
       // Update stock quantity
-      await run(
-        'UPDATE shop_items SET stock_quantity = stock_quantity - 1 WHERE id = ?',
-        [itemId]
-      );
+      await supabase.from('shop_items')
+        .update({ stock_quantity: item.stock_quantity - 1 })
+        .eq('id', itemId);
     } else {
       // Apply perk to user account
       const perkId = `perk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -94,10 +109,16 @@ export async function POST(request: NextRequest) {
         expiresAt = null;
       }
       
-      await run(`
-        INSERT INTO user_perks (id, user_id, perk_id, perk_name, perk_type, duration_hours, expires_at, is_active)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [perkId, user.id, itemId, itemName, item.item_type, durationHours, expiresAt, 1]);
+      await supabase.from('user_perks').insert({
+        id: perkId,
+        user_id: user.id,
+        perk_id: itemId,
+        perk_name: itemName,
+        perk_type: item.item_type,
+        duration_hours: durationHours,
+        expires_at: expiresAt,
+        is_active: true
+      });
       
       // Apply immediate effects for certain perks
       if (itemName.includes('+1 Inventory Slot')) {
@@ -111,10 +132,15 @@ export async function POST(request: NextRequest) {
     
     // Record transaction
     const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await run(`
-      INSERT INTO user_transactions (id, user_id, type, amount, currency, description, item_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [transactionId, user.id, 'purchase', -price, 'coins', `Purchased ${itemName}`, itemId]);
+    await supabase.from('user_transactions').insert({
+      id: transactionId,
+      user_id: user.id,
+      type: 'purchase',
+      amount: -price,
+      currency: 'coins',
+      description: `Purchased ${itemName}`,
+      item_id: itemId
+    });
     
     // Track mission progress
     await trackShopVisit(user.id);
@@ -122,8 +148,7 @@ export async function POST(request: NextRequest) {
     // Track collection achievements
     await trackCollectionAchievement(user.id, 'shop_purchase');
     
-    // Persist all changes to database
-    await db.export();
+  // All changes persisted via Supabase
     
     return NextResponse.json({
       success: true,

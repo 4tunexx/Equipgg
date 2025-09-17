@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { supabase } from '@/lib/supabase';
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
@@ -57,14 +57,11 @@ async function getSteamUserInfo(steamId: string) {
   if (!STEAM_API_KEY) {
     throw new Error('Steam API key not configured');
   }
-  
   try {
     const response = await fetch(
       `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId}`
     );
-    
     const data = await response.json();
-    
     if (data.response?.players?.length > 0) {
       const player = data.response.players[0];
       return {
@@ -74,7 +71,6 @@ async function getSteamUserInfo(steamId: string) {
         profileUrl: player.profileurl
       };
     }
-    
     return null;
   } catch (error) {
     console.error('Steam API error:', error);
@@ -90,80 +86,58 @@ export async function GET(request: NextRequest) {
   if (searchParams.has('openid.mode')) {
     try {
       const steamId = await verifySteamResponse(searchParams);
-      
       if (!steamId) {
         return NextResponse.redirect(`${BASE_URL}/signin?error=steam_verification_failed`);
       }
-      
       // Get Steam user info
       const steamUser = await getSteamUserInfo(steamId);
-      
       if (!steamUser) {
         return NextResponse.redirect(`${BASE_URL}/signin?error=steam_api_failed`);
       }
-      
-      // Check if user exists in database
-      const { getDb, getOne, run } = await import('@/lib/db');
-      const db = await getDb();
-      
-      let user = await getOne(
-        'SELECT * FROM users WHERE steam_id = ?',
-        [steamUser.steamId]
-      );
-      
-      if (!user) {
-        // Create new user
-        const userId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        await run(
-          `INSERT INTO users (id, email, displayName, avatar_url, role, steam_id, steam_username, steam_avatar, created_at, createdAt)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            userId,
-            `${steamUser.steamId}@steam.local`,
-            steamUser.username,
-            steamUser.avatar,
-            'user',
-            steamUser.steamId,
-            steamUser.username,
-            steamUser.avatar,
-            new Date().toISOString(),
-            new Date().toISOString()
-          ]
-        );
-        
-        user = await getOne('SELECT * FROM users WHERE id = ?', [userId]);
-      } else {
-        // Update existing user's Steam info
-        await run(
-          'UPDATE users SET steam_username = ?, steam_avatar = ?, avatar_url = ?, lastLoginAt = ? WHERE steam_id = ?',
-          [steamUser.username, steamUser.avatar, steamUser.avatar, new Date().toISOString(), steamUser.steamId]
-        );
+      // Use Supabase Admin API to upsert user by steamId (email as steamId@steam.local)
+      const email = `${steamUser.steamId}@steam.local`;
+      let user = null;
+      // Try to find user by email (Supabase Admin API does not have getUserByEmail, so list and filter)
+      let steamUserRecord = null;
+      const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
+      if (listError) {
+        return NextResponse.redirect(`${BASE_URL}/signin?error=supabase_user_list_failed`);
       }
-      
-      // Create session
-      const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      await run(
-        'INSERT INTO user_sessions (id, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)',
-        [
-          sessionId,
-          user?.id as string,
-          new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
-          new Date().toISOString()
-        ]
-      );
-      
-      // Set authentication cookie
-      const cookieStore = await cookies();
-      cookieStore.set('session-id', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7 // 7 days
-      });
-      
-      // Redirect to dashboard
-      return NextResponse.redirect(`${BASE_URL}/dashboard`);
-      
+      const found = userList?.users?.find((u: any) => u.email === email);
+      if (found) {
+        steamUserRecord = found;
+        // Optionally update user metadata
+        await supabase.auth.admin.updateUserById(steamUserRecord.id, {
+          user_metadata: {
+            displayName: steamUser.username,
+            avatar: steamUser.avatar,
+            steamId: steamUser.steamId,
+            steamProfile: steamUser.profileUrl
+          }
+        });
+      } else {
+        // Create new user
+        const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
+          email,
+          email_confirm: true,
+          user_metadata: {
+            displayName: steamUser.username,
+            avatar: steamUser.avatar,
+            steamId: steamUser.steamId,
+            steamProfile: steamUser.profileUrl
+          }
+        });
+        if (createError || !newUser || !newUser.user) {
+          return NextResponse.redirect(`${BASE_URL}/signin?error=supabase_user_create_failed`);
+        }
+        steamUserRecord = newUser.user;
+      }
+      // Issue a Supabase Auth session for this user (custom implementation required)
+      // For now, redirect to frontend with user id for client-side sign in
+      return NextResponse.redirect(`${BASE_URL}/dashboard?steamUserId=${steamUserRecord.id}`);
+      // Issue a Supabase Auth session for this user (custom implementation required)
+      // For now, redirect to frontend with user id for client-side sign in
+      return NextResponse.redirect(`${BASE_URL}/dashboard?steamUserId=${user.id}`);
     } catch (error) {
       console.error('Steam auth callback error:', error);
       return NextResponse.redirect(`${BASE_URL}/signin?error=steam_auth_failed`);

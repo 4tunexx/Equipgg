@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -16,15 +16,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid exchange parameters' }, { status: 400 });
     }
 
-    await getDb();
-
     // Get user's current balance
-    const user = await getOne(
-      'SELECT id, coins, gems FROM users WHERE id = ?',
-      [session.user_id]
-    );
-
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, coins, gems')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -78,37 +76,36 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user balance
-    run('UPDATE users SET coins = ?, gems = ? WHERE id = ?', [newCoins, newGems, user.id]);
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ coins: newCoins, gems: newGems })
+      .eq('id', user.id);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });
+    }
 
-    // Record transaction
+    // Record transaction (debit)
     const transactionId = uuidv4();
-    run(`
-      INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      transactionId,
-      user.id,
-      'exchange',
-      -amount,
-      fromCurrency,
-      `Exchanged ${amount} ${fromCurrency} for ${exchangeAmount} ${toCurrency}`,
-      new Date().toISOString()
-    ]);
-
-    // Record the received currency transaction
+    await supabase.from('user_transactions').insert({
+      id: transactionId,
+      user_id: user.id,
+      type: 'exchange',
+      amount: -amount,
+      currency: fromCurrency,
+      description: `Exchanged ${amount} ${fromCurrency} for ${exchangeAmount} ${toCurrency}`,
+      created_at: new Date().toISOString()
+    });
+    // Record transaction (credit)
     const receivedTransactionId = uuidv4();
-    run(`
-      INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      receivedTransactionId,
-      user.id,
-      'exchange_received',
-      exchangeAmount,
-      toCurrency,
-      `Received ${exchangeAmount} ${toCurrency} from exchange`,
-      new Date().toISOString()
-    ]);
+    await supabase.from('user_transactions').insert({
+      id: receivedTransactionId,
+      user_id: user.id,
+      type: 'exchange_received',
+      amount: exchangeAmount,
+      currency: toCurrency,
+      description: `Received ${exchangeAmount} ${toCurrency} from exchange`,
+      created_at: new Date().toISOString()
+    });
 
     return NextResponse.json({
       success: true,

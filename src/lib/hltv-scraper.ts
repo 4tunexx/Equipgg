@@ -1,5 +1,5 @@
 // HLTV odds scraper for CS2 matches
-import { getDb, run, getAll } from './db';
+// Removed: import { getDb, run, getAll } from './db';
 
 interface HLTVMatch {
   id: string;

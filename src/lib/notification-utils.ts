@@ -1,4 +1,4 @@
-import { getDb, run } from './db';
+// Removed: import { getDb, run } from './db';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface NotificationData {

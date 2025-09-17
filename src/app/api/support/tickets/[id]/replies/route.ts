@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, run, runAndGetId } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 // POST - Add a reply to a ticket
@@ -21,25 +21,28 @@ export async function POST(
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    const db = await getDb();
-    const user = await getOne<{id: string, role: string}>('SELECT id, role FROM users WHERE id = ?', [session.user_id]);
-
-    if (!user) {
+    // Get user
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Check if ticket exists and user has permission
-    const ticket = await getOne<{user_id: string}>('SELECT user_id FROM support_tickets WHERE id = ?', [params.id]);
-
-    if (!ticket) {
+    // Check if ticket exists and get owner
+    const { data: ticket, error: ticketError } = await supabase
+      .from('support_tickets')
+      .select('user_id')
+      .eq('id', params.id)
+      .single();
+    if (ticketError || !ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
     // Check permissions
-    const canReply = user.role === 'admin' || 
-                    user.role === 'moderator' || 
-                    ticket.user_id === user.id;
-
+    const canReply = user.role === 'admin' || user.role === 'moderator' || ticket.user_id === user.id;
     if (!canReply) {
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
@@ -53,28 +56,39 @@ export async function POST(
     const now = new Date().toISOString();
 
     // Create the reply
-    await run(`
-      INSERT INTO support_ticket_replies (id, ticket_id, user_id, message, is_internal, created_at)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `, [replyId, params.id, user.id, message.trim(), is_internal, now]);
+    const { error: replyError } = await supabase
+      .from('support_ticket_replies')
+      .insert({
+        id: replyId,
+        ticket_id: params.id,
+        user_id: user.id,
+        message: message.trim(),
+        is_internal,
+        created_at: now,
+      });
+    if (replyError) {
+      return NextResponse.json({ error: 'Failed to add reply' }, { status: 500 });
+    }
 
     // Update ticket's updated_at timestamp
-    await run('UPDATE support_tickets SET updated_at = ? WHERE id = ?', [now, params.id]);
+    await supabase
+      .from('support_tickets')
+      .update({ updated_at: now })
+      .eq('id', params.id);
 
     // If this is a staff reply to a user's ticket, notify the user
     if ((user.role === 'admin' || user.role === 'moderator') && !is_internal && ticket.user_id !== user.id) {
       const notificationId = uuidv4();
-      await run(`
-        INSERT INTO notifications (id, user_id, type, title, message, data)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `, [
-        notificationId,
-        ticket.user_id,
-        'support_reply',
-        'Support Ticket Reply',
-        'You have received a reply to your support ticket',
-        JSON.stringify({ ticketId: params.id })
-      ]);
+      await supabase
+        .from('notifications')
+        .insert({
+          id: notificationId,
+          user_id: ticket.user_id,
+          type: 'support_reply',
+          title: 'Support Ticket Reply',
+          message: 'You have received a reply to your support ticket',
+          data: JSON.stringify({ ticketId: params.id }),
+        });
     }
 
     return NextResponse.json({ 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, getAll, run, runAndGetId } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 // GET - Get specific ticket with replies
@@ -15,27 +15,23 @@ export async function GET(
       return createUnauthorizedResponse();
     }
 
-    const db = await getDb();
-    const user = await getOne<{id: string, role: string}>('SELECT id, role FROM users WHERE id = ?', [session.user_id]);
-
-    if (!user) {
+    // Get user
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Get ticket details
-    const ticket = await getOne(`
-      SELECT 
-        st.*,
-        u.displayName as user_name,
-        u.email as user_email,
-        assigned.displayName as assigned_to_name
-      FROM support_tickets st
-      LEFT JOIN users u ON st.user_id = u.id
-      LEFT JOIN users assigned ON st.assigned_to = assigned.id
-      WHERE st.id = ?
-    `, [params.id]);
-
-    if (!ticket) {
+    // Get ticket details (with user and assigned info)
+    const { data: ticket, error: ticketError } = await supabase
+      .from('support_tickets')
+      .select(`*, user:users!support_tickets_user_id_fkey(displayName, email), assigned:users!support_tickets_assigned_to_fkey(displayName)`) // adjust join keys as needed
+      .eq('id', params.id)
+      .single();
+    if (ticketError || !ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
@@ -44,19 +40,30 @@ export async function GET(
       return NextResponse.json({ error: 'Access denied' }, { status: 403 });
     }
 
-    // Get ticket replies
-    const replies = await getAll(`
-      SELECT 
-        str.*,
-        u.displayName as user_name,
-        u.role as user_role
-      FROM support_ticket_replies str
-      LEFT JOIN users u ON str.user_id = u.id
-      WHERE str.ticket_id = ?
-      ORDER BY str.created_at ASC
-    `, [params.id]);
+    // Get ticket replies (with user info)
+    const { data: replies, error: repliesError } = await supabase
+      .from('support_ticket_replies')
+      .select('*, user:users!support_ticket_replies_user_id_fkey(displayName, role)') // adjust join keys as needed
+      .eq('ticket_id', params.id)
+      .order('created_at', { ascending: true });
+    if (repliesError) {
+      return NextResponse.json({ error: 'Failed to fetch replies' }, { status: 500 });
+    }
 
-    return NextResponse.json({ ticket, replies });
+    // Flatten user fields for compatibility
+    const ticketOut = {
+      ...ticket,
+      user_name: ticket.user?.displayName ?? null,
+      user_email: ticket.user?.email ?? null,
+      assigned_to_name: ticket.assigned?.displayName ?? null,
+    };
+    const repliesOut = (replies || []).map(r => ({
+      ...r,
+      user_name: r.user?.displayName ?? null,
+      user_role: r.user?.role ?? null,
+    }));
+
+    return NextResponse.json({ ticket: ticketOut, replies: repliesOut });
   } catch (error) {
     console.error('Error fetching ticket:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -75,10 +82,13 @@ export async function PUT(
       return createUnauthorizedResponse();
     }
 
-    const db = await getDb();
-    const user = await getOne<{id: string, role: string}>('SELECT id, role FROM users WHERE id = ?', [session.user_id]);
-
-    if (!user) {
+    // Get user
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('id, role')
+      .eq('id', session.user_id)
+      .single();
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -90,50 +100,42 @@ export async function PUT(
     const { status, priority, assigned_to } = await request.json();
 
     // Check if ticket exists
-    const ticket = await getOne('SELECT id FROM support_tickets WHERE id = ?', [params.id]);
-
-    if (!ticket) {
+    const { data: ticket, error: ticketError } = await supabase
+      .from('support_tickets')
+      .select('id')
+      .eq('id', params.id)
+      .single();
+    if (ticketError || !ticket) {
       return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     }
 
-    const updates = [];
-    const values = [];
-
+    // Prepare update object
+    const updateObj: any = { updated_at: new Date().toISOString() };
     if (status) {
-      updates.push('status = ?');
-      values.push(status);
-      
-      // Set resolved_at if status is resolved or closed
+      updateObj.status = status;
       if (status === 'resolved' || status === 'closed') {
-        updates.push('resolved_at = ?');
-        values.push(new Date().toISOString());
+        updateObj.resolved_at = new Date().toISOString();
       }
     }
-
     if (priority) {
-      updates.push('priority = ?');
-      values.push(priority);
+      updateObj.priority = priority;
     }
-
     if (assigned_to !== undefined) {
-      updates.push('assigned_to = ?');
-      values.push(assigned_to || null);
+      updateObj.assigned_to = assigned_to || null;
     }
-
-    if (updates.length === 0) {
+    // If no valid updates
+    if (Object.keys(updateObj).length === 1) {
       return NextResponse.json({ error: 'No valid updates provided' }, { status: 400 });
     }
 
-    // Always update the updated_at timestamp
-    updates.push('updated_at = ?');
-    values.push(new Date().toISOString());
-    values.push(params.id);
-
-    await run(`
-      UPDATE support_tickets 
-      SET ${updates.join(', ')}
-      WHERE id = ?
-    `, values);
+    // Update ticket
+    const { error: updateError } = await supabase
+      .from('support_tickets')
+      .update(updateObj)
+      .eq('id', params.id);
+    if (updateError) {
+      return NextResponse.json({ error: 'Failed to update ticket' }, { status: 500 });
+    }
 
     return NextResponse.json({ 
       success: true, 

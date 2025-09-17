@@ -1,4 +1,4 @@
-import { getDb, getAll } from './db';
+// Removed: import { getDb, getAll } from './db';
 
 export interface ActivePerk {
   id: string;
