@@ -1,4 +1,5 @@
-// Removed: import { getDb, getAll } from './db';
+
+import { supabase } from './supabase';
 
 export interface ActivePerk {
   id: string;
@@ -13,36 +14,34 @@ export interface ActivePerk {
 
 export async function getActivePerks(userId: string): Promise<ActivePerk[]> {
   try {
-    const db = await getDb();
-    
     // Get all active perks for the user
-    const perks = await getAll<ActivePerk>(`
-      SELECT id, perk_id, perk_name, perk_type, duration_hours, expires_at, is_active, applied_at
-      FROM user_perks 
-      WHERE user_id = ? AND is_active = 1
-      ORDER BY applied_at DESC
-    `, [userId]);
+    const { data: perks, error } = await supabase
+      .from('user_perks')
+      .select('id, perk_id, perk_name, perk_type, duration_hours, expires_at, is_active, applied_at')
+      .eq('user_id', userId)
+      .eq('is_active', 1)
+      .order('applied_at', { ascending: false });
+    if (error || !perks) throw error;
 
     // Filter out expired perks
     const now = new Date();
-    const activePerks = perks.filter(perk => {
+    const activePerks: ActivePerk[] = perks.filter((perk: ActivePerk) => {
       if (!perk.expires_at) return true; // Permanent perks
       return new Date(perk.expires_at) > now;
     });
 
     // Deactivate expired perks
-    const expiredPerks = perks.filter(perk => {
+    const expiredPerks: ActivePerk[] = perks.filter((perk: ActivePerk) => {
       if (!perk.expires_at) return false; // Permanent perks don't expire
       return new Date(perk.expires_at) <= now;
     });
 
     if (expiredPerks.length > 0) {
-      const expiredIds = expiredPerks.map(p => p.id);
-      await db.run(`
-        UPDATE user_perks 
-        SET is_active = 0 
-        WHERE id IN (${expiredIds.map(() => '?').join(',')})
-      `, expiredIds);
+      const expiredIds = expiredPerks.map((p: ActivePerk) => p.id);
+      await supabase
+        .from('user_perks')
+        .update({ is_active: 0 })
+        .in('id', expiredIds);
     }
 
     return activePerks;

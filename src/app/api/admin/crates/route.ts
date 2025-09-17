@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { getDb, getAll, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {
@@ -14,38 +14,14 @@ export async function GET(request: NextRequest) {
       return createForbiddenResponse('You do not have permission to access admin functions.');
     }
 
-    await getDb();
+    const { data: crates, error } = await supabase
+      .from('crates')
+      .select('*');
 
-    // Mock crate data (in a real app, this would come from a crates table)
-    const crates = [
-      {
-        id: 'crate-1',
-        name: 'Summer 2025 Crate',
-        description: 'Exclusive summer collection with rare skins',
-        price: 1000,
-        image: 'https://picsum.photos/200/200?random=1',
-        contents: [
-          { name: 'AK-47 | Redline', rarity: 'Rare', probability: 0.3 },
-          { name: 'AWP | Dragon Lore', rarity: 'Legendary', probability: 0.01 },
-          { name: 'M4A4 | Howl', rarity: 'Epic', probability: 0.1 }
-        ],
-        isActive: true,
-        createdAt: new Date().toISOString()
-      },
-      {
-        id: 'crate-2',
-        name: 'Weapon Case 1',
-        description: 'Classic weapon skins collection',
-        price: 500,
-        image: 'https://picsum.photos/200/200?random=2',
-        contents: [
-          { name: 'Glock-18 | Fade', rarity: 'Rare', probability: 0.2 },
-          { name: 'USP-S | Neo-Noir', rarity: 'Epic', probability: 0.05 }
-        ],
-        isActive: true,
-        createdAt: new Date().toISOString()
-      }
-    ];
+    if (error) {
+      console.error('Error fetching admin crates:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
@@ -78,24 +54,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Required fields missing' }, { status: 400 });
     }
 
-    const crateId = uuidv4();
-    const timestamp = new Date().toISOString();
-
     const newCrate = {
-      id: crateId,
+      id: uuidv4(),
       name,
       description,
       price: parseInt(price),
       image: image || 'https://picsum.photos/200/200',
       contents: Array.isArray(contents) ? contents : [],
-      isActive: isActive !== false,
-      createdAt: timestamp
+      is_active: isActive !== false,
     };
+
+    const { data, error } = await supabase
+      .from('crates')
+      .insert(newCrate)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating crate:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Crate created successfully',
-      crate: newCrate
+      crate: data
     });
 
   } catch (error) {
@@ -122,6 +105,23 @@ export async function PUT(request: NextRequest) {
 
     if (!id) {
       return NextResponse.json({ error: 'Crate ID is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('crates')
+      .update({
+        name,
+        description,
+        price,
+        image,
+        contents,
+        is_active: isActive,
+      })
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error updating crate:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 
     return NextResponse.json({
@@ -154,6 +154,16 @@ export async function DELETE(request: NextRequest) {
 
     if (!crateId) {
       return NextResponse.json({ error: 'Crate ID is required' }, { status: 400 });
+    }
+
+    const { error } = await supabase
+      .from('crates')
+      .delete()
+      .eq('id', crateId);
+
+    if (error) {
+      console.error('Error deleting crate:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 
     return NextResponse.json({

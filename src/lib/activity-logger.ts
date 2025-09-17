@@ -1,4 +1,4 @@
-// Removed: import { run } from './db';
+import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ActivityLogData {
@@ -17,7 +17,6 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
   try {
     const id = uuidv4();
     const timestamp = new Date().toISOString();
-    
     console.log('Logging activity:', {
       id,
       userId: data.userId,
@@ -25,26 +24,21 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
       activityType: data.activityType,
       amount: data.amount
     });
-    
-    await run(`
-      INSERT INTO user_activity_feed (
-        id, user_id, username, activity_type, activity_data, amount, 
-        item_name, item_rarity, game_type, multiplier, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      id,
-      data.userId,
-      data.username,
-      data.activityType,
-      data.activityData ? JSON.stringify(data.activityData) : null,
-      data.amount || null,
-      data.itemName || null,
-      data.itemRarity || null,
-      data.gameType || null,
-      data.multiplier || null,
-      timestamp
+    await supabase.from('user_activity_feed').insert([
+      {
+        id,
+        user_id: data.userId,
+        username: data.username,
+        activity_type: data.activityType,
+        activity_data: data.activityData ? JSON.stringify(data.activityData) : null,
+        amount: data.amount || null,
+        item_name: data.itemName || null,
+        item_rarity: data.itemRarity || null,
+        game_type: data.gameType || null,
+        multiplier: data.multiplier || null,
+        created_at: timestamp,
+      },
     ]);
-    
     console.log('Activity logged successfully:', id);
   } catch (error) {
     console.error('Failed to log activity:', error);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getDb, getAll } from '@/lib/db';
+import { supabase } from '@/lib/supabase/client';
 import { formatActivityMessage } from '@/lib/activity-logger';
 
 interface ActivityItem {
@@ -23,21 +23,68 @@ interface ActivityItem {
 
 export async function GET() {
   try {
-    await getDb();
-    
-    // Try to get real activity from database with user roles
     let activities: any[] = [];
     try {
-      activities = await getAll<any>(`
-        SELECT 
-          uaf.id, uaf.user_id, uaf.username, uaf.activity_type, uaf.amount, uaf.item_name, 
-          uaf.item_rarity, uaf.game_type, uaf.multiplier, uaf.created_at, uaf.activity_data,
-          u.role, u.xp, u.level
-        FROM user_activity_feed uaf
-        LEFT JOIN users u ON uaf.user_id = u.id
-        ORDER BY uaf.created_at DESC 
-        LIMIT 50
-      `);
+      const { data, error } = await supabase
+        .from('user_activity_feed')
+        .select(`
+          id,
+          user_id,
+          username,
+          activity_type,
+          amount,
+          item_name,
+          item_rarity,
+          game_type,
+          multiplier,
+          created_at,
+          activity_data,
+          users (
+            role,
+            xp,
+            level
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        // Check if the error is due to a missing relationship
+        if (error.code === '42P01' || error.message.includes('relation')) { // '42P01' is undefined_table
+            console.log('Users relation not found on user_activity_feed, fetching separately.');
+            const { data: activityFeed, error: activityFeedError } = await supabase
+              .from('user_activity_feed')
+              .select('*')
+              .order('created_at', { ascending: false })
+              .limit(50);
+
+            if (activityFeedError) throw activityFeedError;
+
+            const userIds = [...new Set(activityFeed.map(a => a.user_id))];
+            const { data: users, error: usersError } = await supabase
+              .from('users')
+              .select('id, role, xp, level')
+              .in('id', userIds);
+
+            if (usersError) throw usersError;
+
+            const usersById = users.reduce((acc, user) => {
+                acc[user.id] = user;
+                return acc;
+            }, {} as Record<string, any>);
+
+            activities = activityFeed.map(activity => ({
+                ...activity,
+                users: usersById[activity.user_id] || null
+            }));
+
+        } else {
+            throw error;
+        }
+      } else {
+        activities = data;
+      }
+
       console.log(`Found ${activities.length} real activities in database`);
     } catch (dbError) {
       console.log('Database error fetching activities:', dbError);
@@ -57,9 +104,9 @@ export async function GET() {
       user: {
         username: activity.username,
         avatar: `https://picsum.photos/32/32?random=${Math.abs(activity.username.charCodeAt(0) % 100)}`,
-        role: activity.role,
-        xp: activity.xp,
-        level: activity.level,
+        role: activity.users?.role,
+        xp: activity.users?.xp,
+        level: activity.users?.level,
         isVip: false // Default to false since column doesn't exist
       }
     }));

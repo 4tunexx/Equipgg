@@ -1,5 +1,5 @@
 // Comprehensive XP Service for Progressive Leveling System
-// Removed: import { getDb, getOne, run } from './db';
+import { supabase } from './supabase';
 import { 
   getXPForLevel, 
   getLevelFromXP, 
@@ -52,15 +52,13 @@ export async function addXP(
       };
     }
 
-    const db = await getDb();
-    
     // Get current user stats
-    const user = await getOne<{ xp: number; level: number }>(
-      'SELECT xp, level FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('xp, level')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userError || !user) {
       return {
         success: false,
         newXP: 0,
@@ -80,10 +78,10 @@ export async function addXP(
     const levelsGained = newLevel - oldLevel;
 
     // Update user stats in database
-    await run(
-      'UPDATE users SET xp = ?, level = ? WHERE id = ?',
-      [newXP, newLevel, userId]
-    );
+    await supabase
+      .from('users')
+      .update({ xp: newXP, level: newLevel })
+      .eq('id', userId);
 
     // Create transaction record
     const transactionId = `xp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -97,19 +95,17 @@ export async function addXP(
     };
 
     // Record XP transaction
-    await run(
-      `INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        transactionId,
-        userId,
-        'xp_award',
+    await supabase.from('user_transactions').insert([
+      {
+        id: transactionId,
+        user_id: userId,
+        type: 'xp_award',
         amount,
-        'xp',
-        `${reason} (+${amount} XP) [${source}]`,
-        new Date().toISOString()
-      ]
-    );
+        currency: 'xp',
+        description: `${reason} (+${amount} XP) [${source}]`,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     // Handle level up rewards and notifications
     if (leveledUp) {
@@ -148,15 +144,14 @@ export async function getUserXPInfo(
   config: XPConfig = defaultXPConfig
 ): Promise<{ xp: number; level: number; levelInfo: LevelInfo } | null> {
   try {
-    const user = await getOne<{ xp: number; level: number }>(
-      'SELECT xp, level FROM users WHERE id = ?',
-      [userId]
-    );
-    
-    if (!user) {
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('xp, level')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userError || !user) {
       return null;
     }
-
     return {
       xp: user.xp,
       level: user.level,
@@ -184,72 +179,76 @@ async function handleLevelUp(
     const levelUpBonus = levelsGained * 200;
     
     // Update user coins
-    await run(
-      'UPDATE users SET coins = coins + ? WHERE id = ?',
-      [levelUpBonus, userId]
-    );
+    // Increment coins by fetching current value and updating
+    const { data: userCoins } = await supabase
+      .from('users')
+      .select('coins')
+      .eq('id', userId)
+      .maybeSingle();
+    if (userCoins) {
+      await supabase
+        .from('users')
+        .update({ coins: userCoins.coins + levelUpBonus })
+        .eq('id', userId);
+    }
 
     // Record level up bonus transaction
-    await run(
-      `INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        userId,
-        'level_bonus',
-        levelUpBonus,
-        'coins',
-        `Level ${newLevel} bonus (+${levelUpBonus} coins)`,
-        new Date().toISOString()
-      ]
-    );
+    await supabase.from('user_transactions').insert([
+      {
+        id: `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_id: userId,
+        type: 'level_bonus',
+        amount: levelUpBonus,
+        currency: 'coins',
+        description: `Level ${newLevel} bonus (+${levelUpBonus} coins)`,
+        created_at: new Date().toISOString(),
+      },
+    ]);
 
     // Give level-up crate keys (1 key per level gained)
     for (let i = 0; i < levelsGained; i++) {
-      const existingKey = await getOne(
-        'SELECT keys_count FROM user_keys WHERE user_id = ? AND crate_id = ?',
-        [userId, 'level-up']
-      );
-
+      const { data: existingKey } = await supabase
+        .from('user_keys')
+        .select('keys_count')
+        .eq('user_id', userId)
+        .eq('crate_id', 'level-up')
+        .maybeSingle();
       if (existingKey) {
-        await run(
-          'UPDATE user_keys SET keys_count = keys_count + 1 WHERE user_id = ? AND crate_id = ?',
-          [userId, 'level-up']
-        );
+        await supabase
+          .from('user_keys')
+          .update({ keys_count: existingKey.keys_count + 1 })
+          .eq('user_id', userId)
+          .eq('crate_id', 'level-up');
       } else {
-        await run(
-          `INSERT INTO user_keys (id, user_id, crate_id, keys_count, acquired_at)
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            `${userId}-level-up`,
-            userId,
-            'level-up',
-            1,
-            new Date().toISOString()
-          ]
-        );
+        await supabase.from('user_keys').insert([
+          {
+            id: `${userId}-level-up`,
+            user_id: userId,
+            crate_id: 'level-up',
+            keys_count: 1,
+            acquired_at: new Date().toISOString(),
+          },
+        ]);
       }
     }
 
     // Create level up notification
-    await run(
-      `INSERT INTO notifications (id, user_id, type, title, message, data, created_at, read)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        userId,
-        'level_up',
-        '⭐ Level Up!',
-        `Congratulations! You reached Level ${newLevel}! You received ${levelUpBonus} coins and ${levelsGained} Level-Up Crate Key${levelsGained > 1 ? 's' : ''}!`,
-        JSON.stringify({ 
+    await supabase.from('notifications').insert([
+      {
+        id: `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_id: userId,
+        type: 'level_up',
+        title: '⭐ Level Up!',
+        message: `Congratulations! You reached Level ${newLevel}! You received ${levelUpBonus} coins and ${levelsGained} Level-Up Crate Key${levelsGained > 1 ? 's' : ''}!`,
+        data: JSON.stringify({ 
           level: newLevel, 
           levelsGained,
           rewards: { coins: levelUpBonus, keys: levelsGained } 
         }),
-        new Date().toISOString(),
-        0
-      ]
-    );
+        created_at: new Date().toISOString(),
+        read: 0,
+      },
+    ]);
 
     // Check for level-up achievements
     await checkLevelAchievements(userId, newLevel);
@@ -277,44 +276,40 @@ async function checkLevelAchievements(userId: string, level: number): Promise<vo
     for (const achievement of levelAchievements) {
       if (level === achievement.level) {
         // Check if user already has this achievement
-        const existingAchievement = await getOne(
-          'SELECT id FROM user_achievements WHERE user_id = ? AND achievement_name = ?',
-          [userId, achievement.title]
-        );
-
+        const { data: existingAchievement } = await supabase
+          .from('user_achievements')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('achievement_name', achievement.title)
+          .maybeSingle();
         if (!existingAchievement) {
           // Award the achievement
-          await run(
-            `INSERT INTO user_achievements (id, user_id, achievement_name, category, unlocked_at)
-             VALUES (?, ?, ?, ?, ?)`,
-            [
-              `achievement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              userId,
-              achievement.title,
-              'Progression',
-              new Date().toISOString()
-            ]
-          );
-
+          await supabase.from('user_achievements').insert([
+            {
+              id: `achievement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              user_id: userId,
+              achievement_name: achievement.title,
+              category: 'Progression',
+              unlocked_at: new Date().toISOString(),
+            },
+          ]);
           // Create achievement notification
-          await run(
-            `INSERT INTO notifications (id, user_id, type, title, message, data, created_at, read)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [
-              `achievement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              userId,
-              'achievement',
-              '🏆 Achievement Unlocked!',
-              `You unlocked the "${achievement.title}" achievement for reaching Level ${achievement.level}!`,
-              JSON.stringify({ 
+          await supabase.from('notifications').insert([
+            {
+              id: `achievement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              user_id: userId,
+              type: 'achievement',
+              title: '🏆 Achievement Unlocked!',
+              message: `You unlocked the "${achievement.title}" achievement for reaching Level ${achievement.level}!`,
+              data: JSON.stringify({ 
                 achievement: achievement.title, 
                 level: achievement.level,
                 description: achievement.description 
               }),
-              new Date().toISOString(),
-              0
-            ]
-          );
+              created_at: new Date().toISOString(),
+              read: 0,
+            },
+          ]);
         }
       }
     }

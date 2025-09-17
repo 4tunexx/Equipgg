@@ -1,4 +1,4 @@
-// Removed: import { getDb, run } from './db';
+import { supabase } from './supabase';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface NotificationData {
@@ -41,20 +41,17 @@ export async function createNotification({
   data
 }: CreateNotificationParams): Promise<void> {
   try {
-    const db = await getDb();
     const notificationId = uuidv4();
-    
-    run(`
-      INSERT INTO notifications (id, user_id, type, title, message, data, created_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [
-      notificationId,
-      userId,
-      type,
-      title,
-      message,
-      data ? JSON.stringify(data) : null,
-      new Date().toISOString()
+    await supabase.from('notifications').insert([
+      {
+        id: notificationId,
+        user_id: userId,
+        type,
+        title,
+        message,
+        data: data ? JSON.stringify(data) : null,
+        created_at: new Date().toISOString(),
+      },
     ]);
   } catch (error) {
     console.error('Error creating notification:', error);
@@ -72,16 +69,19 @@ export async function createBulkNotifications({
   data
 }: CreateBulkNotificationParams): Promise<void> {
   try {
-    const db = await getDb();
     const dataString = data ? JSON.stringify(data) : null;
     const now = new Date().toISOString();
-    
-    for (const userId of userIds) {
-      const notificationId = uuidv4();
-      run(`
-        INSERT INTO notifications (id, user_id, type, title, message, data, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [notificationId, userId, type, title, message, dataString, now]);
+    const notifications = userIds.map(userId => ({
+      id: uuidv4(),
+      user_id: userId,
+      type,
+      title,
+      message,
+      data: dataString,
+      created_at: now,
+    }));
+    if (notifications.length > 0) {
+      await supabase.from('notifications').insert(notifications);
     }
   } catch (error) {
     console.error('Error creating bulk notifications:', error);
@@ -105,14 +105,13 @@ export async function createNotificationsForRoles({
   data?: NotificationData;
 }): Promise<void> {
   try {
-    const db = await getDb();
-    const placeholders = roles.map(() => '?').join(',');
-    const users = db.exec(`
-      SELECT id FROM users WHERE role IN (${placeholders})
-    `, roles);
-    
-    if (users.length > 0 && users[0].values.length > 0) {
-      const userIds = users[0].values.map((row: any) => row[0]);
+    const { data: users, error } = await supabase
+      .from('users')
+      .select('id')
+      .in('role', roles);
+    if (error) throw error;
+    if (users && users.length > 0) {
+      const userIds = users.map((u: any) => u.id);
       await createBulkNotifications({ userIds, type, title, message, data });
     }
   } catch (error) {

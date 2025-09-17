@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils'
-import { getDb, getAll, getOne, run, persist } from '@/lib/db'
+import { supabase } from '@/lib/supabase/client'
 
 export async function POST(request: NextRequest) {
   try {
@@ -63,10 +63,17 @@ export async function POST(request: NextRequest) {
     
     for (const achievement of bettingAchievements) {
       // Check if user already has this achievement
-      const existingAchievement = await getOne<{ id: number }>(
-        'SELECT id FROM user_achievements WHERE user_id = ? AND achievement_id = ?',
-        [userId, achievement.id]
-      )
+      const { data: existingAchievement, error: existingAchievementError } = await supabase
+        .from('user_achievements')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('achievement_id', achievement.id)
+        .maybeSingle()
+
+      if (existingAchievementError) {
+        console.error('Error checking existing achievement:', existingAchievementError)
+        continue
+      }
       
       if (existingAchievement) continue
       
@@ -93,10 +100,17 @@ export async function POST(request: NextRequest) {
         case 'win_streak':
           if (result === 'win') {
             // Check last 2 bets for streak
-            const recentBets = await getAll<{ result: string }>(
-              'SELECT result FROM user_bets WHERE user_id = ? ORDER BY created_at DESC LIMIT 2',
-              [userId]
-            )
+            const { data: recentBets, error: recentBetsError } = await supabase
+              .from('user_bets')
+              .select('result')
+              .eq('user_id', userId)
+              .order('created_at', { ascending: false })
+              .limit(2)
+
+            if (recentBetsError) {
+              console.error('Error fetching recent bets:', recentBetsError)
+              break
+            }
             if (recentBets.length === 2 && recentBets.every(r => r.result === 'win')) {
               shouldUnlock = true
             }
@@ -104,26 +118,51 @@ export async function POST(request: NextRequest) {
           break
           
         case 'total_bets':
-          const totalBets = await getOne<{ count: number }>(
-            'SELECT COUNT(*) as count FROM user_bets WHERE user_id = ?',
-            [userId]
-          )
-          if (totalBets && totalBets.count >= 50) shouldUnlock = true
+          const { count, error: totalBetsError } = await supabase
+            .from('user_bets')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+
+          if (totalBetsError) {
+            console.error('Error counting total bets:', totalBetsError)
+            break
+          }
+          if (count && count >= 50) shouldUnlock = true
           break
       }
       
       if (shouldUnlock) {
         // Unlock achievement
-        await run(
-          'INSERT INTO user_achievements (user_id, achievement_id, unlocked_at) VALUES (?, ?, ?)',
-          [userId, achievement.id, new Date().toISOString()]
-        )
+        const { error: insertError } = await supabase
+          .from('user_achievements')
+          .insert({ user_id: userId, achievement_id: achievement.id, unlocked_at: new Date().toISOString() })
+
+        if (insertError) {
+          console.error('Error unlocking achievement:', insertError)
+          continue
+        }
         
         // Award XP
-        await run(
-          'UPDATE users SET xp = xp + ? WHERE id = ?',
-          [achievement.xpReward, userId]
-        )
+        const { data: user, error: userError } = await supabase
+          .from('users')
+          .select('xp')
+          .eq('id', userId)
+          .single()
+
+        if (userError) {
+          console.error('Error fetching user for XP update:', userError)
+          continue
+        }
+
+        const { error: updateXpError } = await supabase
+          .from('users')
+          .update({ xp: user.xp + achievement.xpReward })
+          .eq('id', userId)
+
+        if (updateXpError) {
+          console.error('Error updating user XP:', updateXpError)
+          continue
+        }
         
         unlockedAchievements.push({
           id: achievement.id,
@@ -133,9 +172,6 @@ export async function POST(request: NextRequest) {
         })
       }
     }
-    
-    // Save changes to database file
-    persist()
     
     return NextResponse.json({ unlockedAchievements })
     
@@ -156,10 +192,15 @@ export async function GET(request: NextRequest) {
     const userId = session.user_id
     
     // Get user's unlocked achievements
-    const unlockedResult = await getAll<{ achievement_id: string, unlocked_at: string }>(
-      'SELECT achievement_id, unlocked_at FROM user_achievements WHERE user_id = ?',
-      [userId]
-    )
+    const { data: unlockedResult, error: unlockedError } = await supabase
+      .from('user_achievements')
+      .select('achievement_id, unlocked_at')
+      .eq('user_id', userId)
+
+    if (unlockedError) {
+      console.error("Error fetching user's unlocked achievements:", unlockedError)
+      return NextResponse.json({ error: 'Failed to fetch achievements' }, { status: 500 })
+    }
     
     const unlockedIds = unlockedResult.map(row => row.achievement_id)
     

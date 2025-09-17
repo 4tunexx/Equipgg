@@ -1,5 +1,6 @@
 // Removed: import { getDb, getOne, getAll, run } from './db';
 import { sanitizeSqlIdentifier, validateSqlQuery } from './security';
+import { supabase } from './supabase';
 
 // Secure database wrapper with input validation
 export class SecureDatabase {
@@ -95,11 +96,19 @@ export class SecureDatabase {
     }
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
-    const conditions = Object.keys(sanitizedWhere).map(key => `${key} = ?`).join(' AND ');
-    const values = Object.values(sanitizedWhere);
     
-    const sql = `SELECT * FROM ${table} WHERE ${conditions} LIMIT 1`;
-    return await getOne<T>(sql, values);
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .match(sanitizedWhere)
+      .limit(1)
+      .single();
+
+    if (error) {
+      console.error(`Error in findOne for table ${table}:`, error);
+      return null;
+    }
+    return data as T | null;
   }
 
   async findMany<T = any>(
@@ -111,32 +120,36 @@ export class SecureDatabase {
       throw new Error(`Invalid table name: ${table}`);
     }
 
-    let sql = `SELECT * FROM ${table}`;
-    const values: any[] = [];
+    let query = supabase.from(table).select('*');
 
     if (where && Object.keys(where).length > 0) {
       const sanitizedWhere = this.sanitizeWhereClause(where);
-      const conditions = Object.keys(sanitizedWhere).map(key => `${key} = ?`).join(' AND ');
-      sql += ` WHERE ${conditions}`;
-      values.push(...Object.values(sanitizedWhere));
+      query = query.match(sanitizedWhere);
     }
 
     if (options?.orderBy) {
       const [column, direction] = options.orderBy.split(' ');
       if (this.validateColumnName(column) && ['ASC', 'DESC'].includes(direction?.toUpperCase())) {
-        sql += ` ORDER BY ${column} ${direction.toUpperCase()}`;
+        query = query.order(column as any, { ascending: direction.toUpperCase() === 'ASC' });
       }
     }
 
     if (options?.limit) {
-      sql += ` LIMIT ${Math.min(options.limit, 1000)}`; // Max 1000 records
+      query = query.limit(Math.min(options.limit, 1000)); // Max 1000 records
     }
 
     if (options?.offset) {
-      sql += ` OFFSET ${Math.max(options.offset, 0)}`;
+      query = query.range(options.offset, (options.offset || 0) + (options.limit || 1000) - 1);
     }
 
-    return await getAll<T>(sql, values);
+    const { data, error } = await query;
+
+    if (error) {
+      console.error(`Error in findMany for table ${table}:`, error);
+      return [];
+    }
+
+    return data as T[];
   }
 
   async create<T = any>(table: string, data: Record<string, any>): Promise<T | null> {
@@ -155,20 +168,18 @@ export class SecureDatabase {
       }
     }
 
-    const columns = Object.keys(sanitizedData);
-    const placeholders = columns.map(() => '?').join(', ');
-    const values = Object.values(sanitizedData);
-    
-    const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES (${placeholders})`;
-    await run(sql, values);
+    const { data: result, error } = await supabase
+      .from(table)
+      .insert(sanitizedData)
+      .select()
+      .single();
 
-    // Return the created record
-    const id = sanitizedData.id || sanitizedData.user_id;
-    if (id) {
-      return await this.findOne<T>(table, { id });
+    if (error) {
+      console.error(`Error in create for table ${table}:`, error);
+      return null;
     }
     
-    return null;
+    return result as T | null;
   }
 
   async update<T = any>(
@@ -193,15 +204,19 @@ export class SecureDatabase {
       }
     }
 
-    const setClause = Object.keys(sanitizedData).map(key => `${key} = ?`).join(', ');
-    const whereClause = Object.keys(sanitizedWhere).map(key => `${key} = ?`).join(' AND ');
-    const values = [...Object.values(sanitizedData), ...Object.values(sanitizedWhere)];
-    
-    const sql = `UPDATE ${table} SET ${setClause} WHERE ${whereClause}`;
-    await run(sql, values);
+    const { data: result, error } = await supabase
+      .from(table)
+      .update(sanitizedData)
+      .match(sanitizedWhere)
+      .select()
+      .single();
 
-    // Return the updated record
-    return await this.findOne<T>(table, sanitizedWhere);
+    if (error) {
+      console.error(`Error in update for table ${table}:`, error);
+      return null;
+    }
+
+    return result as T | null;
   }
 
   async delete(table: string, where: Record<string, any>): Promise<boolean> {
@@ -210,36 +225,36 @@ export class SecureDatabase {
     }
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
-    const whereClause = Object.keys(sanitizedWhere).map(key => `${key} = ?`).join(' AND ');
-    const values = Object.values(sanitizedWhere);
     
-    const sql = `DELETE FROM ${table} WHERE ${whereClause}`;
-    await run(sql, values);
+    const { error } = await supabase
+      .from(table)
+      .delete()
+      .match(sanitizedWhere);
+
+    if (error) {
+      console.error(`Error in delete for table ${table}:`, error);
+      return false;
+    }
     
     return true;
   }
 
   // Secure raw query execution (only for specific use cases)
   async executeSecureQuery<T = any>(
-    sql: string, 
+    functionName: string, 
     params: any[] = [],
-    allowedTables: string[] = []
   ): Promise<T[]> {
-    // Validate that the query only references allowed tables
-    if (allowedTables.length > 0) {
-      for (const table of allowedTables) {
-        if (!this.validateTableName(table)) {
-          throw new Error(`Invalid table name in query: ${table}`);
-        }
-      }
-    }
-
     // Basic SQL injection prevention
-    if (!validateSqlQuery(sql)) {
-      throw new Error('Potentially dangerous SQL query detected');
+    if (!/^[a-zA-Z0-9_]+$/.test(functionName)) {
+      throw new Error('Invalid function name for RPC.');
     }
 
-    return await getAll<T>(sql, params);
+    const { data, error } = await supabase.rpc(functionName, params);
+    if (error) {
+      console.error(`Error in executeSecureQuery for function ${functionName}:`, error);
+      return [];
+    }
+    return data as T[];
   }
 }
 
