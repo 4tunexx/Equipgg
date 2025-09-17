@@ -1,8 +1,0 @@
-failed to asynchronously prepare wasm: Error: ENOENT: no such file or directory, open '/var/task/node_modules/sql.js/dist/sql-wasm.wasm's
-Aborted(Error: ENOENT: no such file or directory, open '/var/task/node_modules/sql.js/dist/sql-wasm.wasm')
-Unhandled Rejection: [RuntimeError: Aborted(Error: ENOENT: no such file or directory, open '/var/task/node_modules/sql.js/dist/sql-wasm.wasm'). Build with -sASSERTIONS for more info.]
-Node.js process exited with exit status: 128. The logs above can help with debugging the issue.
-failed to asynchronously prepare wasm: Error: ENOENT: no such file or directory, open '/var/task/node_modules/sql.js/dist/sql-wasm.wasm'
-15:33:54.542 Failed to compile.
-15:33:54.543 Module not found: Can't resolve '@/lib/db'
-15:33:54.615 Error: Command "npm run build" exited with 1

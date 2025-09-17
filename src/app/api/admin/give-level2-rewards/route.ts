@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { secureDb } from '@/lib/secure-db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,87 +10,55 @@ export async function POST(request: NextRequest) {
       return createUnauthorizedResponse();
     }
 
-    const db = await getDb();
-    
     // Get admin user
-    const user = await getOne('SELECT id, level, coins FROM users WHERE email = ?', ['admin@example.com']);
+    const user = await secureDb.findOne('users', { email: 'admin@example.com' });
     if (!user) {
       return NextResponse.json({ error: 'Admin user not found' }, { status: 404 });
     }
-    
     const userId = user.id;
     console.log('Giving level 2 rewards to user:', userId, 'Current level:', user.level);
-    
     if (user.level >= 2) {
       // Give level-up crate key
-      const existingKey = await getOne(
-        'SELECT keys_count FROM user_keys WHERE user_id = ? AND crate_id = ?',
-        [userId, 'level-up']
-      );
-
+      const existingKey = await secureDb.findOne('user_keys', { user_id: userId, crate_id: 'level-up' });
       if (existingKey) {
-        // Update existing key count
-        await run(
-          'UPDATE user_keys SET keys_count = keys_count + 1 WHERE user_id = ? AND crate_id = ?',
-          [userId, 'level-up']
-        );
+        await secureDb.update('user_keys', { user_id: userId, crate_id: 'level-up' }, { keys_count: (existingKey.keys_count || 0) + 1 });
         console.log('Updated existing level-up key count');
       } else {
-        // Create new key entry
-        await run(
-          `INSERT INTO user_keys (id, user_id, crate_id, keys_count, acquired_at)
-           VALUES (?, ?, ?, ?, ?)`,
-          [
-            `${userId}-level-up`,
-            userId,
-            'level-up',
-            1,
-            new Date().toISOString()
-          ]
-        );
+        await secureDb.create('user_keys', {
+          id: `${userId}-level-up`,
+          user_id: userId,
+          crate_id: 'level-up',
+          keys_count: 1,
+          acquired_at: new Date().toISOString()
+        });
         console.log('Created new level-up key entry');
       }
-
       // Create level up notification
-      await run(
-        `INSERT INTO notifications (id, user_id, type, title, message, data, created_at, read)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          userId,
-          'level_up',
-          '⭐ Level Up!',
-          `Congratulations! You reached Level 2! You received 200 coins and 1 Level-Up Crate Key!`,
-          JSON.stringify({ level: 2, rewards: { coins: 200, keys: 1 } }),
-          new Date().toISOString(),
-          0
-        ]
-      );
+      await secureDb.create('notifications', {
+        id: `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_id: userId,
+        type: 'level_up',
+        title: '⭐ Level Up!',
+        message: 'Congratulations! You reached Level 2! You received 200 coins and 1 Level-Up Crate Key!',
+        data: JSON.stringify({ level: 2, rewards: { coins: 200, keys: 1 } }),
+        created_at: new Date().toISOString(),
+        read: 0
+      });
       console.log('Created level-up notification');
-      
       // Give level-up bonus coins
-      await run(
-        'UPDATE users SET coins = coins + 200 WHERE id = ?',
-        [userId]
-      );
+      await secureDb.update('users', { id: userId }, { coins: (user.coins || 0) + 200 });
       console.log('Added 200 level-up bonus coins');
-      
       // Record the transaction
-      await run(
-        `INSERT INTO user_transactions (id, user_id, type, amount, currency, description, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [
-          `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          userId,
-          'level_bonus',
-          200,
-          'coins',
-          'Level 2 bonus (+200 coins)',
-          new Date().toISOString()
-        ]
-      );
+      await secureDb.create('user_transactions', {
+        id: `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        user_id: userId,
+        type: 'level_bonus',
+        amount: 200,
+        currency: 'coins',
+        description: 'Level 2 bonus (+200 coins)',
+        created_at: new Date().toISOString()
+      });
       console.log('Recorded level-up transaction');
-      
       return NextResponse.json({
         success: true,
         message: 'Level 2 rewards given successfully!',

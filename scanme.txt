@@ -1,0 +1,66 @@
+
+18:23:51.820 Running build in Washington, D.C., USA (East) – iad1
+18:23:51.821 Build machine configuration: 2 cores, 8 GB
+18:23:51.835 Cloning github.com/4tunexx/Equipgg (Branch: main, Commit: ade16dd)
+18:23:52.460 Cloning completed: 625.000ms
+18:23:54.360 Restored build cache from previous deployment (CjTxQqXLkzXxqfFsRf7Qu4ZQyDQk)
+18:23:55.131 Running "vercel build"
+18:23:55.513 Vercel CLI 48.0.2
+18:23:55.947 Running "install" command: `npm install`...
+18:23:59.515 
+18:23:59.516 added 10 packages, removed 34 packages, and audited 902 packages in 3s
+18:23:59.516 
+18:23:59.516 95 packages are looking for funding
+18:23:59.517   run `npm fund` for details
+18:23:59.562 
+18:23:59.563 6 vulnerabilities (4 low, 2 moderate)
+18:23:59.563 
+18:23:59.563 To address issues that do not require attention, run:
+18:23:59.563   npm audit fix
+18:23:59.564 
+18:23:59.564 To address all issues possible (including breaking changes), run:
+18:23:59.564   npm audit fix --force
+18:23:59.564 
+18:23:59.565 Some issues need review, and may require choosing
+18:23:59.565 a different dependency.
+18:23:59.566 
+18:23:59.566 Run `npm audit` for details.
+18:23:59.606 Detected Next.js version: 15.3.3
+18:23:59.608 Running "npm run build"
+18:23:59.737 
+18:23:59.738 > nextn@0.1.0 build
+18:23:59.738 > next build
+18:23:59.738 
+18:24:00.469    ▲ Next.js 15.3.3
+18:24:00.470 
+18:24:00.545    Creating an optimized production build ...
+18:24:12.416 Failed to compile.
+18:24:12.417 
+18:24:12.417 ./src/app/(auth)/signin/page.tsx
+18:24:12.418 Module not found: Can't resolve '@/components/ui/button'
+18:24:12.418 
+18:24:12.418 https://nextjs.org/docs/messages/module-not-found
+18:24:12.418 
+18:24:12.418 ./src/app/(auth)/signin/page.tsx
+18:24:12.419 Module not found: Can't resolve '@/components/ui/input'
+18:24:12.419 
+18:24:12.419 https://nextjs.org/docs/messages/module-not-found
+18:24:12.419 
+18:24:12.420 ./src/app/(auth)/signin/page.tsx
+18:24:12.420 Module not found: Can't resolve '@/components/ui/card'
+18:24:12.420 
+18:24:12.420 https://nextjs.org/docs/messages/module-not-found
+18:24:12.420 
+18:24:12.420 ./src/app/(auth)/signin/page.tsx
+18:24:12.421 Module not found: Can't resolve '@/components/ui/label'
+18:24:12.421 
+18:24:12.421 https://nextjs.org/docs/messages/module-not-found
+18:24:12.421 
+18:24:12.421 ./src/app/(auth)/signin/page.tsx
+18:24:12.421 Module not found: Can't resolve '@/components/auth-provider'
+18:24:12.421 
+18:24:12.421 https://nextjs.org/docs/messages/module-not-found
+18:24:12.421 
+18:24:12.424 
+18:24:12.424 > Build failed because of webpack errors
+18:24:12.488 Error: Command "npm run build" exited with 1

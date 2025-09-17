@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-utils';
-import { getDb, getAll, run } from '@/lib/db';
+import { secureDb } from '@/lib/secure-db';
 import { v4 as uuidv4 } from 'uuid';
 
 export async function POST(request: NextRequest) {
@@ -16,44 +16,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const db = await getDb();
-
-    // Get target user IDs based on selection
+    // Get target user IDs based on selection using secureDb
     let userIds: string[] = [];
-    
     if (targetUsers === 'all') {
-      const allUsers = await getAll<{ id: string }>('SELECT id FROM users');
+      const allUsers = await secureDb.findMany<{ id: string }>('users');
       userIds = allUsers.map(user => user.id);
     } else if (targetUsers === 'admin') {
-      const adminUsers = await getAll<{ id: string }>('SELECT id FROM users WHERE role = ?', ['admin']);
+      const adminUsers = await secureDb.findMany<{ id: string }>('users', { role: 'admin' });
       userIds = adminUsers.map(user => user.id);
     } else if (targetUsers === 'moderator') {
-      const modUsers = await getAll<{ id: string }>('SELECT id FROM users WHERE role = ?', ['moderator']);
+      const modUsers = await secureDb.findMany<{ id: string }>('users', { role: 'moderator' });
       userIds = modUsers.map(user => user.id);
     } else if (targetUsers === 'user') {
-      const regularUsers = await getAll<{ id: string }>('SELECT id FROM users WHERE role = ?', ['user']);
+      const regularUsers = await secureDb.findMany<{ id: string }>('users', { role: 'user' });
       userIds = regularUsers.map(user => user.id);
     }
 
-    // Send message to all target users
+    // Send message to all target users using secureDb.create
     const messagePromises = userIds.map(userId => {
       const messageId = uuidv4();
-      return run(`
-        INSERT INTO private_messages (
-          id, from_user_id, to_user_id, type, subject, content, read, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        messageId,
-        session.user_id,
-        userId,
+      return secureDb.create('private_messages', {
+        id: messageId,
+        from_user_id: session.user_id,
+        to_user_id: userId,
         type,
         subject,
         content,
-        false,
-        new Date().toISOString()
-      ]);
+        read: false,
+        created_at: new Date().toISOString()
+      });
     });
-
     await Promise.all(messagePromises);
 
     return NextResponse.json({
