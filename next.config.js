@@ -92,7 +92,7 @@ const nextConfig = {
               "style-src-elem 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "img-src 'self' data: https: blob:",
               "font-src 'self' data: https://fonts.gstatic.com",
-              "connect-src 'self' https: wss:",
+              "connect-src 'self' https: wss: ws:",
               "frame-ancestors 'none'",
               "base-uri 'self'",
               "form-action 'self'",
