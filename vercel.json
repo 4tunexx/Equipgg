@@ -2,38 +2,15 @@
   "version": 2,
   "name": "equipgg",
   "alias": ["www.equipgg.net", "equipgg.net"],
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node",
-      "config": {
-        "includeFiles": ["src/**", "prisma/**", "public/**", "node_modules/sql.js/dist/**"]
-      }
-    }
-  ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "/server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
-  ],
-  "env": {
-    "DATABASE_TYPE": "postgresql",
-    "NODE_ENV": "production",
-    "NEXT_PUBLIC_APP_URL": "https://www.equipgg.net"
-  },
-  "functions": {
-    "server.js": {
-      "maxDuration": 30,
-      "memory": 1024
-    }
-  },
-  "regions": ["iad1"],
   "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install",
+  "functions": {
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
+    }
+  },
   "headers": [
     {
       "source": "/(.*)",
