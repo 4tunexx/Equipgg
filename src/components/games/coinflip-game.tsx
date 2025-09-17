@@ -1,0 +1,482 @@
+
+'use client';
+
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Gem, Loader2, Swords, UserPlus, Users, CheckCircle } from "lucide-react";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { UserProfileLink } from "../user-profile-link";
+import { CoinflipGamePanel } from "./coinflip-game-panel";
+import { useAuth } from '@/hooks/use-auth';
+import { useSessionRepair } from '@/hooks/use-session-repair';
+import { useBalance } from '@/contexts/balance-context';
+import { toast } from 'sonner';
+
+interface CoinflipGameHistoryItem {
+    id: string;
+    user: {
+        name: string;
+        avatar?: string;
+        xp?: number;
+    };
+    betAmount: number;
+    result?: {
+        result?: 'heads' | 'tails';
+        playerSide?: 'heads' | 'tails';
+    };
+    profit: number;
+}
+
+interface CoinflipLobby {
+    id: string;
+    creator: {
+        name: string;
+        avatar: string;
+        dataAiHint: string;
+    };
+    bet_amount: number;
+    side: 'heads' | 'tails';
+    timeLeft: string;
+}
+
+
+
+export function CoinflipGame() {
+    const { user } = useAuth();
+    const { repairSession } = useSessionRepair();
+    const [betAmount, setBetAmount] = useState('');
+    const [selectedSide, setSelectedSide] = useState('heads');
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [gameHistory, setGameHistory] = useState<CoinflipGameHistoryItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [lobbies, setLobbies] = useState<CoinflipLobby[]>([]);
+    const [isLoadingLobbies, setIsLoadingLobbies] = useState(true);
+    const [isJoining, setIsJoining] = useState<string | null>(null);
+    const { balance: userBalance } = useBalance();
+    const [activeGame, setActiveGame] = useState<any>(null);
+    const [liveTimers, setLiveTimers] = useState<Record<string, string>>({});
+    
+    useEffect(() => {
+        fetchGameHistory();
+        fetchLobbies();
+        
+        // Refresh lobbies every 1 second to catch expired lobbies immediately
+        const interval = setInterval(fetchLobbies, 1000);
+        return () => clearInterval(interval);
+    }, [user]);
+
+    // No more frontend timer - let backend handle everything
+
+    // User balance is now handled by the global balance context
+
+    const fetchGameHistory = async () => {
+        try {
+            const response = await fetch('/api/games/history?gameType=coinflip');
+            if (response.ok) {
+                const data = await response.json();
+                setGameHistory(data.history || []);
+            }
+        } catch (error) {
+            console.error('Failed to fetch game history:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchLobbies = async () => {
+        try {
+            const response = await fetch('/api/coinflip/lobbies');
+            if (response.ok) {
+                const data = await response.json();
+                setLobbies(data.lobbies || []);
+            } else if (response.status === 401) {
+                console.log('Session corruption detected, attempting repair...');
+                const repaired = await repairSession();
+                if (repaired) {
+                    // Retry the request after repair
+                    const retryResponse = await fetch('/api/coinflip/lobbies');
+                    if (retryResponse.ok) {
+                        const retryData = await retryResponse.json();
+                        setLobbies(retryData.lobbies || []);
+                    }
+                }
+            } else if (response.status === 404) {
+                console.error('Coinflip lobbies API not found (404). This might be a temporary routing issue.');
+                // Don't set lobbies to empty array on 404, keep existing data
+            } else {
+                console.error('Unexpected response status:', response.status);
+            }
+        } catch (error) {
+            console.error('Failed to fetch lobbies:', error);
+        } finally {
+            setIsLoadingLobbies(false);
+        }
+    };
+
+    const handleCreateLobby = async () => {
+        if (!user) {
+            toast.error('Please sign in to play');
+            return;
+        }
+
+        const amount = parseFloat(betAmount);
+        if (!amount || amount <= 0) {
+            toast.error('Please enter a valid bet amount');
+            return;
+        }
+
+        // Check user balance
+        if (!userBalance || amount > userBalance.coins) {
+            toast.error(`You need ${amount.toLocaleString()} coins but only have ${userBalance?.coins?.toLocaleString() || 0} coins.`);
+            return;
+        }
+
+        setIsPlaying(true);
+        try {
+            const response = await fetch('/api/coinflip/lobbies', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    betAmount: amount,
+                    side: selectedSide
+                })
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                toast.success(data.message);
+                setBetAmount('');
+                fetchLobbies(); // Refresh lobbies
+                fetchGameHistory(); // Refresh history
+                // Balance refresh handled by context
+                window.dispatchEvent(new CustomEvent('balanceUpdated'));
+            } else {
+                toast.error(data.error || 'Failed to create lobby');
+            }
+        } catch {
+            toast.error('Failed to create lobby');
+        } finally {
+            setIsPlaying(false);
+        }
+    };
+
+    const handleJoinLobby = async (lobbyId: string) => {
+        if (!user) {
+            toast.error('Please sign in to play');
+            return;
+        }
+
+        // Find the lobby to get creator info
+        const lobby = lobbies.find(l => l.id === lobbyId);
+        if (!lobby) {
+            toast.error('Lobby not found');
+            return;
+        }
+
+        // Check if user is trying to join their own lobby
+        const currentUserName = user.displayName || user.email;
+        if (lobby.creator.name === currentUserName) {
+            toast.error("You can't join your own lobby! Create a different lobby or wait for someone else to join.");
+            return;
+        }
+
+        // Check user balance before joining
+        if (!userBalance || lobby.bet_amount > userBalance.coins) {
+            toast.error(`You need ${lobby.bet_amount.toLocaleString()} coins but only have ${userBalance?.coins?.toLocaleString() || 0} coins.`);
+            return;
+        }
+
+        setIsJoining(lobbyId);
+        
+        try {
+            // Call the join API immediately
+            const response = await fetch('/api/coinflip/join', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ lobbyId })
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                // Set up the game panel with the actual result
+                setActiveGame({
+                    lobbyId,
+                    creator: lobby.creator,
+                    joiner: {
+                        name: user.displayName || user.email,
+                        avatar: user.photoURL || '',
+                        dataAiHint: 'user avatar'
+                    },
+                    betAmount: lobby.bet_amount,
+                    creatorSide: lobby.side,
+                    joinerSide: lobby.side === 'heads' ? 'tails' : 'heads',
+                    gameResult: data.result // Pass the actual game result
+                });
+                
+                // Refresh data
+                fetchLobbies();
+                fetchGameHistory();
+                // Balance refresh handled by context
+                window.dispatchEvent(new CustomEvent('balanceUpdated'));
+                
+                toast.success(`Game completed! ${data.result.winner.name} won ${data.result.winnings.toLocaleString()} coins!`);
+            } else {
+                toast.error(data.error || 'Failed to join lobby');
+            }
+        } catch (error) {
+            toast.error('Failed to join lobby');
+        } finally {
+            setIsJoining(null);
+        }
+    };
+
+    const handleGameComplete = (result: any) => {
+        setActiveGame(null);
+        fetchLobbies(); // Refresh lobbies
+        fetchGameHistory(); // Refresh history
+        // Balance refresh handled by context
+        
+        // Dispatch events to update dashboard
+        window.dispatchEvent(new CustomEvent('gameCompleted'));
+        window.dispatchEvent(new CustomEvent('balanceUpdated'));
+        if (result.xpGained && result.xpGained > 0) {
+            window.dispatchEvent(new CustomEvent('xpUpdated'));
+        }
+    };
+
+    const handleCloseGame = () => {
+        setActiveGame(null);
+    };
+
+    const recentPlaysFromHistory = gameHistory.map(game => ({
+        id: game.id,
+        winner: game.profit > 0 ? { name: game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
+        loser: game.profit <= 0 ? { name: game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
+        amount: game.betAmount,
+        result: game.result?.result || 'heads',
+        playerSide: game.result?.playerSide || 'heads'
+    }));
+
+    return (
+        <>
+            {activeGame && (
+                <CoinflipGamePanel
+                    lobbyId={activeGame.lobbyId}
+                    creator={activeGame.creator}
+                    joiner={activeGame.joiner}
+                    betAmount={activeGame.betAmount}
+                    creatorSide={activeGame.creatorSide}
+                    joinerSide={activeGame.joinerSide}
+                    gameResult={activeGame.gameResult}
+                    onGameComplete={handleGameComplete}
+                    onClose={handleCloseGame}
+                />
+            )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
+                    <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><Users className="text-primary"/> Active Lobbies</CardTitle>
+                        <CardDescription>Join an existing coinflip lobby or create your own.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Player</TableHead>
+                                    <TableHead>Amount</TableHead>
+                                    <TableHead>Side</TableHead>
+                                    <TableHead>Time Left</TableHead>
+                                    <TableHead className="text-right">Action</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoadingLobbies ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-8">
+                                            <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                            <p className="text-sm text-muted-foreground mt-2">Loading lobbies...</p>
+                                        </TableCell>
+                                    </TableRow>
+                                ) : lobbies.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                                            No active lobbies found
+                                        </TableCell>
+                                    </TableRow>
+                                ) : (
+                                    lobbies.map(lobby => (
+                                        <TableRow key={lobby.id}>
+                                            <TableCell>
+                                                <UserProfileLink user={{...lobby.creator, rank: 1, xp: 0 }} />
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2 font-mono text-yellow-400">
+                                                    <Gem className="w-4 h-4"/>
+                                                    {(lobby.bet_amount || 0).toLocaleString()}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant="secondary" className="capitalize">{lobby.side}</Badge>
+                                            </TableCell>
+                                            <TableCell className="font-mono">
+                                                <span className={`${
+                                                    lobby.timeLeft === '0:00' 
+                                                        ? 'text-red-500 font-bold' 
+                                                        : lobby.timeLeft.startsWith('0:') && parseInt(lobby.timeLeft.split(':')[1]) <= 30
+                                                        ? 'text-orange-500 font-semibold'
+                                                        : 'text-muted-foreground'
+                                                }`}>
+                                                    {lobby.timeLeft}
+                                                </span>
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                {(() => {
+                                                    const currentUserName = user?.displayName || user?.email;
+                                                    const isOwnLobby = lobby.creator.name === currentUserName;
+                                                    
+                                                    return (
+                                                        <Button 
+                                                            size="sm" 
+                                                            onClick={() => handleJoinLobby(lobby.id)}
+                                                            disabled={!user || isJoining === lobby.id || lobby.timeLeft === '0:00' || isOwnLobby}
+                                                            variant={isOwnLobby ? "outline" : "default"}
+                                                        >
+                                                            {isJoining === lobby.id ? (
+                                                                <>
+                                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin"/>
+                                                                    Joining...
+                                                                </>
+                                                            ) : isOwnLobby ? (
+                                                                <>
+                                                                    <Users className="mr-2"/>
+                                                                    Your Lobby
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Swords className="mr-2"/>
+                                                                    Join Flip
+                                                                </>
+                                                            )}
+                                                        </Button>
+                                                    );
+                                                })()}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                    </Card>
+                </div>
+                <div>
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2"><UserPlus className="text-primary"/> Create a Lobby</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <label htmlFor="coinflip-bet-amount" className="text-sm font-medium">Bet Amount</label>
+                                <Input 
+                                    id="coinflip-bet-amount"
+                                    name="coinflip-bet-amount"
+                                    type="number" 
+                                    placeholder="Enter amount..." 
+                                    value={betAmount}
+                                    onChange={(e) => setBetAmount(e.target.value)}
+                                    disabled={isPlaying}
+                                />
+                            </div>
+                            <Tabs value={selectedSide} onValueChange={setSelectedSide} className="w-full">
+                                <TabsList className="grid w-full grid-cols-2">
+                                    <TabsTrigger value="heads" disabled={isPlaying}>Heads</TabsTrigger>
+                                    <TabsTrigger value="tails" disabled={isPlaying}>Tails</TabsTrigger>
+                                </TabsList>
+                            </Tabs>
+                            <Button 
+                                className="w-full" 
+                                onClick={handleCreateLobby}
+                                disabled={isPlaying || !user}
+                            >
+                                {isPlaying ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Playing...
+                                    </>
+                                ) : (
+                                    'Create Coinflip Lobby'
+                                )}
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </div>
+                <div className="lg:col-span-3">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Recent Plays</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <Table>
+                                <TableHeader>
+                                     <TableRow>
+                                         <TableHead>Winner</TableHead>
+                                         <TableHead>Loser</TableHead>
+                                         <TableHead className="text-right">Amount</TableHead>
+                                     </TableRow>
+                                 </TableHeader>
+                                 <TableBody>
+                                     {isLoading ? (
+                                         <TableRow>
+                                             <TableCell colSpan={3} className="text-center py-8">
+                                                 <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                                                 <p className="text-sm text-muted-foreground mt-2">Loading game history...</p>
+                                             </TableCell>
+                                         </TableRow>
+                                     ) : recentPlaysFromHistory.length === 0 ? (
+                                         <TableRow>
+                                             <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
+                                                 No recent games found
+                                             </TableCell>
+                                         </TableRow>
+                                     ) : (
+                                         recentPlaysFromHistory.map(play => (
+                                             <TableRow key={play.id}>
+                                                 <TableCell>
+                                                     {play.winner ? (
+                                                         <div className="flex items-center gap-2">
+                                                             <CheckCircle className="w-5 h-5 text-green-400"/>
+                                                             <UserProfileLink user={{...play.winner, rank: 1}} />
+                                                         </div>
+                                                     ) : (
+                                                         <span className="text-muted-foreground">-</span>
+                                                     )}
+                                                 </TableCell>
+                                                 <TableCell>
+                                                     {play.loser ? (
+                                                         <UserProfileLink user={{...play.loser, rank: 1}} />
+                                                     ) : (
+                                                         <span className="text-muted-foreground">-</span>
+                                                     )}
+                                                 </TableCell>
+                                                 <TableCell className="text-right text-yellow-400 font-mono">
+                                                     {(play.amount || 0).toLocaleString()}
+                                                 </TableCell>
+                                             </TableRow>
+                                         ))
+                                     )}
+                                 </TableBody>
+                             </Table>
+                         </CardContent>
+                    </Card>
+                </div>
+            </div>
+        </>
+    )
+}

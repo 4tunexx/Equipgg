@@ -1,0 +1,46 @@
+<svg width="200" height="60" viewBox="0 0 200 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="200" height="60" rx="8" fill="url(#backgroundGradient)"/>
+  
+  <!-- Main Logo Text -->
+  <text x="20" y="38" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="800" fill="white">
+    EQUIP
+  </text>
+  
+  <!-- GG Text with Gradient -->
+  <text x="100" y="38" font-family="Inter, system-ui, sans-serif" font-size="24" font-weight="800" fill="url(#ggGradient)">
+    GG
+  </text>
+  
+  <!-- .NET Text -->
+  <text x="140" y="38" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="600" fill="white">
+    .NET
+  </text>
+  
+  <!-- Gaming Icon -->
+  <g transform="translate(160, 20)">
+    <circle cx="10" cy="10" r="8" fill="url(#iconGradient)" stroke="white" stroke-width="1"/>
+    <path d="M6 8 L8 6 L12 6 L14 8 L14 12 L12 14 L8 14 L6 12 Z" fill="white"/>
+    <circle cx="8" cy="10" r="1" fill="url(#iconGradient)"/>
+    <circle cx="12" cy="10" r="1" fill="url(#iconGradient)"/>
+  </g>
+  
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="backgroundGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a1a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#2d2d2d;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="ggGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
+      <stop offset="50%" style="stop-color:#f7931e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#ffd700;stop-opacity:1" />
+    </linearGradient>
+    
+    <linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ff6b35;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f7931e;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

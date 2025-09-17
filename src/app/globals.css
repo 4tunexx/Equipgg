@@ -1,0 +1,250 @@
+/* stylelint-disable-next-line at-rule-no-unknown */
+@tailwind base;
+/* stylelint-disable-next-line at-rule-no-unknown */
+@tailwind components;
+/* stylelint-disable-next-line at-rule-no-unknown */
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 10% / 0.9;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12% / 0.8;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 30 100% 50%; /* #F08000 -> hsl(30, 100%, 47%) adjusted to 50% for better visuals */
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 34 100% 64%; /* #FFB347 */
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 30 100% 50%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 0 0% 10% / 0.9;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 12% / 0.8;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 30 100% 50%;
+    --primary-foreground: 0 0% 10%;
+    --secondary: 0 0% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 18%;
+    --muted-foreground: 0 0% 65%;
+    --accent: 34 100% 64%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
+    --ring: 30 100% 50%;
+  }
+}
+
+@layer base {
+  * {
+    /* stylelint-disable-next-line at-rule-no-unknown */
+    @apply border-border;
+    box-sizing: border-box;
+    min-width: 0;
+  }
+  html, body {
+    /* stylelint-disable-next-line at-rule-no-unknown */
+    @apply w-full overflow-x-hidden m-0 p-0;
+    max-width: 100%;
+    overflow-x: hidden !important;
+  }
+  body {
+    /* stylelint-disable-next-line at-rule-no-unknown */
+    @apply bg-background text-foreground;
+    background-image: url('/bg2.png');
+    background-size: cover;
+    background-attachment: fixed;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  /* Modern Scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background) / 0.5);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+.glow-legendary {
+  /* stylelint-disable-next-line at-rule-no-unknown */
+  @apply shadow-lg shadow-red-500/50;
+  box-shadow: 0 0 15px 3px rgba(239, 68, 68, 0.5), 0 0 4px 1px rgba(239, 68, 68, 0.4);
+}
+.glow-epic {
+  /* stylelint-disable-next-line at-rule-no-unknown */
+  @apply shadow-lg shadow-purple-500/50;
+  box-shadow: 0 0 15px 3px rgba(168, 85, 247, 0.5), 0 0 4px 1px rgba(168, 85, 247, 0.4);
+}
+.glow-rare {
+  /* stylelint-disable-next-line at-rule-no-unknown */
+  @apply shadow-lg shadow-blue-500/50;
+  box-shadow: 0 0 15px 3px rgba(59, 130, 246, 0.5), 0 0 4px 1px rgba(59, 130, 246, 0.4);
+}
+
+/* --- Particles --- */
+.particle {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  background: #ff6600;
+  border-radius: 50%;
+  opacity: 0;
+  animation: floatAndFade 10s linear infinite;
+}
+
+@keyframes floatAndFade {
+  0% { transform: translateY(100vh) scale(0.5); opacity: 0; }
+  10% { opacity: 0.8; }
+  80% { opacity: 0.4; }
+  100% { transform: translateY(-10vh) scale(1.2); opacity: 0; }
+}
+
+/* Faster marquee animation for activity feed */
+@keyframes marquee-faster {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+
+.animate-marquee-faster {
+  animation: marquee-faster 20s linear infinite;
+}
+
+/* Landing page animations */
+@keyframes slideInFromLeft {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromRight {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeInScale {
+  0% {
+    transform: scale(0.95);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInFromLeft 1s ease-out forwards;
+}
+
+.animate-slide-in-bottom {
+  animation: slideInFromBottom 1s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInFromRight 1s ease-out forwards;
+}
+
+.animate-fade-in-scale {
+  animation: fadeInScale 1s ease-out forwards;
+}
+
+/* Layered Logo Animations */
+@keyframes dropFromTop {
+  0% {
+    transform: translate(-50%, -50%) translateY(-100px) scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: translate(-50%, -50%) translateY(10px) scale(1.05);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes slideFromUnder {
+  0% {
+    transform: translate(-50%, -50%) translateY(50px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
+    transform: translate(-50%, -50%) translateY(190px) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes logoShake {
+  0%, 100% { transform: translateX(0) rotate(0deg); }
+  10% { transform: translateX(-2px) rotate(-1deg); }
+  20% { transform: translateX(2px) rotate(1deg); }
+  30% { transform: translateX(-2px) rotate(-1deg); }
+  40% { transform: translateX(2px) rotate(1deg); }
+  50% { transform: translateX(-1px) rotate(-0.5deg); }
+  60% { transform: translateX(1px) rotate(0.5deg); }
+  70% { transform: translateX(-1px) rotate(-0.5deg); }
+  80% { transform: translateX(1px) rotate(0.5deg); }
+  90% { transform: translateX(-0.5px) rotate(-0.25deg); }
+}
+
+.animate-drop-from-top {
+  animation: dropFromTop 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+
+.animate-slide-from-under {
+  animation: slideFromUnder 1.5s ease-out forwards;
+}
+
+.animate-logo-shake {
+  animation: logoShake 0.5s ease-in-out;
+}
