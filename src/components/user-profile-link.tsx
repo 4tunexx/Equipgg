@@ -3,7 +3,6 @@
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MiniProfileCard } from "@/components/mini-profile-card";
-import type { LeaderboardPlayer } from "@/lib/mock-data";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";

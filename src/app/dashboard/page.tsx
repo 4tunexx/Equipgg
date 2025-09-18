@@ -15,7 +15,6 @@ import { StatCard } from '@/components/stat-card';
 import { useAuth } from '@/components/auth-provider';
 import { useBalance } from '@/contexts/balance-context';
 import { useState, useEffect } from 'react';
-import { dailyMissions, getRankByLevel } from '@/lib/mock-data';
 
 interface UserStats {
   level: number;
@@ -134,7 +133,6 @@ export default function DashboardPage() {
                 Welcome Back, {user?.displayName || user?.email?.split('@')[0] || 'User'}!
               </h1>
               <p className="text-muted-foreground">
-                Here&apos;s your mission briefing for today. Your current rank is <span className='font-bold text-primary'>{getRankByLevel(userStats?.level || user?.level || 1)}</span>.
               </p>
             </div>
           </div>

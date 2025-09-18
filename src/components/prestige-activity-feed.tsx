@@ -2,7 +2,6 @@
 'use client';
 
 import { cn } from "@/lib/utils";
-import { rarityColors } from "@/lib/mock-data";
 import { UserProfileLink } from "./user-profile-link";
 import React, { useEffect, useState } from "react";
 import { Gem, Trophy as TrophyIcon, Award as AwardIcon, Crown as CrownIcon, Zap as ZapIcon, MessageSquare as MessageSquareIcon } from 'lucide-react';
