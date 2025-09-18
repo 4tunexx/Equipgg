@@ -1,13 +1,25 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { useAuth } from '@/components/auth-provider';
-import Link from 'next/link';
+
+export default function SignInPage() {
+  const router = useRouter();
+  
+  useEffect(() => {
+    // Redirect to main sign-in page
+    router.push('/signin');
+  }, [router]);
+
+  return (
+    <div className="flex items-center justify-center min-h-screen">
+      <div className="text-center">
+        <h1 className="text-2xl font-bold mb-4">Redirecting...</h1>
+        <p>Please wait while we redirect you to the sign-in page.</p>
+      </div>
+    </div>
+  );
+}
 import { Loader2 } from 'lucide-react';
 
 export default function SignInPage() {
