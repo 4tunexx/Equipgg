@@ -491,6 +491,52 @@ export class SupabaseQueries {
     if (error) throw error;
     return data;
   }
+
+  // Betting methods
+  async getUserBets(userId: string, limit: number = 50) {
+    const { data, error } = await this.supabase
+      .from('user_bets')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async placeBet(userId: string, amount: number, gameType: string, betData: any) {
+    const { data, error } = await this.supabase
+      .from('user_bets')
+      .insert([{
+        user_id: userId,
+        amount,
+        game_type: gameType,
+        bet_data: betData,
+        status: 'pending'
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async updateBetResult(betId: string, result: 'win' | 'loss', payout?: number) {
+    const { data, error } = await this.supabase
+      .from('user_bets')
+      .update({
+        result,
+        payout: payout || 0,
+        status: 'completed'
+      })
+      .eq('id', betId)
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 }
 
 export const createSupabaseQueries = (supabase: SupabaseClient) => {

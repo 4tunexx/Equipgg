@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -12,14 +12,26 @@ export async function GET(
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    // Get user data by username (displayName) or email
-    let user = await secureDb.findOne('users', { displayName: username });
-    if (!user) {
-      user = await secureDb.findOne('users', { email: username });
-    }
+    // Get user data by username or email from Supabase
+    let { data: user, error } = await supabase
+      .from('users')
+      .select('id, username, email, role, xp, level, avatar_url, created_at')
+      .eq('username', username)
+      .single();
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    if (error || !user) {
+      // Try finding by email as fallback
+      const { data: userByEmail, error: emailError } = await supabase
+        .from('users')
+        .select('id, username, email, role, xp, level, avatar_url, created_at')
+        .eq('email', username)
+        .single();
+
+      if (emailError || !userByEmail) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      
+      user = userByEmail;
     }
 
     // Return public user data (no sensitive information)
@@ -27,14 +39,14 @@ export async function GET(
       success: true,
       user: {
         id: user.id,
-        name: user.displayName,
-        displayName: user.displayName,
-        username: user.displayName,
+        name: user.username,
+        displayName: user.username,
+        username: user.username,
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,
-        avatar: user.avatarUrl || `https://picsum.photos/40/40?random=${user.id}`,
-        avatarUrl: user.avatarUrl,
+        avatar: user.avatar_url || `https://picsum.photos/40/40?random=${user.id}`,
+        avatarUrl: user.avatar_url,
         createdAt: user.created_at,
         dataAiHint: 'user avatar'
       }
