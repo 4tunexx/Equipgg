@@ -31,6 +31,30 @@ const COMPONENTS_DIR = path.join(SRC_DIR, 'components');
 const UI_DIR = path.join(COMPONENTS_DIR, 'ui');
 const LIB_DIR = path.join(SRC_DIR, 'lib');
 
+// Helper function for safe execution with error handling
+function safeExecute(fn, errorMessage) {
+  try {
+    return fn();
+  } catch (error) {
+    log(`${errorMessage}: ${error.message}`, colors.red);
+    return null;
+  }
+}
+
+// Helper function to create directories if they don't exist
+function ensureDirectoryExists(dirPath) {
+  try {
+    if (!fs.existsSync(dirPath)) {
+      fs.mkdirSync(dirPath, { recursive: true });
+      log(`Created directory: ${dirPath}`, colors.green);
+    }
+    return true;
+  } catch (error) {
+    log(`Failed to create directory ${dirPath}: ${error.message}`, colors.red);
+    return false;
+  }
+}
+
 // Check if we're running on Vercel
 const IS_VERCEL = process.env.VERCEL === '1';
 
@@ -85,6 +109,55 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 }
 
 export { Badge, badgeVariants }
+`,
+  'scroll-area.tsx': `"use client"
+
+import * as React from "react"
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
+
+import { cn } from "@/lib/utils"
+
+const ScrollArea = React.forwardRef<
+  React.ElementRef<typeof ScrollAreaPrimitive.Root>,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
+>(({ className, children, ...props }, ref) => (
+  <ScrollAreaPrimitive.Root
+    ref={ref}
+    className={cn("relative overflow-hidden", className)}
+    {...props}
+  >
+    <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+      {children}
+    </ScrollAreaPrimitive.Viewport>
+    <ScrollBar />
+    <ScrollAreaPrimitive.Corner />
+  </ScrollAreaPrimitive.Root>
+))
+ScrollArea.displayName = ScrollAreaPrimitive.Root.displayName
+
+const ScrollBar = React.forwardRef<
+  React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>
+>(({ className, orientation = "vertical", ...props }, ref) => (
+  <ScrollAreaPrimitive.ScrollAreaScrollbar
+    ref={ref}
+    orientation={orientation}
+    className={cn(
+      "flex touch-none select-none transition-colors",
+      orientation === "vertical" &&
+        "h-full w-2.5 border-l border-l-transparent p-[1px]",
+      orientation === "horizontal" &&
+        "h-2.5 border-t border-t-transparent p-[1px]",
+      className
+    )}
+    {...props}
+  >
+    <ScrollAreaPrimitive.ScrollAreaThumb className="relative flex-1 rounded-full bg-border" />
+  </ScrollAreaPrimitive.ScrollAreaScrollbar>
+))
+ScrollBar.displayName = ScrollAreaPrimitive.ScrollAreaScrollbar.displayName
+
+export { ScrollArea, ScrollBar }
 `,
   'dialog.tsx': `"use client"
 
@@ -620,10 +693,19 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }`;
     
-    // Make sure the lib directory exists
-    fs.mkdirSync(path.join(ROOT_DIR, 'src', 'lib'), { recursive: true });
-    fs.writeFileSync(utilsPath, utilsContent);
-    log(`Created utils.ts file`, colors.green);
+    try {
+      // Make sure the lib directory exists
+      const libDir = path.join(ROOT_DIR, 'src', 'lib');
+      if (!ensureDirectoryExists(libDir)) {
+        throw new Error('Failed to create lib directory');
+      }
+      
+      fs.writeFileSync(utilsPath, utilsContent);
+      log(`Created utils.ts file`, colors.green);
+    } catch (error) {
+      log(`Failed to create utils.ts file: ${error.message}`, colors.red);
+      throw error; // Re-throw to allow caller to handle
+    }
   }
 };
 
@@ -768,29 +850,50 @@ function checkComponents() {
     'switch.tsx',
     'table.tsx',
     'dialog.tsx',
-    'badge.tsx'
+    'badge.tsx',
+    'scroll-area.tsx'
   ];
   
   let allComponentsExist = true;
   
   // Ensure utils.ts exists for component dependencies
-  ensureUtilsFile();
+  try {
+    ensureUtilsFile();
+  } catch (error) {
+    log(`Failed to create utils file: ${error.message}`, colors.yellow);
+    // Continue even if utils file creation fails
+  }
+  
+  // Ensure UI directory exists
+  if (!ensureDirectoryExists(UI_DIR)) {
+    log('Failed to ensure UI directory exists, but continuing...', colors.yellow);
+  }
   
   for (const component of requiredComponents) {
-    const componentPath = path.join(UI_DIR, component);
-    if (!fs.existsSync(componentPath)) {
-      log(`Missing UI component: ${component}`, colors.red);
-      log(`Creating ${component}...`, colors.yellow);
-      
-      if (componentTemplates[component]) {
-        fs.writeFileSync(componentPath, componentTemplates[component]);
-        log(`Created ${component}`, colors.green);
+    try {
+      const componentPath = path.join(UI_DIR, component);
+      if (!fs.existsSync(componentPath)) {
+        log(`Missing UI component: ${component}`, colors.red);
+        log(`Creating ${component}...`, colors.yellow);
+        
+        if (componentTemplates[component]) {
+          try {
+            fs.writeFileSync(componentPath, componentTemplates[component]);
+            log(`Created ${component}`, colors.green);
+          } catch (writeError) {
+            log(`Failed to write component ${component}: ${writeError.message}`, colors.red);
+            allComponentsExist = false;
+          }
+        } else {
+          log(`No template available for ${component}`, colors.red);
+          allComponentsExist = false;
+        }
       } else {
-        log(`No template available for ${component}`, colors.red);
-        allComponentsExist = false;
+        log(`Found UI component: ${component}`, colors.green);
       }
-    } else {
-      log(`Found UI component: ${component}`, colors.green);
+    } catch (componentError) {
+      log(`Error processing component ${component}: ${componentError.message}`, colors.red);
+      allComponentsExist = false;
     }
   }
   
@@ -935,5 +1038,15 @@ function main() {
   log('\n===================================\n', colors.bright);
 }
 
-// Execute the script
-main();
+// Execute the script with error handling
+try {
+  main();
+} catch (error) {
+  log(`\n❌ Script failed with error: ${error.message}`, colors.red);
+  
+  // Print stack trace for debugging
+  console.error(error);
+  
+  // Exit with non-zero code to indicate failure
+  process.exit(1);
+}
