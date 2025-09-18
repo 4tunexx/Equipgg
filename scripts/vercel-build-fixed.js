@@ -63,13 +63,16 @@ log(`Working directory: ${process.cwd()}`);
 logStep('2', 'Verifying critical paths');
 const COMPONENTS_DIR = path.join(process.cwd(), 'src', 'components');
 const UI_DIR = path.join(COMPONENTS_DIR, 'ui');
+const LIB_DIR = path.join(process.cwd(), 'src', 'lib');
 
-// Ensure UI components directory exists
-if (!fs.existsSync(UI_DIR)) {
-  logWarning(`UI components directory not found: ${UI_DIR}`);
-  fs.mkdirSync(UI_DIR, { recursive: true });
-  logSuccess('Created UI components directory');
-}
+// Ensure directories exist
+[COMPONENTS_DIR, UI_DIR, LIB_DIR].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    logWarning(`Directory not found: ${dir}`);
+    fs.mkdirSync(dir, { recursive: true });
+    logSuccess(`Created directory: ${dir}`);
+  }
+});
 
 // Run our component verification script
 logStep('3', 'Running component verification');
