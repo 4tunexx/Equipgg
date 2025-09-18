@@ -7,7 +7,6 @@ interface ForumCategory {
   description: string;
   topic_count: number;
   post_count: number;
-  icon?: string;
 }
 
 interface ForumTopic {
