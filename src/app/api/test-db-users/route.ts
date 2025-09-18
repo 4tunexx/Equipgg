@@ -1,24 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOne, getAll } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
 
-export async function GET(req: NextRequest) {
-  try {
-    await getDb();
-    
-    // Check if users table exists and has data
-    const users = await getAll('SELECT id, email, displayName, role FROM users LIMIT 5');
-    
-    return NextResponse.json({
-      success: true,
-      userCount: users.length,
-      users: users
-    });
-    
-  } catch (error) {
-    console.error('Database test error:', error);
-    return NextResponse.json({
-      success: false,
-      error: error.message
-    }, { status: 500 });
-  }
+// Legacy database route - disabled during Supabase migration
+export async function GET(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
+}
+
+export async function POST(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
+}
+
+export async function PUT(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
+}
+
+export async function DELETE(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
 }

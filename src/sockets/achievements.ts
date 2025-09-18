@@ -1,7 +1,8 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, AchievementUnlockedEvent } from './types';
 import { emitToUser, emitToAll, createEventData } from './utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
+import { createSupabaseQueries } from '@/lib/supabase/queries';
 
 export function setupAchievementsSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {
@@ -25,29 +26,31 @@ export function setupAchievementsSocket(io: Server) {
 
         // Award XP if specified
         if (data.xpReward > 0) {
-          const db = await getDb();
-          await run(
-            'UPDATE users SET xp = xp + ? WHERE id = ?',
-            [data.xpReward, socket.userId]
-          );
+          const queries = createSupabaseQueries(supabase);
+          const user = await queries.getUserById(socket.userId);
+          
+          if (user) {
+            const newXP = user.xp + data.xpReward;
+            await queries.updateUserXP(socket.userId, newXP);
 
-          // Emit XP gain event
-          emitToUser(io, socket.userId, 'xp-gained', {
-            userId: socket.userId,
-            amount: data.xpReward,
-            source: 'achievement',
-            leveledUp: false,
-            timestamp: new Date().toISOString()
-          });
+            // Emit XP gain event
+            emitToUser(io, socket.userId, 'xp-gained', {
+              userId: socket.userId,
+              amount: data.xpReward,
+              source: 'achievement',
+              leveledUp: false,
+              timestamp: new Date().toISOString()
+            });
+          }
         }
 
         // Update user balance
-        const user = await getOne('SELECT coins, gems, xp, level FROM users WHERE id = ?', [socket.userId]);
+        const queries = createSupabaseQueries(supabase);
+        const user = await queries.getUserById(socket.userId);
         if (user) {
           emitToUser(io, socket.userId, 'balance-updated', {
             userId: socket.userId,
             coins: user.coins,
-            gems: user.gems,
             xp: user.xp,
             level: user.level,
             timestamp: new Date().toISOString()

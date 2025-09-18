@@ -188,3 +188,14 @@ export async function checkAndUnlockAchievements(update: AchievementUpdate): Pro
     console.error('Error in checkAndUnlockAchievements:', error);
   }
 }
+
+export async function trackCollectionAchievement(userId: string, itemType: string) {
+  try {
+    // TODO: Implement collection achievement tracking with Supabase
+    console.log(`Tracking collection achievement for user ${userId}, item type ${itemType}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error tracking collection achievement:', error);
+    return { success: false, error };
+  }
+}

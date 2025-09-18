@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDb, getOne, run } from '@/lib/db';
+import secureDb from '@/lib/secureDb';
 import { parse } from 'cookie';
 import { v4 as uuidv4 } from 'uuid';
+import { Session } from '@/types/session';
+import { User } from '@/types/database';
+import { ModerationAction, UserModeration } from '@/types/moderation';
 
 // POST /api/admin/moderation - Apply moderation action to user
 export async function POST(request: NextRequest) {
@@ -18,35 +21,40 @@ export async function POST(request: NextRequest) {
     if (!sessionToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const db = await getDb();
     
     // Get session and user info
-    const session = await getOne(
-      'SELECT s.*, u.email, u.role FROM sessions s JOIN users u ON s.user_id = u.id WHERE s.token = ?',
-      [sessionToken]
-    );
+    const session = await secureDb.getOne<Session>('sessions', { 
+      token: sessionToken 
+    });
     
     if (!session) {
       return NextResponse.json({ error: 'Invalid session' }, { status: 401 });
     }
     
+    // Get user info
+    const user = await secureDb.getOne<User>('users', { 
+      id: session.user_id 
+    });
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
     // Check if user is admin or moderator
-    if (!['admin', 'moderator'].includes(session.role)) {
+    if (!['admin', 'moderator'].includes(user.role)) {
       return NextResponse.json({ error: 'Forbidden - Admin/Moderator access required' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { userId, action, reason, duration } = body;
+    const { userId, action, reason, duration } = body as { 
+      userId: string;
+      action: ModerationAction;
+      reason?: string;
+      duration?: string;
+    };
 
     if (!userId || !action) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    // Valid actions
-    const validActions = ['warn', 'mute', 'ban', 'suspend', 'unmute', 'unban'];
-    if (!validActions.includes(action)) {
-      return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
 
     // Calculate expiration if duration is provided
@@ -59,28 +67,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Deactivate any existing active moderation for this user and action type
-    await run(
-      'UPDATE user_moderation SET active = 0 WHERE user_id = ? AND action = ? AND active = 1',
-      [userId, action]
+    await secureDb.update<UserModeration>('user_moderation', 
+      { user_id: userId, action, active: true },
+      { active: false }
     );
 
     // Create new moderation record
     const moderationId = uuidv4();
-    await run(
-      `INSERT INTO user_moderation (
-        id, user_id, action, reason, moderator_id, active, created_at, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, datetime('now'), ?)`,
-      [moderationId, userId, action, reason || null, session.user_id, 1, expiresAt]
-    );
+    await secureDb.insert<UserModeration>('user_moderation', {
+      id: moderationId,
+      user_id: userId,
+      action,
+      reason: reason || null,
+      moderator_id: session.user_id,
+      active: true,
+      created_at: new Date().toISOString(),
+      expires_at: expiresAt
+    });
 
     // Apply the moderation action to the user record if needed
     if (action === 'ban') {
-      // Mark user as banned - you might want to add a banned column to users table
+      await secureDb.update<User>('users',
+        { id: userId },
+        { banned: true }
+      );
     } else if (action === 'unban') {
-      // Unban user
-      await run(
-        'UPDATE user_moderation SET active = 0 WHERE user_id = ? AND action = "ban" AND active = 1',
-        [userId]
+      await secureDb.update<User>('users',
+        { id: userId },
+        { banned: false }
+      );
+      // Also deactivate any active ban records
+      await secureDb.update<UserModeration>('user_moderation',
+        { user_id: userId, action: 'ban', active: true },
+        { active: false }
       );
     }
 

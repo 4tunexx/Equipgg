@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, getAll, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
+import { createSupabaseQueries } from '@/lib/supabase/queries';
 
 // GET - Fetch user notifications
 export async function GET(request: NextRequest) {
@@ -11,19 +12,14 @@ export async function GET(request: NextRequest) {
       return createUnauthorizedResponse();
     }
 
-    const db = await getDb();
-    const user = await getOne<{id: string}>('SELECT id FROM users WHERE id = ?', [session.user_id]);
+    const queries = createSupabaseQueries(supabase);
+    const user = await queries.getUserById(session.user_id);
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    const notifications = await getAll(`
-      SELECT * FROM notifications 
-      WHERE user_id = ? 
-      ORDER BY created_at DESC 
-      LIMIT 50
-    `, [user.id]);
+    const notifications = await queries.getUserNotifications(user.id, 50);
 
     // Parse notification data and add navigation info
     const enrichedNotifications = notifications.map(notification => {
@@ -106,20 +102,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid notification IDs' }, { status: 400 });
     }
 
-    const db = await getDb();
-    const user = await getOne<{id: string}>('SELECT id FROM users WHERE id = ?', [session.user_id]);
+    const queries = createSupabaseQueries(supabase);
+    const user = await queries.getUserById(session.user_id);
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     // Mark notifications as read
-    const placeholders = notificationIds.map(() => '?').join(',');
-    await run(`
-      UPDATE notifications 
-      SET read = 1 
-      WHERE id IN (${placeholders}) AND user_id = ?
-    `, [...notificationIds, user.id]);
+    await queries.markNotificationsRead(user.id, notificationIds);
 
     return NextResponse.json({ success: true, message: 'Notifications marked as read' });
   } catch (error) {

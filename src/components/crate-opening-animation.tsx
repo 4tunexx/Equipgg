@@ -3,19 +3,20 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { InventoryItem, rarityGlow } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
 import { Card } from '@/components/ui/card';
+import { rarityGlow, fallbackImages } from '@/lib/constants';
+import type { CrateItem } from '@/types/crate';
+import ItemImage from '@/components/ItemImage';
 
 interface CrateOpeningAnimationProps {
-  items: InventoryItem[];
-  wonItem: InventoryItem;
+  items: CrateItem[];
+  wonItem: CrateItem;
   onAnimationEnd: () => void;
 }
 
 const REEL_ITEM_WIDTH = 160; // w-40 in pixels
-const TOTAL_REEL_ITEMS = 100; // Increased for a better spinning feel
+const TOTAL_REEL_ITEMS = 100; // Number of items in the spinning reel
 
 export function CrateOpeningAnimation({ items, wonItem, onAnimationEnd }: CrateOpeningAnimationProps) {
   const reelRef = useRef<HTMLDivElement>(null);
@@ -24,22 +25,79 @@ export function CrateOpeningAnimation({ items, wonItem, onAnimationEnd }: CrateO
   const reelItems = useMemo(() => {
     const reel = [];
     const wonItemIndex = TOTAL_REEL_ITEMS - 10; // Land on the 90th item
-    // Create a deterministic seed based on wonItem.id to ensure consistent results
-    const seed = wonItem.id.charCodeAt(0) * 31; 
     
-    // Populate most of the reel with deterministic pseudo-random items
+    // Create a deterministic seed based on wonItem.id
+    const seed = parseInt(wonItem.id.replace(/\D/g, '')) || 0;
+    
+    // Populate the reel with deterministic pseudo-random items
     for (let i = 0; i < TOTAL_REEL_ITEMS; i++) {
-       if (i === wonItemIndex) {
-            reel.push(wonItem);
-        } else {
-            // Use a simple deterministic "random" based on position and seed
-            const pseudoRandom = (seed + i * 17) % items.length;
-            reel.push(items[pseudoRandom]);
-        }
+      if (i === wonItemIndex) {
+        reel.push(wonItem);
+      } else {
+        // Use a simple deterministic "random" based on position and seed
+        const pseudoRandom = (seed + i * 17) % items.length;
+        reel.push(items[pseudoRandom]);
+      }
     }
     
     return reel;
   }, [items, wonItem]);
+
+  useEffect(() => {
+    const reelElement = reelRef.current;
+    if (!reelElement) return;
+
+    // Reset scroll position
+    reelElement.style.transition = 'none';
+    reelElement.scrollLeft = 0;
+
+    // Start animation after a short delay
+    requestAnimationFrame(() => {
+      reelElement.style.transition = 'scroll-left 4s cubic-bezier(0.2, 0.5, 0.3, 1)';
+      reelElement.scrollLeft = (TOTAL_REEL_ITEMS - 10) * REEL_ITEM_WIDTH;
+    });
+
+    // Call onAnimationEnd after animation completes
+    const timer = setTimeout(onAnimationEnd, 4500);
+    return () => clearTimeout(timer);
+  }, [onAnimationEnd]);
+
+  return (
+    <div className="w-full overflow-hidden">
+      <div className="relative w-full">
+        {/* Indicator line */}
+        <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-primary z-10" />
+        
+        {/* Reel container */}
+        <div 
+          ref={reelRef}
+          className="flex gap-2 overflow-x-hidden scroll-smooth"
+          style={{ WebkitOverflowScrolling: 'touch' } as const}
+        >
+          <div className="flex gap-2">
+            {reelItems.map((item, index) => (
+              <Card 
+                key={`${item.id}-${index}`} 
+                className={cn(
+                  "w-40 h-40 shrink-0 flex items-center justify-center overflow-hidden p-2",
+                  rarityGlow[item.rarity]
+                )}
+              >
+                <Image
+                  src={item.image || fallbackImages.item}
+                  alt={item.name}
+                  width={150}
+                  height={150}
+                  className="object-contain"
+                  priority
+                />
+              </Card>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 
   useEffect(() => {
     // We're driving the animation with JS now

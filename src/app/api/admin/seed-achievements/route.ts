@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { getDb, run } from '@/lib/db';
+import secureDb from '@/lib/secureDb';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,14 +14,14 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('🏆 Seeding achievements...');
-    const db = await getDb();
 
     // Clear existing achievements
-    await run('DELETE FROM user_achievements');
+    await secureDb.delete('user_achievements', {});
     console.log('✅ Cleared existing user achievements');
 
-    // Create achievements table if it doesn't exist
-    await run(`
+    // Initialize tables (in Supabase this would be done via migrations)
+    // For local development or testing, we can create tables via raw SQL
+    await secureDb.raw(`
       CREATE TABLE IF NOT EXISTS achievements (
         id TEXT PRIMARY KEY,
         title TEXT NOT NULL,
@@ -33,13 +33,13 @@ export async function POST(request: NextRequest) {
         coin_reward INTEGER NOT NULL DEFAULT 0,
         gem_reward INTEGER NOT NULL DEFAULT 0,
         icon TEXT,
-        is_active BOOLEAN NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
 
     // Clear existing achievements
-    await run('DELETE FROM achievements');
+    await secureDb.delete('achievements', {});
     console.log('✅ Cleared existing achievements');
 
     // Define comprehensive achievements
@@ -394,22 +394,9 @@ export async function POST(request: NextRequest) {
     ];
 
     // Insert achievements
-    for (const achievement of achievements) {
-      await run(`
-        INSERT INTO achievements (id, title, description, category, requirement_type, requirement_value, xp_reward, coin_reward, gem_reward, icon)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        achievement.id, achievement.title, achievement.description, achievement.category,
-        achievement.requirement_type, achievement.requirement_value,
-        achievement.xp_reward, achievement.coin_reward, achievement.gem_reward, achievement.icon
-      ]);
-    }
+    await secureDb.insert('achievements', achievements);
 
     console.log(`✅ Seeded ${achievements.length} achievements`);
-    
-    // Persist changes
-    await db.export();
-    console.log('✅ Database changes persisted');
 
     return NextResponse.json({
       success: true,

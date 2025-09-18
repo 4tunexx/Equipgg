@@ -1,77 +1,98 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, getAll } from '@/lib/db';
-import { availableCrates } from '@/lib/mock-data';
+import { supabase } from '@/lib/supabase';
+import { createSupabaseQueries } from '@/lib/supabase/queries';
+
+const queries = createSupabaseQueries(supabase);
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
     
-    if (!session) {
-      return createUnauthorizedResponse();
+    if (authError || !session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    const db = await getDb();
+    // Get all crates with items and rarity chances
+    const crates = await queries.getAllCrates();
     
-    // Get user info
-    const user = await getOne<{id: number}>('SELECT id FROM users WHERE email = ?', [session.email]);
+    // Get crate items with rarity chances
+    const cratesWithItems = await Promise.all(
+      crates.map(async (crate) => {
+        const items = await queries.getCrateItems(crate.id);
+        return {
+          ...crate,
+          items: items.map(item => ({
+            ...item.item,
+            dropChance: item.drop_chance
+          }))
+        };
+      })
+    );
     
-    const userId = user?.id;
+    return NextResponse.json({ crates: cratesWithItems });
+  } catch (error) {
+    console.error('Error getting crates:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch crates' },
+      { status: 500 }
+    );
+  }
+}
 
-    if (!userId) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+// POST /api/crates - Open a crate
+export async function POST(request: NextRequest) {
+  try {
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError || !session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Get user's crates
-    const crateRows = await getAll<{
-      id: string,
-      crate_id: string,
-      crate_name: string,
-      key_required: boolean,
-      acquired_at: string
-    }>('SELECT * FROM user_crates WHERE user_id = ? ORDER BY acquired_at DESC', [userId]);
+    const { crateId } = await request.json();
     
-    const userCrates = crateRows.map(crate => {
-      const crateDetails = availableCrates.find(c => c.id === crate.crate_id);
-      
-      return {
-        id: crate.id,
-        crateId: crate.crate_id,
-        name: crate.crate_name,
-        keyRequired: crate.key_required,
-        image: crateDetails?.image || 'https://picsum.photos/200/200?random=500',
-        description: crateDetails?.description || 'A mysterious crate',
-        rarityChances: crateDetails?.rarityChances || '50% Common, 25% Uncommon, 15% Rare, 8% Epic, 2% Legendary',
-        xpReward: crateDetails?.xpReward || 50,
-        coinReward: crateDetails?.coinReward || 100,
-        acquiredAt: crate.acquired_at
-      };
+    if (!crateId) {
+      return NextResponse.json(
+        { error: 'Missing crate ID' },
+        { status: 400 }
+      );
+    }
+
+    // Open crate using RPC function
+    const { data: itemId, error: openError } = await supabase.rpc('open_crate', {
+      p_user_id: session.user.id,
+      p_crate_id: crateId
     });
 
-    // Get user's keys
-    const keyRows = await getAll<{
-      id: string,
-      key_type: string,
-      quantity: number,
-      acquired_at: string
-    }>('SELECT * FROM user_keys WHERE user_id = ? ORDER BY acquired_at DESC', [userId]);
+    if (openError) {
+      return NextResponse.json(
+        { error: openError.message || 'Failed to open crate' },
+        { status: 400 }
+      );
+    }
+
+    // Get the won item details
+    const item = await queries.getItemById(itemId);
     
-    const userKeys = keyRows.map(key => ({
-      id: key.id,
-      keyType: key.key_type,
-      quantity: key.quantity,
-      acquiredAt: key.acquired_at
-    }));
+    // Get all possible items for animation
+    const crateItems = await queries.getCrateItems(crateId);
+    const allItems = crateItems.map(ci => ci.item).filter(Boolean);
 
     return NextResponse.json({
       success: true,
-      crates: userCrates,
-      keys: userKeys,
-      availableCrates: availableCrates // Also return available crates for reference
+      wonItem: item,
+      allItems
     });
-
   } catch (error) {
-    console.error('Crates fetch error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Error opening crate:', error);
+    return NextResponse.json(
+      { error: 'Failed to open crate' },
+      { status: 500 }
+    );
   }
 }
