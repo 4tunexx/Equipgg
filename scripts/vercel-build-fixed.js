@@ -92,6 +92,15 @@ try {
   logWarning('Auth page fixes had issues, but continuing build');
 }
 
+// Fix admin pages directly
+logStep('5', 'Fixing admin pages with inline components');
+try {
+  executeCommand('node scripts/fix-admin-pages.js');
+  logSuccess('Admin pages fixed successfully');
+} catch (error) {
+  logWarning('Admin page fixes had issues, but continuing build');
+}
+
 // Build the application
 logStep('5', 'Building the application');
 executeCommand('npm run build:no-lint || npm run build');

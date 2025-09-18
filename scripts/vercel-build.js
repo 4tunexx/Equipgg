@@ -53,6 +53,11 @@ function main() {
     log('❌ Auth page fixes failed, but continuing build...', colors.yellow);
   }
   
+  // Step 3: Fix admin pages with inline components
+  if (!runScript('fix-admin-pages.js')) {
+    log('❌ Admin page fixes failed, but continuing build...', colors.yellow);
+  }
+  
   // Step 3: Run the actual build command
   log('\n🔨 Running Next.js build command...', colors.bright);
   
