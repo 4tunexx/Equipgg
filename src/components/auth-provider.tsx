@@ -17,12 +17,6 @@ interface ApiUser {
     avatar?: string;
     profileUrl?: string;
   };
-  provider?: 'steam' | 'default';
-  steamProfile?: {
-    steamId?: string;
-    avatar?: string;
-    profileUrl?: string;
-  };
 }
 
 export type LocalUser = {
