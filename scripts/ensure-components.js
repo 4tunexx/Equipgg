@@ -11,8 +11,24 @@ const { execSync } = require('child_process');
 
 // Define paths
 const ROOT_DIR = path.resolve(__dirname, '..');
-const COMPONENTS_DIR = path.join(ROOT_DIR, 'src', 'components');
+const SRC_DIR = path.join(ROOT_DIR, 'src');
+const COMPONENTS_DIR = path.join(SRC_DIR, 'components');
 const UI_DIR = path.join(COMPONENTS_DIR, 'ui');
+const LIB_DIR = path.join(SRC_DIR, 'lib');
+
+// Check if we're running on Vercel
+const IS_VERCEL = process.env.VERCEL === '1';
+
+// If we're on Vercel, ensure we're using the correct directories
+if (IS_VERCEL) {
+  log('Running in Vercel environment, checking directory structure...', colors.yellow);
+  
+  // Log current directory contents
+  log(`Current directory: ${process.cwd()}`, colors.reset);
+  const dirContents = fs.readdirSync(process.cwd());
+  log('Contents:', colors.reset);
+  dirContents.forEach(item => log(` - ${item}`));
+}
 
 // Colors for console output
 const colors = {
@@ -29,14 +45,27 @@ function log(message, color = colors.reset) {
   console.log(`${color}${message}${colors.reset}`);
 }
 
-// Check if directories exist
+// Check if directories exist and create if necessary
 function checkDirectory(dir) {
   if (!fs.existsSync(dir)) {
     log(`Directory does not exist: ${dir}`, colors.red);
     log(`Creating directory: ${dir}`, colors.yellow);
-    fs.mkdirSync(dir, { recursive: true });
-    return false;
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      // Verify the directory was created
+      if (fs.existsSync(dir)) {
+        log(`✅ Directory created successfully: ${dir}`, colors.green);
+        return true;
+      } else {
+        log(`❌ Failed to create directory: ${dir}`, colors.red);
+        return false;
+      }
+    } catch (error) {
+      log(`❌ Error creating directory ${dir}: ${error.message}`, colors.red);
+      return false;
+    }
   }
+  log(`✅ Directory exists: ${dir}`, colors.green);
   return true;
 }
 
@@ -436,34 +465,105 @@ function checkPathResolution() {
   }
 }
 
+// Determine if we're running on Vercel
+function isRunningOnVercel() {
+  return process.env.VERCEL === '1';
+}
+
+// List all files in a directory recursively
+function listDirectoryContents(dir, indent = '') {
+  try {
+    if (!fs.existsSync(dir)) {
+      log(`${indent}Directory does not exist: ${dir}`, colors.red);
+      return;
+    }
+    
+    const items = fs.readdirSync(dir);
+    items.forEach(item => {
+      const fullPath = path.join(dir, item);
+      const stats = fs.statSync(fullPath);
+      if (stats.isDirectory()) {
+        log(`${indent}📁 ${item}/`, colors.bright);
+        listDirectoryContents(fullPath, `${indent}  `);
+      } else {
+        log(`${indent}📄 ${item}`, colors.reset);
+      }
+    });
+  } catch (error) {
+    log(`Error listing directory contents: ${error.message}`, colors.red);
+  }
+}
+
+// Write component file and verify it was written correctly
+function writeComponentFile(filePath, content) {
+  try {
+    fs.writeFileSync(filePath, content);
+    
+    // Verify the file was written
+    if (fs.existsSync(filePath)) {
+      const fileStats = fs.statSync(filePath);
+      log(`✅ Created file: ${filePath} (${fileStats.size} bytes)`, colors.green);
+      return true;
+    } else {
+      log(`❌ Failed to create file: ${filePath}`, colors.red);
+      return false;
+    }
+  } catch (error) {
+    log(`❌ Error writing file ${filePath}: ${error.message}`, colors.red);
+    return false;
+  }
+}
+
 // Main function
 function main() {
   log('\n===== UI Component Verification =====', colors.bright);
   
+  const isVercel = isRunningOnVercel();
+  log(`Running on Vercel: ${isVercel ? 'Yes' : 'No'}`, isVercel ? colors.green : colors.reset);
+  log(`Node version: ${process.version}`, colors.reset);
+  log(`Working directory: ${process.cwd()}`, colors.reset);
+  
+  // Ensure all directories exist
   checkDirectory(COMPONENTS_DIR);
   checkDirectory(UI_DIR);
   
+  // Create components
   const componentsExist = checkComponents();
   const authProviderExists = checkAuthProvider();
   
   checkPathResolution();
   
+  // List directory contents for debugging
+  log('\n📁 Project Structure:', colors.bright);
+  log(`📁 ${COMPONENTS_DIR}`, colors.bright);
+  listDirectoryContents(COMPONENTS_DIR, '  ');
+  
   if (!componentsExist || !authProviderExists) {
-    log('\n⚠️ Missing components detected. This may cause build failures.', colors.yellow);
-    // List directory contents for debugging
-    try {
-      log('\nComponents directory contents:', colors.bright);
-      const components = fs.readdirSync(COMPONENTS_DIR);
-      components.forEach(item => log(` - ${item}`));
-      
-      log('\nUI components directory contents:', colors.bright);
-      const uiComponents = fs.readdirSync(UI_DIR);
-      uiComponents.forEach(item => log(` - ${item}`));
-    } catch (error) {
-      log(`Error listing directory contents: ${error.message}`, colors.red);
-    }
+    log('\n⚠️ Some components might have failed to generate', colors.yellow);
   } else {
     log('\n✅ All required components verified', colors.green);
+  }
+  
+  // Additional verification for Vercel
+  if (isVercel) {
+    log('\n🔍 Vercel-specific checks:', colors.bright);
+    
+    // Check if we can resolve the file paths using require.resolve
+    try {
+      const resolved = require.resolve('@/components/ui/button');
+      log(`✅ Successfully resolved @/components/ui/button: ${resolved}`, colors.green);
+    } catch (error) {
+      log(`❌ Failed to resolve @/components/ui/button: ${error.message}`, colors.red);
+    }
+    
+    // Output file permissions
+    try {
+      const buttonPath = path.join(UI_DIR, 'button.tsx');
+      const stats = fs.statSync(buttonPath);
+      log(`Button component permissions: ${stats.mode.toString(8)}`, colors.reset);
+    } catch (error) {
+      log(`Error checking permissions: ${error.message}`, colors.red);
+    }
   }
   
   log('\n===================================\n', colors.bright);

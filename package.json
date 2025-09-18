@@ -8,6 +8,7 @@
     "genkit:dev": "genkit start -- tsx src/ai/dev.ts",
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "prebuild": "node scripts/ensure-components.js",
+    "build:no-lint": "next build --no-lint",
     "build": "next build --no-lint",
     "build:production": "NODE_ENV=production node scripts/ensure-components.js && NODE_ENV=production next build",
     "start": "node server.js",

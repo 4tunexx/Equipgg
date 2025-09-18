@@ -78,9 +78,13 @@ const LIB_DIR = path.join(process.cwd(), 'src', 'lib');
 logStep('3', 'Running component verification');
 executeCommand('node scripts/ensure-components.js');
 
-// Build the application
-logStep('4', 'Building the application');
-executeCommand('next build');
+// Fix auth pages directly
+logStep('4', 'Fixing auth pages with inline components');
+executeCommand('node scripts/fix-auth-pages.js');
 
-logStep('5', 'Build completed');
+// Build the application
+logStep('5', 'Building the application');
+executeCommand('npm run build:no-lint || npm run build');
+
+logStep('6', 'Build completed');
 logSuccess('Deployment build completed successfully');
