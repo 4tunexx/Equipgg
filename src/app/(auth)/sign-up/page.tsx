@@ -1,25 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-
-export default function SignUpPage() {
-  const router = useRouter();
-  
-  useEffect(() => {
-    // Redirect to main sign-up page
-    router.push('/signup');
-  }, [router]);
-
-  return (
-    <div className="flex items-center justify-center min-h-screen">
-      <div className="text-center">
-        <h1 className="text-2xl font-bold mb-4">Redirecting...</h1>
-        <p>Please wait while we redirect you to the sign-up page.</p>
-      </div>
-    </div>
-  );
-}
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
