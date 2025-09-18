@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         type,
         reward,
         requirement,
-        is_active: isActive !== false,
+        is_active: isActive ?? true,
         created_at: timestamp
       })
       .select()
