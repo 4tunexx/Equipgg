@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
+  swcMinify: false,
+  experimental: {
+    optimizeCss: false,
+  },
   images: {
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',

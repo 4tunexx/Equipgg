@@ -1,39 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession } from '@/lib/auth-utils';
-import { getDb, getAll } from '@/lib/db';
+import { NextRequest, NextResponse } from "next/server";
 
+// Legacy database route - disabled during Supabase migration
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getAuthSession(request);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
+}
 
-    await getDb();
+export async function POST(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
+}
 
-    // Get user's keys for all crates
-    const userKeys = await getAll(`
-      SELECT crate_id, keys_count 
-      FROM user_keys 
-      WHERE user_id = ?
-    `, [session.user_id]);
+export async function PUT(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
+}
 
-    // Convert to object format expected by frontend
-    const keysObject: Record<string, number> = {};
-    userKeys.forEach((key: any) => {
-      keysObject[key.crate_id] = key.keys_count;
-    });
-
-    return NextResponse.json({ 
-      keys: keysObject,
-      timestamp: Date.now() // Add timestamp for cache busting
-    });
-
-  } catch (error) {
-    console.error('Error fetching user keys:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
+export async function DELETE(request: NextRequest) {
+  return NextResponse.json({ 
+    error: "This feature is temporarily unavailable during database migration" 
+  }, { status: 503 });
 }

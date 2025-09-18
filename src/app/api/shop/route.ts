@@ -1,67 +1,49 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { createSupabaseQueries } from '@/lib/supabase/queries';
+
+const queries = createSupabaseQueries(supabase);
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
-    const limit = parseInt(searchParams.get('limit') || '50');
+    const items = await queries.getShopItems();
     
-    // Query shop_items from Supabase
-    let query = supabase
-      .from('shop_items')
-      .select('id, name, image_url, description, category, rarity, price, stock_quantity, item_type')
-      .gt('stock_quantity', 0)
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    if (category && category !== 'all') {
-      query = query.eq('category', category);
-    }
-    const { data: items, error } = await query;
-    if (error) {
-      console.error('Error fetching shop items:', error);
-      // Fallback to mock data on error
-      try {
-        const { shopItems } = await import('@/lib/mock-data');
-        return NextResponse.json({ 
-          items: shopItems,
-          source: 'mock_fallback'
-        });
-      } catch (mockError) {
-        return NextResponse.json(
-          { error: 'Failed to fetch shop items' },
-          { status: 500 }
-        );
-      }
-    }
-    if (!items || items.length === 0) {
-      const { shopItems } = await import('@/lib/mock-data');
-      return NextResponse.json({ 
-        items: shopItems.slice(0, limit),
-        source: 'mock'
-      });
-    }
     return NextResponse.json({ 
       items,
       source: 'database'
     });
-    
   } catch (error) {
     console.error('Error fetching shop items:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch shop items' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { userId, itemId } = await request.json();
     
-    // Fallback to mock data on error
-    try {
-      const { shopItems } = await import('@/lib/mock-data');
-      return NextResponse.json({ 
-        items: shopItems,
-        source: 'mock_fallback'
-      });
-    } catch (mockError) {
+    if (!userId || !itemId) {
       return NextResponse.json(
-        { error: 'Failed to fetch shop items' },
-        { status: 500 }
+        { error: 'Missing required fields' },
+        { status: 400 }
       );
     }
+
+    const item = await queries.purchaseShopItem(userId, itemId);
+    
+    return NextResponse.json({ 
+      success: true,
+      item
+    });
+  } catch (error: any) {
+    console.error('Error purchasing shop item:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to purchase item' },
+      { status: 500 }
+    );
   }
 }
 

@@ -86,68 +86,51 @@ async function setupSupabase() {
     logStep('3', 'Testing database connection...');
     
     try {
-      // Generate Prisma client first
-      execSync('npx prisma generate', { stdio: 'inherit' });
+      // Test connection with Supabase client
+      const { createClient } = require('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY
+      );
       
       // Test connection with a simple query
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
+      const { data, error } = await supabase.from('users').select('count').limit(1);
+      if (error) throw error;
       
-      await prisma.$connect();
       logSuccess('Database connection successful');
-      
-      // Test a simple query
-      await prisma.$queryRaw`SELECT 1 as test`;
       logSuccess('Database query test successful');
-      
-      await prisma.$disconnect();
     } catch (error) {
       logError(`Database connection failed: ${error.message}`);
-      logInfo('Please check your DATABASE_URL and ensure your Supabase project is active');
+      logInfo('Please check your Supabase URL and service role key');
       process.exit(1);
     }
 
-    // Step 4: Run database migrations
-    logStep('4', 'Running database migrations...');
+    // Step 4: Initialize database schema
+    logStep('4', 'Setting up database schema...');
     
     try {
-      execSync('npx prisma migrate deploy', { stdio: 'inherit' });
-      logSuccess('Database migrations completed successfully');
+      // Run migrations using Supabase migration tool
+      execSync('supabase migration up', { stdio: 'inherit' });
+      logSuccess('Database schema initialized successfully');
     } catch (error) {
-      logError(`Database migrations failed: ${error.message}`);
+      logError(`Schema initialization failed: ${error.message}`);
       logInfo('This might be because:');
-      logInfo('1. The database schema is already up to date');
-      logInfo('2. There are migration conflicts');
+      logInfo('1. The schema is already initialized');
+      logInfo('2. The Supabase CLI is not installed');
       logInfo('3. The database connection is not working');
-      
-      // Try to push schema instead
-      logInfo('Attempting to push schema directly...');
-      try {
-        execSync('npx prisma db push', { stdio: 'inherit' });
-        logSuccess('Schema pushed successfully');
-      } catch (pushError) {
-        logError(`Schema push also failed: ${pushError.message}`);
-        process.exit(1);
-      }
+      process.exit(1);
     }
 
     // Step 5: Verify schema
     logStep('5', 'Verifying database schema...');
     
     try {
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
+      // List all tables using Supabase's metadata API
+      const { data: tables, error: tablesError } = await supabase.rpc('get_tables');
       
-      // Check if key tables exist
-      const tables = await prisma.$queryRaw`
-        SELECT table_name 
-        FROM information_schema.tables 
-        WHERE table_schema = 'public' 
-        AND table_type = 'BASE TABLE'
-        ORDER BY table_name
-      `;
+      if (tablesError) throw tablesError;
       
-      const tableNames = tables.map((t: any) => t.table_name);
+      const tableNames = tables.map(t => t.name);
       const expectedTables = [
         'users', 'sessions', 'missions', 'user_inventory', 
         'user_transactions', 'game_history', 'server_seeds',
@@ -164,8 +147,6 @@ async function setupSupabase() {
       }
       
       logInfo(`Found ${tableNames.length} tables in database`);
-      
-      await prisma.$disconnect();
     } catch (error) {
       logWarning(`Schema verification failed: ${error.message}`);
     }
@@ -197,41 +178,53 @@ async function setupSupabase() {
     logStep('7', 'Creating sample data...');
     
     try {
-      const { PrismaClient } = require('@prisma/client');
-      const prisma = new PrismaClient();
-      
+      const bcrypt = require('bcryptjs');
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+
       // Check if admin user exists
-      const adminUser = await prisma.user.findFirst({
-        where: { role: 'admin' }
-      });
+      const { data: adminUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('role', 'admin')
+        .maybeSingle();
       
       if (!adminUser) {
         logInfo('Creating admin user...');
         
-        const bcrypt = require('bcryptjs');
-        const hashedPassword = await bcrypt.hash('admin123', 10);
+        // Create the user in Supabase Auth
+        const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+          email: 'admin@example.com',
+          password: 'admin123',
+          user_metadata: {
+            role: 'admin'
+          },
+          email_confirm: true
+        });
+
+        if (authError) throw authError;
         
-        await prisma.user.create({
-          data: {
-            id: 'admin-' + Date.now(),
+        // Create the user profile in the users table
+        const { data: profileUser, error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: authUser.user.id,
             email: 'admin@example.com',
-            passwordHash: hashedPassword,
-            displayName: 'Admin User',
+            display_name: 'Admin User',
             role: 'admin',
             xp: 0,
             level: 1,
             coins: 10000,
-            gems: 1000,
-            createdAt: new Date().toISOString()
-          }
-        });
+            gems: 1000
+          })
+          .select()
+          .single();
+
+        if (profileError) throw profileError;
         
         logSuccess('Admin user created (email: admin@example.com, password: admin123)');
       } else {
         logInfo('Admin user already exists');
       }
-      
-      await prisma.$disconnect();
     } catch (error) {
       logWarning(`Sample data creation failed: ${error.message}`);
     }

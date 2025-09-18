@@ -1,46 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
     
-    if (!session) {
-      return createUnauthorizedResponse();
+    if (authError || !session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { itemId } = await request.json();
 
     if (!itemId) {
-      return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Item ID is required' },
+        { status: 400 }
+      );
     }
-
-    const db = await getDb();
     
     // Check if item exists and belongs to user
-    const item = await getOne<{id: string, user_id: string, item_name: string}>(
-      'SELECT id, user_id, item_name FROM user_inventory WHERE id = ? AND user_id = ?',
-      [itemId, session.user_id]
-    );
+    const { data: inventoryItem, error: findError } = await supabase
+      .from('user_inventory')
+      .select('*, item:items(name)')
+      .eq('id', itemId)
+      .eq('user_id', session.user.id)
+      .single();
 
-    if (!item) {
-      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
+    if (findError || !inventoryItem) {
+      console.error('Error finding inventory item:', findError);
+      return NextResponse.json(
+        { error: 'Item not found' },
+        { status: 404 }
+      );
     }
 
     // Delete the item
-    await run('DELETE FROM user_inventory WHERE id = ?', [itemId]);
+    const { error: deleteError } = await supabase
+      .from('user_inventory')
+      .delete()
+      .eq('id', itemId)
+      .eq('user_id', session.user.id);
 
-    // Persist changes to database
-    await db.export();
+    if (deleteError) {
+      console.error('Error deleting inventory item:', deleteError);
+      return NextResponse.json(
+        { error: 'Failed to delete item' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: `${item.item_name} deleted successfully`
+      message: `${inventoryItem.item.name} deleted successfully`,
+      deletedItemId: itemId
     });
 
   } catch (error) {
     console.error('Delete item error:', error);
-    return NextResponse.json({ error: 'Failed to delete item' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to delete item' },
+      { status: 500 }
+    );
   }
 }

@@ -1,66 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
-import { achievements } from '@/lib/mock-data';
+import { createSupabaseQueries, DBAchievement, DBUserAchievement } from '@/lib/supabase/queries';
+
+const queries = createSupabaseQueries(supabase);
+
+interface AchievementCategory {
+  name: string;
+  achievements: (DBUserAchievement & { achievement: DBAchievement })[];
+}
 
 export async function GET(request: NextRequest) {
   try {
-    // Get Supabase Auth session from cookie (client should send access_token in header or cookie)
-    const authHeader = request.headers.get('authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    
+    if (authError || !session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
-    // Get user from Supabase Auth
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+    // Get all user achievements with their details
+    const achievements = await queries.getUserAchievements(session.user.id);
+    
+    if (!achievements) {
+      console.error('Error fetching achievements');
+      return NextResponse.json(
+        { error: 'Failed to fetch achievements' },
+        { status: 500 }
+      );
     }
-    // Get user's achievements from Supabase
-    const { data: userAchievements, error: achError } = await supabase
-      .from('user_achievements')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('unlocked_at', { ascending: false });
-    if (achError) {
-      return NextResponse.json({ error: 'Failed to fetch achievements' }, { status: 500 });
-    }
-    // Get all achievements from mock-data and check which ones are achieved
-    const allAchievements: any[] = [];
-    Object.entries(achievements).forEach(([category, categoryAchievements]) => {
-      categoryAchievements.forEach((achievement, index) => {
-        const achievementId = `${category.toLowerCase().replace(/\s+/g, '_')}_${index}`;
-        allAchievements.push({
-          id: achievementId,
-          title: achievement.title,
-          description: achievement.description,
-          category: category,
-          icon: getAchievementIcon(category, index),
-          achieved: (userAchievements || []).some(a => a.achievement_id === achievementId)
-        });
-      });
-    });
-    function getAchievementIcon(category: string, index: number): string {
-      const icons = {
-        'Betting': ['�', '🏆', '🎲', '💰', '🔥', '⚡', '👑', '🎪', '💎', '🚀', '🌟', '💫', '🎊', '🎉', '🏅'],
-        'Economic': ['💵', '💸', '📦', '🛍️', '💎', '🔨', '🎒', '📊', '⚒️', '🎰', '💎', '🔄', '⚔️', '👑'],
-        'Progression': ['⭐', '📅', '🏅', '�', '�️', '📱', '👑', '🏔️', '📈', '🎊', '🔄', '🌟'],
-        'Social & Community': ['💬', '🎨', '📝', '👥', '🏆', '📚', '📖', '🍽️', '🎭']
-      };
-      return icons[category]?.[index] || '🏆';
-    }
-    // Group achievements by category
-    const achievementsByCategory = allAchievements.reduce((acc, achievement) => {
-      if (!acc[achievement.category]) {
-        acc[achievement.category] = [];
+
+    // Group achievements by game type (category)
+    const achievementsByCategory = achievements.reduce((acc, achievement) => {
+      const gameType = achievement.achievement?.game_type;
+      if (!gameType) return acc;
+
+      if (!acc[gameType]) {
+        acc[gameType] = {
+          name: formatGameType(gameType),
+          achievements: []
+        };
       }
-      acc[achievement.category].push(achievement);
+
+      acc[gameType].achievements.push({
+        ...achievement,
+        achievement: achievement.achievement as DBAchievement
+      });
       return acc;
-    }, {} as Record<string, typeof allAchievements>);
+    }, {} as Record<string, AchievementCategory>);
+
+    // Get totals
+    const totalAchieved = achievements.filter(a => a.unlocked_at).length;
+    const totalAchievements = achievements.length;
+
     return NextResponse.json({
       success: true,
       achievements: achievementsByCategory,
-      totalAchieved: allAchievements.filter(a => a.achieved).length,
-      totalAchievements: allAchievements.length
+      totalAchieved,
+      totalAchievements
     });
   } catch (error) {
     console.error('Error fetching achievements:', error);
@@ -69,4 +67,19 @@ export async function GET(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+function formatGameType(gameType: string): string {
+  // Convert game_type to display name (e.g., 'arcade' -> 'Arcade Games')
+  const displayNames: Record<string, string> = {
+    arcade: 'Arcade Games',
+    betting: 'Betting',
+    crash: 'Crash Game',
+    coinflip: 'Coin Flip',
+    plinko: 'Plinko',
+    sweeper: 'Mine Sweeper',
+    trading: 'Trading'
+  };
+  
+  return displayNames[gameType] || gameType.charAt(0).toUpperCase() + gameType.slice(1);
 }

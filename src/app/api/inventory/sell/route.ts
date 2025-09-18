@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getDb, getOne, run } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 
 // POST /api/inventory/sell - Sell an item from inventory
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
     
-    if (!session) {
-      return createUnauthorizedResponse();
+    if (authError || !session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const body = await request.json();
@@ -21,59 +23,71 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const db = await getDb();
-    
-    // Get user info
-    const user = await getOne<{id: string, coins: number}>('SELECT id, coins FROM users WHERE id = ?', [session.user_id]);
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    // Get user info and inventory item in parallel
+    const [userResponse, inventoryItemResponse] = await Promise.all([
+      supabase
+        .from('users')
+        .select('id, coins')
+        .eq('id', session.user.id)
+        .single(),
+      supabase
+        .from('user_inventory')
+        .select('*, item:items(*)')
+        .eq('id', itemId)
+        .eq('user_id', session.user.id)
+        .single()
+    ]);
+
+    if (userResponse.error || !userResponse.data) {
+      console.error('Error fetching user:', userResponse.error);
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
     }
 
-    // Find the item in user's inventory
-    const item = await getOne<{id: string, user_id: string, item_name: string, value: number}>(
-      'SELECT id, user_id, item_name, value FROM user_inventory WHERE id = ? AND user_id = ?',
-      [itemId, user.id]
-    );
-    
-    if (!item) {
+    if (inventoryItemResponse.error || !inventoryItemResponse.data) {
+      console.error('Error fetching inventory item:', inventoryItemResponse.error);
       return NextResponse.json(
         { error: 'Item not found in inventory' },
         { status: 404 }
       );
     }
 
+    const user = userResponse.data;
+    const inventoryItem = inventoryItemResponse.data;
+
     // Calculate sell price (typically 70-80% of item value)
-    const itemValue = item.value || 100;
+    const itemValue = inventoryItem.item.value || 100;
     const calculatedSellPrice = sellPrice || Math.floor(itemValue * 0.75);
 
-    // Update user balance
-    const newBalance = user.coins + calculatedSellPrice;
-    await run('UPDATE users SET coins = ? WHERE id = ?', [newBalance, user.id]);
+    // Start a transaction
+    const { data: transaction, error: transactionError } = await supabase.rpc('sell_inventory_item', {
+      p_user_id: session.user.id,
+      p_item_id: itemId,
+      p_sell_price: calculatedSellPrice,
+      p_description: `Sold ${inventoryItem.item.name}`
+    });
 
-    // Remove item from inventory
-    await run('DELETE FROM user_inventory WHERE id = ?', [itemId]);
-
-    // Record transaction
-    const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await run(`
-      INSERT INTO user_transactions (id, user_id, type, amount, currency, description, item_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `, [transactionId, user.id, 'sale', calculatedSellPrice, 'coins', `Sold ${item.item_name}`, itemId]);
-
-    // Persist changes to database
-    await db.export();
+    if (transactionError) {
+      console.error('Error during sell transaction:', transactionError);
+      return NextResponse.json(
+        { error: 'Failed to complete sale' },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
-      message: `${item.item_name} sold for ${calculatedSellPrice.toLocaleString()} coins`,
+      message: `${inventoryItem.item.name} sold for ${calculatedSellPrice.toLocaleString()} coins`,
       price: calculatedSellPrice,
       soldItem: {
-        id: item.id,
-        name: item.item_name,
+        id: inventoryItem.id,
+        name: inventoryItem.item.name,
         sellPrice: calculatedSellPrice,
         originalValue: itemValue
       },
-      newBalance
+      newBalance: user.coins + calculatedSellPrice
     });
 
   } catch (error) {
@@ -88,10 +102,13 @@ export async function POST(request: NextRequest) {
 // GET /api/inventory/sell - Get sell price for an item
 export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
+    const { data: { session }, error: authError } = await supabase.auth.getSession();
     
-    if (!session) {
-      return createUnauthorizedResponse();
+    if (authError || !session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
 
     const { searchParams } = new URL(request.url);
@@ -104,34 +121,49 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Find the item in user's inventory
-    const item = inventoryData.find(i => i.id === itemId);
-    if (!item) {
+    // Get inventory item with market data
+    const { data: inventoryItem, error: itemError } = await supabase
+      .from('user_inventory')
+      .select(`
+        *,
+        item:items(*),
+        market:item_market_data(
+          demand,
+          price_change,
+          average_price
+        )
+      `)
+      .eq('id', itemId)
+      .eq('user_id', session.user.id)
+      .single();
+
+    if (itemError || !inventoryItem) {
+      console.error('Error fetching inventory item:', itemError);
       return NextResponse.json(
         { error: 'Item not found in inventory' },
         { status: 404 }
       );
     }
 
-    // Calculate sell price (typically 70-80% of item value)
-    const itemValue = item.stat?.value || 100;
+    // Calculate sell price (75% of item value)
+    const itemValue = inventoryItem.item.value || 100;
     const sellPrice = Math.floor(itemValue * 0.75);
 
-    // Calculate market trends (mock data)
+    // Get market data if available, otherwise use default values
     const marketTrends = {
-      demand: Math.random() > 0.5 ? 'high' : 'low',
-      priceChange: (Math.random() - 0.5) * 0.2, // -10% to +10%
-      averagePrice: itemValue,
+      demand: inventoryItem.market?.demand || 'normal',
+      priceChange: inventoryItem.market?.price_change || 0,
+      averagePrice: inventoryItem.market?.average_price || itemValue,
       recommendedSellPrice: sellPrice
     };
 
     return NextResponse.json({
       success: true,
       item: {
-        id: item.id,
-        name: item.name,
-        type: item.type,
-        rarity: item.rarity,
+        id: inventoryItem.id,
+        name: inventoryItem.item.name,
+        type: inventoryItem.item.type,
+        rarity: inventoryItem.item.rarity,
         originalValue: itemValue
       },
       sellPrice,

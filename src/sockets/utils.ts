@@ -3,40 +3,35 @@ import { supabase } from '@/lib/supabaseClient';
 
 export async function authenticateSocket(socket: any): Promise<AuthenticatedSocket | null> {
   try {
-    // Get session from cookie or auth header
-    const sessionId = socket.handshake.auth.sessionId || 
-                     socket.handshake.headers.cookie?.match(/session-id=([^;]+)/)?.[1];
+    // Get access token from auth header or socket auth data
+    const accessToken = socket.handshake.auth.accessToken || 
+                       socket.handshake.headers.authorization?.replace('Bearer ', '');
     
-    if (!sessionId) {
+    if (!accessToken) {
       return null;
     }
 
-
-    // Verify session in Supabase
-    const { data: session, error: sessionError } = await supabase
-      .from('user_sessions')
-      .select('user_id, expires_at')
-      .eq('id', sessionId)
-      .gt('expires_at', new Date().toISOString())
-      .single();
-    if (sessionError || !session) {
+    // Verify Supabase session
+    const { data: { user }, error } = await supabase.auth.getUser(accessToken);
+    if (error || !user) {
       return null;
     }
 
-    // Get user info from Supabase
-    const { data: user, error: userError } = await supabase
+    // Get user profile with role
+    const { data: profile, error: profileError } = await supabase
       .from('users')
-      .select('id, displayName, role')
-      .eq('id', session.user_id)
+      .select('display_name, role')
+      .eq('id', user.id)
       .single();
-    if (userError || !user) {
+    
+    if (profileError || !profile) {
       return null;
     }
 
     // Attach user info to socket
     socket.userId = user.id;
-    socket.username = user.displayName;
-    socket.role = user.role;
+    socket.username = profile.display_name || user.email?.split('@')[0];
+    socket.role = profile.role || 'user';
 
     return socket as AuthenticatedSocket;
   } catch (error) {

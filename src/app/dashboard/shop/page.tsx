@@ -4,50 +4,31 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-// Removed mock data imports - now using real API data
 import { ShopItemCard } from "@/components/shop-item-card";
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Search, Gem, Loader2, Coins, Gamepad2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useAuth } from '@/components/auth-provider';
+import { useSupabase } from '@/lib/supabase/context';
 import { useBalance } from '@/contexts/balance-context';
-import type { ShopItem } from '@/lib/mock-data';
+import { DBShopItem } from '@/lib/supabase/queries';
 
-interface ApiShopItem {
-  id: string;
-  name: string;
-  image_url?: string;
-  description?: string;
-  category: string;
-  rarity: string;
-  price: number;
-  stock_quantity: number;
-  item_type: string;
-}
-
-export default function ShopPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState('items');
-  const [activeSubTab, setActiveSubTab] = useState('all');
-
-  // Mock data for highlights sections
-  const shopFeatureHighlights = [
-    {
-      icon: Gem,
-      title: "Premium Quality",
-      description: "All items are verified authentic CS2 skins with guaranteed quality."
-    },
-    {
-      icon: Coins,
-      title: "Fair Pricing",
-      description: "Competitive prices with regular discounts and special offers."
-    },
-    {
-      icon: Gamepad2,
-      title: "Instant Delivery",
-      description: "Items are delivered immediately to your inventory upon purchase."
-    }
+const FEATURE_HIGHLIGHTS = [
+  {
+    icon: Gem,
+    title: "Premium Quality",
+    description: "All items are verified authentic CS2 skins with guaranteed quality."
+  },
+  {
+    icon: Coins,
+    title: "Fair Pricing",
+    description: "Competitive prices with regular discounts and special offers."
+  },
+  {
+    icon: Gamepad2,
+    title: "Instant Delivery",
+    description: "Items are delivered immediately to your inventory upon purchase."
+  }
   ];
 
   const shopPerkHighlights = [
@@ -67,44 +48,30 @@ export default function ShopPage() {
       description: "Access special features and advantages not available to regular users."
     }
   ];
+
+export default function ShopPage() {
   const [sortBy, setSortBy] = useState('default');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // Show 12 items per page
-  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
+  const [shopItems, setShopItems] = useState<DBShopItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [categories, setCategories] = useState<string[]>([]);
-  const { user } = useAuth();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeSubTab, setActiveSubTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('items');
+  const { user, queries } = useSupabase();
   const { balance: userBalance, isLoading } = useBalance();
 
-  // Convert API item to ShopItem format
-  const convertApiItemToShopItem = (apiItem: ApiShopItem): ShopItem => {
-    return {
-      id: apiItem.id,
-      name: apiItem.name,
-      description: apiItem.description || 'No description available',
-      rarity: apiItem.rarity as any, // Cast to Rarity type
-      type: apiItem.item_type,
-      image: apiItem.image_url || '/assets/placeholder.svg',
-      dataAiHint: `${apiItem.item_type} ${apiItem.rarity}`,
-      price: apiItem.price,
-      stock: apiItem.stock_quantity
-    };
-  };
-
-  // Fetch shop items from API
+  // Fetch shop items using Supabase client
   const fetchShopItems = async () => {
     try {
       setIsLoadingItems(true);
-      const response = await fetch('/api/shop');
-      if (response.ok) {
-        const data = await response.json();
-        const convertedItems = (data.items || []).map((item: ApiShopItem) => convertApiItemToShopItem(item));
-        setShopItems(convertedItems);
+      const items = await queries.getShopItems();
+      setShopItems(items);
         
-        // Extract unique categories
-        const uniqueCategories = [...new Set((data.items || []).map((item: ApiShopItem) => item.category))] as string[];
-        setCategories(uniqueCategories);
-      }
+      // Extract unique categories
+      const uniqueCategories = [...new Set(items.map((item: any) => item.item?.type ?? 'Unknown'))] as string[];
+      setCategories(uniqueCategories);
     } catch (error) {
       console.error('Failed to fetch shop items:', error);
     } finally {
@@ -131,13 +98,14 @@ export default function ShopPage() {
     setCurrentPage(1); // Reset to first page when changing category
   };
 
-  const sortItems = (items: ShopItem[]) => {
+  const sortItems = (items: DBShopItem[]) => {
+    const rarityOrder: ('Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common')[] = ['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
+    
     switch (sortBy) {
       case 'rarity':
-        const rarityOrder = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'];
         return [...items].sort((a, b) => {
-          const aIndex = rarityOrder.indexOf(a.rarity);
-          const bIndex = rarityOrder.indexOf(b.rarity);
+          const aIndex = rarityOrder.indexOf(a.item?.rarity || 'Common');
+          const bIndex = rarityOrder.indexOf(b.item?.rarity || 'Common');
           return bIndex - aIndex; // Higher rarity first
         });
       case 'price-low':
@@ -146,8 +114,9 @@ export default function ShopPage() {
         return [...items].sort((a, b) => b.price - a.price);
       case 'new':
         return [...items].sort((a, b) => {
-          // Assuming items have a dateAdded or similar field, or use id as proxy for newness
-          return b.id.localeCompare(a.id);
+          const aDate = new Date(a.created_at);
+          const bDate = new Date(b.created_at);
+          return bDate.getTime() - aDate.getTime();
         });
       case 'name':
         return [...items].sort((a, b) => a.name.localeCompare(b.name));
@@ -156,17 +125,17 @@ export default function ShopPage() {
     }
   };
 
-  const filterItems = (items: ShopItem[]) => {
+  const filterItems = (items: DBShopItem[]) => {
     let filtered = items;
     
     if (searchTerm) {
-      filtered = filtered.filter(item => item.name.toLowerCase().includes(searchTerm));
+      filtered = filtered.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
     
     return sortItems(filtered);
   };
   
-  const renderItemGroup = (items: ShopItem[], title: string) => {
+  const renderItemGroup = (items: DBShopItem[], title: string) => {
     const filteredItems = filterItems(items);
     if (filteredItems.length === 0) {
       return null;
@@ -176,18 +145,33 @@ export default function ShopPage() {
       <div key={title}>
         <h2 className="text-2xl font-bold font-headline mb-4 mt-8">{title}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {filteredItems.map(item => <ShopItemCard key={item.id} item={item} />)}
+          {filteredItems.map(item => (
+            <ShopItemCard 
+              key={item.id} 
+              item={{
+                ...item,
+                id: item.id,
+                name: item.name,
+                description: item.description || 'No description available',
+                rarity: item.item?.rarity || 'Common',
+                type: item.item?.type || 'Unknown',
+                image: item.item?.image || '/assets/placeholder.svg',
+                dataAiHint: item.item?.data_ai_hint || '',
+                price: item.price,
+                stock: item.stock
+              }} 
+            />
+          ))}
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   const renderPaginatedItems = () => {
-    // Filter items by category (using type as category)
     let filteredItems = shopItems;
     
     if (activeSubTab !== 'all') {
-      filteredItems = shopItems.filter(item => item.type === activeSubTab);
+      filteredItems = shopItems.filter(item => item.item?.type === activeSubTab);
     }
 
     // Apply filtering and sorting to all items
@@ -219,7 +203,14 @@ export default function ShopPage() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {paginatedItems.map(item => <ShopItemCard key={item.id} item={item} />)}
+          {paginatedItems.map(shopItem => <ShopItemCard key={shopItem.id} item={{
+            ...shopItem,
+            description: shopItem.description ?? 'No description available',
+            type: shopItem.item?.type ?? 'Unknown',
+            rarity: shopItem.item?.rarity ?? 'Common',
+            image: shopItem.item?.image ?? '/assets/placeholder.svg',
+            dataAiHint: shopItem.item?.data_ai_hint ?? ''
+          }} />)}
         </div>
         
         {/* Pagination Controls */}
@@ -266,7 +257,7 @@ export default function ShopPage() {
 
   const renderPaginatedPerks = () => {
     // Filter perks from shop items
-    const allPerks = shopItems.filter(item => item.type === 'perk');
+    const allPerks = shopItems.filter(item => item.item?.type === 'perk');
 
     // Apply filtering and sorting to all perks
     const filteredAndSortedPerks = filterItems(allPerks);
@@ -295,7 +286,14 @@ export default function ShopPage() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {paginatedPerks.map(perk => <ShopItemCard key={perk.id} item={perk} />)}
+          {paginatedPerks.map(perk => <ShopItemCard key={perk.id} item={{
+            ...perk,
+            description: perk.description ?? 'No description available',
+            type: perk.item?.type ?? 'Unknown',
+            rarity: perk.item?.rarity ?? 'Common',
+            image: perk.item?.image ?? '/assets/placeholder.svg',
+            dataAiHint: perk.item?.data_ai_hint ?? ''
+          }} />)}
         </div>
         
         {/* Pagination Controls */}
@@ -461,7 +459,7 @@ export default function ShopPage() {
             </div>
           </div>
           <HighlightsSection 
-            highlights={shopFeatureHighlights}
+            highlights={FEATURE_HIGHLIGHTS}
             title="Why These Items Are a Must-Have"
             footer="Start collecting your favorite items on equipgg.net today—unbox crates, craft masterpieces, and dominate with style!"
           />
