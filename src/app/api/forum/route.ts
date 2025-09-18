@@ -160,15 +160,15 @@ export async function POST(request: Request) {
     
   // No DB init needed
     
-    // For demo purposes, use a mock user ID
-    const mockUserId = 'user_123';
+    // Use authenticated user ID
+    const userId = session?.user?.id || 'anonymous';
     
     // Create new forum topic
     const topic = await secureDb.create('forum_topics', {
       title,
       content,
       category_id: categoryId,
-      author_id: mockUserId,
+      author_id: userId,
       created_at: new Date().toISOString(),
       reply_count: 0,
       view_count: 0

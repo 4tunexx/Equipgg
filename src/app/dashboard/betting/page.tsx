@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useRealtimeBetting } from '@/hooks/use-realtime-betting';
-import type { MatchStatus } from '@/lib/mock-data';
+type MatchStatus = 'upcoming' | 'live' | 'finished';
 
 interface Team {
   name: string;

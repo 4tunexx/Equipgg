@@ -1,5 +1,13 @@
 import { NextResponse } from 'next/server';
-import { FeaturedItem } from '@/lib/mock-data';
+
+interface FeaturedItem {
+  id: string;
+  name: string;
+  image: string;
+  price: number;
+  rarity: string;
+  category: string;
+}
 
 // Mock featured items data
 const featuredItems: FeaturedItem[] = [

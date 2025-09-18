@@ -3,11 +3,9 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { tradeUpHistoryData } from "@/lib/mock-data";
 import Image from "next/image";
 import ItemImage from "@/components/ItemImage";
 
-import { rarityColors } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
 
 export function TradeUpHistory() {

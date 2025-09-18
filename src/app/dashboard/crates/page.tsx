@@ -5,7 +5,34 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CrateItem } from '@/components/crate-item';
 import { CrateOpeningAnimation } from '@/components/crate-opening-animation';
-import { inventoryData, InventoryItem, rarityColors, rarityGlow, availableCrates as allCrates, CrateData } from '@/lib/mock-data';
+import { supabase } from '@/lib/supabase';
+import { createSupabaseQueries, DBCrate } from '@/lib/supabase/queries';
+
+interface CrateData {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  image: string;
+  requiredLevel: number;
+  category: string;
+}
+
+const rarityColors = {
+  Common: 'text-gray-400',
+  Uncommon: 'text-green-400',
+  Rare: 'text-blue-400',
+  Epic: 'text-purple-400',
+  Legendary: 'text-yellow-400'
+};
+
+const rarityGlow = {
+  Common: 'shadow-gray-400/20',
+  Uncommon: 'shadow-green-400/20',
+  Rare: 'shadow-blue-400/20',
+  Epic: 'shadow-purple-400/20',
+  Legendary: 'shadow-yellow-400/20'
+};
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Image from 'next/image';

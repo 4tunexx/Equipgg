@@ -6,12 +6,39 @@ import ItemImage from '@/components/ItemImage';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
-import type { ShopItem } from '@/lib/mock-data';
 import { cn } from '@/lib/utils';
-import { rarityColors, rarityGlow } from '@/lib/mock-data';
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
+
+type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary';
+
+type ShopItem = {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image: string;
+  rarity: Rarity;
+  type: string;
+  stock: number;
+};
+
+const rarityColors = {
+  Common: 'text-gray-400',
+  Uncommon: 'text-green-400', 
+  Rare: 'text-blue-400',
+  Epic: 'text-purple-400',
+  Legendary: 'text-orange-400'
+};
+
+const rarityGlow = {
+  Common: 'shadow-gray-500/20',
+  Uncommon: 'shadow-green-500/20',
+  Rare: 'shadow-blue-500/20', 
+  Epic: 'shadow-purple-500/20',
+  Legendary: 'shadow-orange-500/20'
+};
 
 type ShopItemCardProps = {
   item: ShopItem;

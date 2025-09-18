@@ -10,7 +10,15 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import type { Match } from '@/lib/mock-data';
+interface Match {
+  id: string;
+  team1: { name: string; logo: string; odds: number };
+  team2: { name: string; logo: string; odds: number };
+  status: 'upcoming' | 'live' | 'finished';
+  time: string;
+  tournament?: string;
+  winner?: string;
+}
 import { ChevronDown, Gamepad2, Gem, MapPin, Users, Clock, PlayCircle, Edit } from 'lucide-react';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';

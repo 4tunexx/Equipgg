@@ -3,7 +3,6 @@
 'use client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ranks, badges, achievements, referrals, equippedItems, inventoryData, achievedItems, getRankByLevel } from "@/lib/mock-data";
 import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -257,7 +256,6 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {Object.entries(ranks).map(([category, items]) => {
-                const currentRank = getRankByLevel(balance?.level || 1);
                 return (
                   <div key={category}>
                     <h3 className="text-xl font-bold mb-2">{category}</h3>
@@ -368,7 +366,6 @@ export default function ProfilePage() {
                         </div>
                         <div className="space-y-2">
                            <Label htmlFor="showcase-rank">Showcase Rank (Unlocked at Lvl 10)</Label>
-                           <Input id="showcase-rank" value={getRankByLevel(balance?.level || 1) || 'No Rank'} disabled />
                            <p className="text-xs text-muted-foreground">Your highest achieved rank is always shown.</p>
                         </div>
                         <Button>

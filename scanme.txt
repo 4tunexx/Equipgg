@@ -63,4 +63,91 @@
 18:24:12.421 
 18:24:12.424 
 18:24:12.424 > Build failed because of webpack errors
-18:24:12.488 Error: Command "npm run build" exited with 1
+18:24:12.488 Error: Comman
+d "npm run build" exited with 1
+14:56:01.481 Running build in Washington, D.C., USA (East) – iad1
+14:56:01.482 Build machine configuration: 2 cores, 8 GB
+14:56:01.511 Cloning github.com/4tunexx/Equipgg (Branch: codespace-urban-space-zebra-q7x6rggjvpjwh6457, Commit: e3261d7)
+14:56:02.506 Cloning completed: 995.000ms
+14:56:03.299 Restored build cache from previous deployment (CjTxQqXLkzXxqfFsRf7Qu4ZQyDQk)
+14:56:04.162 Running "vercel build"
+14:56:04.767 Vercel CLI 48.0.2
+14:56:05.353 Running "install" command: `npm install`...
+14:56:09.811 
+14:56:09.811 added 10 packages, removed 34 packages, changed 4 packages, and audited 901 packages in 4s
+14:56:09.812 
+14:56:09.812 95 packages are looking for funding
+14:56:09.812   run `npm fund` for details
+14:56:09.860 
+14:56:09.861 6 vulnerabilities (4 low, 2 moderate)
+14:56:09.861 
+14:56:09.861 To address issues that do not require attention, run:
+14:56:09.861   npm audit fix
+14:56:09.861 
+14:56:09.862 To address all issues possible (including breaking changes), run:
+14:56:09.862   npm audit fix --force
+14:56:09.862 
+14:56:09.862 Some issues need review, and may require choosing
+14:56:09.862 a different dependency.
+14:56:09.862 
+14:56:09.862 Run `npm audit` for details.
+14:56:09.894 Detected Next.js version: 15.3.3
+14:56:09.895 Running "npm run build"
+14:56:10.007 
+14:56:10.007 > nextn@0.1.0 build
+14:56:10.008 > next build --no-lint
+14:56:10.008 
+14:56:10.583  ⚠ Linting is disabled.
+14:56:10.755    ▲ Next.js 15.3.3
+14:56:10.755 
+14:56:10.832    Creating an optimized production build ...
+14:56:24.378 Failed to compile.
+14:56:24.379 
+14:56:24.379 ./src/app/(auth)/sign-in/page.tsx
+14:56:24.379 Module parse failed: Duplicate export 'default' (29:7)
+14:56:24.379 File was processed with these loaders:
+14:56:24.379  * ./node_modules/next/dist/build/webpack/loaders/next-flight-client-module-loader.js
+14:56:24.379  * ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js
+14:56:24.379 You may need an additional loader to handle the result of these loaders.
+14:56:24.379 | }
+14:56:24.379 | import { Loader2 } from "__barrel_optimize__?names=Loader2!=!lucide-react";
+14:56:24.379 > export default function SignInPage() {
+14:56:24.379 |     const [email, setEmail] = useState('');
+14:56:24.379 |     const [password, setPassword] = useState('');
+14:56:24.379 
+14:56:24.379 Import trace for requested module:
+14:56:24.380 ./src/app/(auth)/sign-in/page.tsx
+14:56:24.380 
+14:56:24.380 ./src/app/(auth)/sign-up/page.tsx
+14:56:24.380 Module parse failed: Duplicate export 'default' (34:7)
+14:56:24.380 File was processed with these loaders:
+14:56:24.380  * ./node_modules/next/dist/build/webpack/loaders/next-flight-client-module-loader.js
+14:56:24.380  * ./node_modules/next/dist/build/webpack/loaders/next-swc-loader.js
+14:56:24.380 You may need an additional loader to handle the result of these loaders.
+14:56:24.380 | import Link from 'next/link';
+14:56:24.380 | import { Loader2 } from "__barrel_optimize__?names=Loader2!=!lucide-react";
+14:56:24.380 > export default function SignUpPage() {
+14:56:24.381 |     const [email, setEmail] = useState('');
+14:56:24.381 |     const [password, setPassword] = useState('');
+14:56:24.381 
+14:56:24.382 Import trace for requested module:
+14:56:24.382 ./src/app/(auth)/sign-up/page.tsx
+14:56:24.382 
+14:56:24.383 ./src/app/dashboard/admin/gem-management/page.tsx
+14:56:24.383 Module not found: Can't resolve '@/components/ui/card'
+14:56:24.383 
+14:56:24.383 https://nextjs.org/docs/messages/module-not-found
+14:56:24.383 
+14:56:24.383 ./src/app/dashboard/admin/gem-management/page.tsx
+14:56:24.383 Module not found: Can't resolve '@/components/ui/button'
+14:56:24.383 
+14:56:24.383 https://nextjs.org/docs/messages/module-not-found
+14:56:24.383 
+14:56:24.384 ./src/app/dashboard/admin/gem-management/page.tsx
+14:56:24.384 Module not found: Can't resolve '@/components/ui/input'
+14:56:24.384 
+14:56:24.386 https://nextjs.org/docs/messages/module-not-found
+14:56:24.386 
+14:56:24.387 
+14:56:24.387 > Build failed because of webpack errors
+14:56:24.430 Error: Command "npm run build" exited with 1
