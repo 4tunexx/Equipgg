@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { supabase } from '@/lib/supabase';
 
 export async function GET(
   request: NextRequest,
@@ -12,10 +12,28 @@ export async function GET(
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    // Get user data by username (displayName) or email
-    let user = await secureDb.findOne('users', { displayName: username });
-    if (!user) {
-      user = await secureDb.findOne('users', { email: username });
+    // Get user data by username (display_name) from Supabase
+    let { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('display_name', username)
+      .single();
+
+    if (error && error.code === 'PGRST116') {
+      // User not found by display_name, try by email
+      const { data: userByEmail, error: emailError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', username)
+        .single();
+
+      if (emailError) {
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      user = userByEmail;
+    } else if (error) {
+      console.error('Error fetching user:', error);
+      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
     }
 
     if (!user) {
@@ -27,14 +45,14 @@ export async function GET(
       success: true,
       user: {
         id: user.id,
-        name: user.displayName,
-        displayName: user.displayName,
-        username: user.displayName,
+        name: user.display_name,
+        displayName: user.display_name,
+        username: user.display_name,
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,
-        avatar: user.avatarUrl || `https://picsum.photos/40/40?random=${user.id}`,
-        avatarUrl: user.avatarUrl,
+        avatar: user.avatar_url || `https://picsum.photos/40/40?random=${user.id}`,
+        avatarUrl: user.avatar_url,
         createdAt: user.created_at,
         dataAiHint: 'user avatar'
       }

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { supabase } from '@/lib/supabase';
 
 interface ForumCategory {
   id: string;
@@ -20,130 +20,43 @@ interface ForumTopic {
 
 export async function GET() {
   try {
-    // Get forum categories
-    const categories = await secureDb.findMany<ForumCategory>('forum_categories', {}, { orderBy: 'display_order ASC' });
-    // Get recent topics (no join, so just get latest topics)
-    const recentTopics = await secureDb.findMany<ForumTopic>('forum_topics', {}, { orderBy: 'created_at DESC', limit: 10 });
-    
-    // If no data found, return mock data
-    if (categories.length === 0) {
-      const mockCategories = [
-        {
-          id: '1',
-          name: 'General Discussion',
-          description: 'General chat about anything and everything',
-          topicCount: 156,
-          postCount: 2341,
-          icon: '💬'
-        },
-        {
-          id: '2', 
-          name: 'Game Strategy',
-          description: 'Share your winning strategies and tips',
-          topicCount: 89,
-          postCount: 1567,
-          icon: '🎯'
-        },
-        {
-          id: '3',
-          name: 'Technical Support',
-          description: 'Get help with technical issues',
-          topicCount: 45,
-          postCount: 234,
-          icon: '🔧'
-        },
-        {
-          id: '4',
-          name: 'Announcements',
-          description: 'Official announcements and updates',
-          topicCount: 12,
-          postCount: 89,
-          icon: '📢'
-        }
-      ];
-      
-      const mockRecentTopics = [
-        {
-          id: '1',
-          title: 'Welcome to the new forum!',
-          author: 'Admin',
-          avatar: 'https://picsum.photos/40/40?random=11',
-          category: 'Announcements',
-          replies: 23,
-          views: 156,
-          lastActivity: '2 hours ago'
-        },
-        {
-          id: '2',
-          title: 'Best betting strategies for beginners',
-          author: 'ProGamer123',
-          avatar: 'https://picsum.photos/40/40?random=12',
-          category: 'Game Strategy',
-          replies: 45,
-          views: 289,
-          lastActivity: '4 hours ago'
-        },
-        {
-          id: '3',
-          title: 'Site maintenance scheduled for tomorrow',
-          author: 'Moderator',
-          avatar: 'https://picsum.photos/40/40?random=13',
-          category: 'Announcements',
-          replies: 8,
-          views: 67,
-          lastActivity: '6 hours ago'
-        }
-      ];
-      
-      return NextResponse.json({
-        categories: mockCategories,
-        recentTopics: mockRecentTopics
-      });
+    // Get forum categories from Supabase
+    const { data: categories, error: categoriesError } = await supabase
+      .from('forum_categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (categoriesError) {
+      console.error('Error fetching forum categories:', categoriesError);
+      return NextResponse.json({ 
+        error: 'Failed to fetch forum categories' 
+      }, { status: 500 });
     }
-    
+
+    // Get recent topics from Supabase
+    const { data: recentTopics, error: topicsError } = await supabase
+      .from('forum_topics')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (topicsError) {
+      console.error('Error fetching forum topics:', topicsError);
+      return NextResponse.json({ 
+        error: 'Failed to fetch forum topics' 
+      }, { status: 500 });
+    }
+
     return NextResponse.json({
-      categories,
-      recentTopics
+      categories: categories || [],
+      recentTopics: recentTopics || []
     });
     
   } catch (error) {
     console.error('Error fetching forum data:', error);
-    
-    // Return fallback mock data on error
-    const fallbackData = {
-      categories: [
-        {
-          id: '1',
-          name: 'General Discussion',
-          description: 'General chat about anything and everything',
-          topicCount: 156,
-          postCount: 2341,
-          icon: '💬'
-        },
-        {
-          id: '2',
-          name: 'Game Strategy', 
-          description: 'Share your winning strategies and tips',
-          topicCount: 89,
-          postCount: 1567,
-          icon: '🎯'
-        }
-      ],
-      recentTopics: [
-        {
-          id: '1',
-          title: 'Welcome to the forum!',
-          author: 'Admin',
-          avatar: 'https://picsum.photos/40/40?random=11',
-          category: 'Announcements',
-          replies: 23,
-          views: 156,
-          lastActivity: '2 hours ago'
-        }
-      ]
-    };
-    
-    return NextResponse.json(fallbackData);
+    return NextResponse.json({ 
+      error: 'Internal server error' 
+    }, { status: 500 });
   }
 }
 
@@ -158,21 +71,39 @@ export async function POST(request: Request) {
       );
     }
     
-  // No DB init needed
+    // Get user from auth header (simplified for now)
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     
-    // For demo purposes, use a mock user ID
-    const mockUserId = 'user_123';
-    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Invalid authentication' }, { status: 401 });
+    }
+
     // Create new forum topic
-    const topic = await secureDb.create('forum_topics', {
-      title,
-      content,
-      category_id: categoryId,
-      author_id: mockUserId,
-      created_at: new Date().toISOString(),
-      reply_count: 0,
-      view_count: 0
-    });
+    const { data: topic, error } = await supabase
+      .from('forum_topics')
+      .insert({
+        title,
+        content,
+        category_id: categoryId,
+        author_id: user.id,
+        created_at: new Date().toISOString(),
+        reply_count: 0,
+        view_count: 0
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error creating forum topic:', error);
+      return NextResponse.json({ error: 'Failed to create topic' }, { status: 500 });
+    }
+
     return NextResponse.json({
       success: true,
       topicId: topic?.id,
