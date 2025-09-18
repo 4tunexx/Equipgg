@@ -10,7 +10,18 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
-import type { Match } from '@/lib/mock-data';
+import type { MatchStatus } from '@/lib/supabase/queries';
+
+// Define Match type locally until moved to Supabase types
+type Match = {
+  id: string;
+  team1: { name: string; logo: string; };
+  team2: { name: string; logo: string; };
+  startTime: string;
+  status: MatchStatus;
+  odds?: { team1: number; team2: number; };
+  tournament?: string;
+};
 import { ChevronDown, Gamepad2, Gem, MapPin, Users, Clock, PlayCircle, Edit } from 'lucide-react';
 import Image from 'next/image';
 import { Progress } from '@/components/ui/progress';

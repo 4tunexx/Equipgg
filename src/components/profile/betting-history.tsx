@@ -3,7 +3,18 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { bettingHistoryData } from "@/lib/mock-data";
+// Temporary betting history data - TODO: move to Supabase
+const bettingHistoryData = [
+  {
+    id: '1',
+    matchTitle: 'FaZe vs NAVI',
+    betAmount: 100,
+    odds: 1.85,
+    potentialWin: 185,
+    status: 'won' as const,
+    timestamp: '2024-01-15T10:30:00Z'
+  }
+];
 import Image from "next/image";
 import { Badge } from "../ui/badge";
 import { cn } from "@/lib/utils";

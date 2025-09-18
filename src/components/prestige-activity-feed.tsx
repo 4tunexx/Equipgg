@@ -2,7 +2,16 @@
 'use client';
 
 import { cn } from "@/lib/utils";
-import { rarityColors } from "@/lib/mock-data";
+import type { Rarity } from '@/lib/supabase/queries';
+
+// Define utility constants locally
+const rarityColors: Record<Rarity, string> = {
+  'Common': 'text-gray-500',
+  'Uncommon': 'text-green-500',
+  'Rare': 'text-blue-500',
+  'Epic': 'text-purple-500',
+  'Legendary': 'text-yellow-500'
+};
 import { UserProfileLink } from "./user-profile-link";
 import React, { useEffect, useState } from "react";
 import { Gem, Trophy as TrophyIcon, Award as AwardIcon, Crown as CrownIcon, Zap as ZapIcon, MessageSquare as MessageSquareIcon } from 'lucide-react';

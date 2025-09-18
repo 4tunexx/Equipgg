@@ -3,10 +3,31 @@
 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MiniProfileCard } from "@/components/mini-profile-card";
-import type { LeaderboardPlayer } from "@/lib/mock-data";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
+
+// Local type definition for LeaderboardPlayer
+type LeaderboardPlayer = {
+    id?: string;
+    name?: string;
+    username?: string;
+    avatar?: string | null;
+    level?: number;
+    xp?: number;
+    isVip?: boolean;
+    role?: string;
+    achievement?: { 
+        title: string; 
+        icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; 
+    };
+    equippedItem?: { 
+        name: string; 
+        image: string; 
+        rarity: any; 
+        dataAiHint: string; 
+    };
+};
 
 interface UserProfileLinkProps {
     user: LeaderboardPlayer & { 

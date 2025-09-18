@@ -6,9 +6,36 @@ import ItemImage from '@/components/ItemImage';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
-import type { ShopItem } from '@/lib/mock-data';
+import { createSupabaseQueries } from '@/lib/supabase/queries';
+import type { DBShopItem, Rarity } from '@/lib/supabase/queries';
 import { cn } from '@/lib/utils';
-import { rarityColors, rarityGlow } from '@/lib/mock-data';
+
+// Define utility constants locally
+const rarityColors: Record<Rarity, string> = {
+  'Common': 'from-gray-500/20 to-gray-600/20 border-gray-500/30',
+  'Uncommon': 'from-green-500/20 to-green-600/20 border-green-500/30',
+  'Rare': 'from-blue-500/20 to-blue-600/20 border-blue-500/30',
+  'Epic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
+  'Legendary': 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30'
+};
+
+const rarityGlow: Record<Rarity, string> = {
+  'Common': 'shadow-gray-500/50',
+  'Uncommon': 'shadow-green-500/50',
+  'Rare': 'shadow-blue-500/50',
+  'Epic': 'shadow-purple-500/50',
+  'Legendary': 'shadow-yellow-500/50'
+};
+
+type ShopItem = DBShopItem & {
+  item: {
+    id: string;
+    name: string;
+    type: string;
+    rarity: Rarity;
+    image: string | null;
+  };
+};
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth-provider';

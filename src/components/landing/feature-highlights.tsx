@@ -1,5 +1,22 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { featureHighlightsData } from "@/lib/mock-data";
+// Temporary feature highlights data - TODO: move to database
+const featureHighlightsData = [
+  {
+    icon: "target",
+    title: "Precision Betting",
+    description: "Make informed bets on CS2 matches with real-time odds"
+  },
+  {
+    icon: "gift",
+    title: "Crate Opening",
+    description: "Unlock rare skins and items from exclusive crates"
+  },
+  {
+    icon: "trophy",
+    title: "Competitive Gaming",
+    description: "Climb the leaderboards and earn rewards"
+  }
+];
 
 export function FeatureHighlights() {
   return (

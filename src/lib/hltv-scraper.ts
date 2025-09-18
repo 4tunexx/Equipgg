@@ -38,3 +38,14 @@ export async function scrapeHLTVOdds(matchId: string): Promise<HLTVMatchOdds | n
     return null;
   }
 }
+
+// Sync odds from HLTV for all matches
+export async function syncOddsFromHLTV(): Promise<void> {
+  try {
+    // TODO: Implement syncing odds for all active matches
+    console.log('Syncing odds from HLTV...');
+  } catch (error) {
+    console.error('Failed to sync odds from HLTV:', error);
+    throw error;
+  }
+}

@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
 import { useRealtimeBetting } from '@/hooks/use-realtime-betting';
-import type { MatchStatus } from '@/lib/mock-data';
+
+// Local type definition for MatchStatus
+type MatchStatus = 'Upcoming' | 'Live' | 'Finished';
 
 interface Team {
   name: string;

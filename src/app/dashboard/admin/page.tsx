@@ -14,7 +14,26 @@ import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { achievements, shopPerks, allMissions, ranks as ranksData, upcomingMatchesData, liveMatchesData, finishedMatchesData, shopItems, xpLeaderboardData, shopItemCategories, Rarity, availableCrates, supportTickets, recentTopics } from "@/lib/mock-data";
+import { createSupabaseQueries } from '@/lib/supabase/queries';
+import { supabase } from '@/lib/supabase/client';
+import type { DBAchievement, DBMission, DBShopItem, DBCrate, Rarity } from '@/lib/supabase/queries';
+
+// TODO: Move these temporary data structures to Supabase
+const tempAdminData = {
+  achievements: [],
+  shopPerks: [],
+  allMissions: [],
+  ranks: {},
+  upcomingMatches: [],
+  liveMatches: [],
+  finishedMatches: [],
+  shopItems: [],
+  xpLeaderboard: [],
+  shopItemCategories: {},
+  availableCrates: [],
+  supportTickets: [],
+  recentTopics: []
+};
 import Image from "next/image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";

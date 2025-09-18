@@ -3,7 +3,7 @@
   "name": "equipgg",
   "alias": ["www.equipgg.net", "equipgg.net"],
   "framework": "nextjs",
-  "buildCommand": "npm run build",
+  "buildCommand": "node scripts/vercel-build-fixed.js",
   "outputDirectory": ".next",
   "installCommand": "npm install",
   "functions": {

@@ -5,7 +5,10 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { CrateItem } from '@/components/crate-item';
 import { CrateOpeningAnimation } from '@/components/crate-opening-animation';
-import { inventoryData, InventoryItem, rarityColors, rarityGlow, availableCrates as allCrates, CrateData } from '@/lib/mock-data';
+import { useAuth } from '@/hooks/use-auth';
+import { createSupabaseQueries } from '@/lib/supabase/queries';
+import { supabase } from '@/lib/supabase/client';
+import type { DBCrate, DBInventoryItem, DBItem, Rarity } from '@/lib/supabase/queries';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Image from 'next/image';
@@ -15,7 +18,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CheckCircle, Gift, Star, Trophy, Coins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useAuth } from '@/hooks/use-auth';
+
+// Define utility constants
+const rarityColors: Record<Rarity, string> = {
+  'Common': 'from-gray-500/20 to-gray-600/20 border-gray-500/30',
+  'Uncommon': 'from-green-500/20 to-green-600/20 border-green-500/30',
+  'Rare': 'from-blue-500/20 to-blue-600/20 border-blue-500/30',
+  'Epic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
+  'Legendary': 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30'
+};
+
+const rarityGlow: Record<Rarity, string> = {
+  'Common': 'shadow-gray-500/50',
+  'Uncommon': 'shadow-green-500/50',
+  'Rare': 'shadow-blue-500/50',
+  'Epic': 'shadow-purple-500/50',
+  'Legendary': 'shadow-yellow-500/50'
+};
+
+// Type aliases for easier use
+type InventoryItem = DBInventoryItem & { item: DBItem };
+type CrateData = DBCrate;
 
 
 const greatnessFeatures = [
@@ -70,15 +93,28 @@ export default function CratesPage() {
   const [userLevel, setUserLevel] = useState(1);
   const [showInventoryFullAlert, setShowInventoryFullAlert] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [allCrates, setAllCrates] = useState<CrateData[]>([]);
+  const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
   const { toast } = useToast();
 
-  // Fetch user data and keys
+  // Fetch user data and crates from Supabase
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
       
       try {
-        // Fetch user keys with cache busting
+        const queries = createSupabaseQueries(supabase);
+        
+        // Fetch crates from Supabase
+        const crates = await queries.getAllCrates();
+        setAllCrates(crates);
+        
+        // Fetch user inventory from Supabase
+        const inventory = await queries.getUserInventory(user.id);
+        setInventoryData(inventory as InventoryItem[]);
+        setInventoryCount(inventory.length);
+        
+        // Fetch user keys with cache busting (keep existing API call for now)
         const keysResponse = await fetch(`/api/user/keys?t=${Date.now()}`);
         if (keysResponse.ok) {
           const keysData = await keysResponse.json();
@@ -86,12 +122,11 @@ export default function CratesPage() {
           console.log('🔑 Fetched keys:', keysData.keys);
         }
 
-        // Fetch user profile for level and inventory count
+        // Fetch user profile for level 
         const profileResponse = await fetch('/api/user/profile');
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
           setUserLevel(profileData.level || 1);
-          setInventoryCount(profileData.inventoryCount || 0);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);

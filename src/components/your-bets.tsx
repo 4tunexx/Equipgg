@@ -12,7 +12,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Bet } from "@/lib/mock-data";
+// Define Bet type locally until moved to Supabase types
+type Bet = {
+  id: string;
+  matchTitle: string;
+  team: string;
+  amount: number;
+  odds: number;
+  potentialWin: number;
+  status: 'pending' | 'won' | 'lost';
+  timestamp: string;
+};
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useAuth } from '@/components/auth-provider';
