@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
-import { secureDb } from '@/lib/secure-db';
-import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/lib/supabase';
 
 interface ChatMessage {
   id: string;
@@ -11,7 +9,6 @@ interface ChatMessage {
   username: string;
   avatar: string | null;
   level: number;
-  rank: string;
   role?: string;
 }
 
@@ -21,152 +18,44 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const before = searchParams.get('before'); // For pagination
     
-    // Initialize database
+    // Get recent chat messages from Supabase with user info
+    let query = supabase
+      .from('chat_messages')
+      .select(`
+        *,
+        user:users(id, username, avatar_url, level, role)
+      `);
     
-    // Get recent chat messages from Supabase with pagination
-    let query = supabase.from('chat_messages').select('*');
     if (before) {
       query = query.lt('created_at', before);
     }
+    
     query = query.order('created_at', { ascending: false }).limit(limit);
+    
     const { data: messages, error } = await query;
-    if (error || !messages) {
-      // ...existing code for mockMessages...
-      const mockMessages = [
-        {
-          id: '1',
-          content: 'Welcome to the chat! 🎉',
-          username: 'Admin',
-          avatar: 'https://picsum.photos/40/40?random=1',
-          level: 100,
-          role: 'admin',
-          timestamp: new Date(Date.now() - 300000).toISOString()
-        },
-        {
-          id: '2',
-          content: 'Just won a big bet! 💰',
-          username: 'LuckyPlayer',
-          avatar: 'https://picsum.photos/40/40?random=2',
-          level: 45,
-          role: 'user',
-          timestamp: new Date(Date.now() - 240000).toISOString()
-        },
-        {
-          id: '3',
-          content: 'Anyone know when the next tournament starts?',
-          username: 'GameFan2024',
-          avatar: 'https://picsum.photos/40/40?random=3',
-          level: 23,
-          role: 'user',
-          timestamp: new Date(Date.now() - 180000).toISOString()
-        },
-        {
-          id: '4',
-          content: 'Good luck everyone! 🍀',
-          username: 'BettingPro',
-          avatar: 'https://picsum.photos/40/40?random=4',
-          level: 67,
-          role: 'moderator',
-          timestamp: new Date(Date.now() - 120000).toISOString()
-        },
-        {
-          id: '5',
-          content: 'The new update looks amazing!',
-          username: 'TechEnthusiast',
-          avatar: 'https://picsum.photos/40/40?random=5',
-          level: 34,
-          role: 'user',
-          timestamp: new Date(Date.now() - 60000).toISOString()
-        }
-      ];
-      return NextResponse.json({ messages: mockMessages.reverse() });
+    
+    if (error) {
+      console.error('Error fetching chat messages:', error);
+      return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
     }
-    // Attach user info
-    const messagesWithUser = await Promise.all(
-      (messages as any[]).map(async (m) => {
-        const user = await secureDb.findOne('users', { id: m.user_id });
-        return {
-          id: m.id,
-          content: m.content,
-          created_at: m.created_at,
-          user_id: m.user_id,
-          username: user?.displayName || 'Unknown',
-          avatar: user?.avatar_url || null,
-          level: user?.level || 1,
-          role: user?.role || 'user',
-        };
-      })
-    );
-    if (messagesWithUser.length === 0) {
-      // ...existing code for mockMessages...
-      const mockMessages = [
-        {
-          id: '1',
-          content: 'Welcome to the chat! 🎉',
-          username: 'Admin',
-          avatar: 'https://picsum.photos/40/40?random=1',
-          level: 100,
-          role: 'admin',
-          timestamp: new Date(Date.now() - 300000).toISOString()
-        },
-        {
-          id: '2',
-          content: 'Just won a big bet! 💰',
-          username: 'LuckyPlayer',
-          avatar: 'https://picsum.photos/40/40?random=2',
-          level: 45,
-          role: 'user',
-          timestamp: new Date(Date.now() - 240000).toISOString()
-        },
-        {
-          id: '3',
-          content: 'Anyone know when the next tournament starts?',
-          username: 'GameFan2024',
-          avatar: 'https://picsum.photos/40/40?random=3',
-          level: 23,
-          role: 'user',
-          timestamp: new Date(Date.now() - 180000).toISOString()
-        },
-        {
-          id: '4',
-          content: 'Good luck everyone! 🍀',
-          username: 'BettingPro',
-          avatar: 'https://picsum.photos/40/40?random=4',
-          level: 67,
-          role: 'moderator',
-          timestamp: new Date(Date.now() - 120000).toISOString()
-        },
-        {
-          id: '5',
-          content: 'The new update looks amazing!',
-          username: 'TechEnthusiast',
-          avatar: 'https://picsum.photos/40/40?random=5',
-          level: 34,
-          role: 'user',
-          timestamp: new Date(Date.now() - 60000).toISOString()
-        }
-      ];
-      return NextResponse.json({ messages: mockMessages.reverse() });
-    }
-    return NextResponse.json({ messages: messagesWithUser.reverse() });
+    
+    // Transform messages to include user info
+    const transformedMessages = (messages || []).map((msg: any) => ({
+      id: msg.id,
+      content: msg.content,
+      created_at: msg.created_at,
+      user_id: msg.user_id,
+      username: msg.user?.username || 'Unknown',
+      avatar: msg.user?.avatar_url || null,
+      level: msg.user?.level || 1,
+      role: msg.user?.role || 'user'
+    }));
+    
+    return NextResponse.json({ messages: transformedMessages.reverse() });
     
   } catch (error) {
     console.error('Error fetching chat messages:', error);
-    
-    // Return fallback mock messages on error
-    const fallbackMessages = [
-      {
-        id: '1',
-        content: 'Chat is temporarily unavailable',
-        username: 'System',
-        avatar: 'https://picsum.photos/40/40?random=6',
-        level: 0,
-        rank: 'System',
-        timestamp: new Date().toISOString()
-      }
-    ];
-    
-    return NextResponse.json({ messages: fallbackMessages });
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
@@ -174,7 +63,7 @@ export async function POST(request: Request) {
   try {
     const { content } = await request.json();
     
-    // SECURITY: Input validation and sanitization
+    // Input validation and sanitization
     if (!content || typeof content !== 'string') {
       return NextResponse.json(
         { error: 'Message content is required' },
@@ -203,74 +92,65 @@ export async function POST(request: Request) {
       );
     }
     
-    // SECURITY: Rate limiting
-    const clientIP = request.headers.get('x-forwarded-for') || 
-                    request.headers.get('x-real-ip') || 
-                    'unknown';
+    // Get the current user session from Supabase
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    // Simple rate limiting (in production, use Redis or similar)
-    const rateLimitKey = `chat_${clientIP}`;
-    const now = Date.now();
-    const windowMs = 60 * 1000; // 1 minute
-    const maxRequests = 10; // 10 messages per minute
-    
-    // This is a simplified rate limiting - in production use proper rate limiting
-    // For now, we'll just log the attempt
-    console.log(`Chat message attempt from IP: ${clientIP}`);
-    
-    // Get the current user from session
-    const cookies = request.headers.get('cookie') || '';
-    const sessionToken = cookies
-      .split(';')
-      .find(c => c.trim().startsWith('equipgg_session='))
-      ?.split('=')[1];
-    
-    if (!sessionToken) {
+    if (sessionError || !session) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
     
-    // Get user from session
-    const session = await secureDb.findOne('sessions', { token: sessionToken });
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
-    // Get user details
-    const user = await secureDb.findOne('users', { id: session.user_id });
-    if (!user) {
+    const userId = session.user.id;
+    
+    // Get user details from Supabase
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('username, avatar_url, level, role')
+      .eq('id', userId)
+      .single();
+    
+    if (userError || !user) {
       return NextResponse.json(
         { error: 'User not found' },
         { status: 404 }
       );
     }
-    // Insert new chat message with sanitized content
-    const messageId = uuidv4();
-    await secureDb.create('chat_messages', {
-      id: messageId,
-      content: sanitizedContent,
-      user_id: session.user_id,
-      username: user.displayName,
-      created_at: new Date().toISOString(),
-    });
-    // Compose the created message with user info
-    const newMessage = {
-      id: messageId,
-      content: sanitizedContent,
-      created_at: new Date().toISOString(),
-      user_id: session.user_id,
-      username: user.displayName,
+    
+    // Insert new chat message in Supabase
+    const { data: newMessage, error: insertError } = await supabase
+      .from('chat_messages')
+      .insert([{
+        content: sanitizedContent,
+        user_id: userId,
+      }])
+      .select()
+      .single();
+    
+    if (insertError) {
+      console.error('Error inserting chat message:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to send message' },
+        { status: 500 }
+      );
+    }
+    
+    // Return the created message with user info
+    const responseMessage = {
+      id: newMessage.id,
+      content: newMessage.content,
+      created_at: newMessage.created_at,
+      user_id: userId,
+      username: user.username,
       avatar: user.avatar_url || null,
       level: user.level || 1,
       role: user.role || 'user',
     };
+    
     return NextResponse.json({ 
       success: true, 
-      message: newMessage
+      message: responseMessage
     });
     
   } catch (error) {

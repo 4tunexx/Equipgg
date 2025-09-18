@@ -420,6 +420,77 @@ export class SupabaseQueries {
     if (error) throw error;
     return data as DBActivityFeed[];
   }
+
+  // Chat message methods
+  async getChatMessages(limit: number = 50, before?: string) {
+    let query = this.supabase
+      .from('chat_messages')
+      .select('*, user:users(id, username, avatar_url, level, role)');
+    
+    if (before) {
+      query = query.lt('created_at', before);
+    }
+    
+    query = query.order('created_at', { ascending: false }).limit(limit);
+    
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  }
+
+  async createChatMessage(userId: string, content: string) {
+    const { data, error } = await this.supabase
+      .from('chat_messages')
+      .insert([{
+        content,
+        user_id: userId,
+      }])
+      .select('*, user:users(id, username, avatar_url, level, role)')
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
+
+  // Forum methods
+  async getForumCategories() {
+    const { data, error } = await this.supabase
+      .from('forum_categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async getForumTopics(limit: number = 10) {
+    const { data, error } = await this.supabase
+      .from('forum_topics')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async createForumTopic(userId: string, title: string, content: string, categoryId: string) {
+    const { data, error } = await this.supabase
+      .from('forum_topics')
+      .insert([{
+        title,
+        content,
+        category_id: categoryId,
+        author_id: userId,
+        reply_count: 0,
+        view_count: 0
+      }])
+      .select()
+      .single();
+    
+    if (error) throw error;
+    return data;
+  }
 }
 
 export const createSupabaseQueries = (supabase: SupabaseClient) => {
