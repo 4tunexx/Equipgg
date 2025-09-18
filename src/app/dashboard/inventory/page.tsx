@@ -882,7 +882,7 @@ export default function InventoryPage() {
         <div>
           <h2 className="text-2xl font-bold font-headline mb-4">Equipped</h2>
           <div className="space-y-2">
-          {equippedSlotsConfig.map(slot => {
+          {Object.values(equippedSlotsConfig).map((slot: any) => {
             const item = equippedItems[slot.id];
             return (
               <div

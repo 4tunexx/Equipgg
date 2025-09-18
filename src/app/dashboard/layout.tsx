@@ -239,7 +239,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     };
 
     loadUserData();
-  }, [user?.uid, user?.role]); // Also depend on user ID and role to refresh when switching accounts
+  }, [user?.id, user?.role]); // Also depend on user ID and role to refresh when switching accounts
 
   
   const currentPage = navLinks.find((link) => pathname.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard'));

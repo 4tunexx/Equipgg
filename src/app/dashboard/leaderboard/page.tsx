@@ -96,7 +96,7 @@ export default function LeaderboardPage() {
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <UserProfileLink user={{...player, id: player.id.toString(), role: player.role, dataAiHint: `Player ${player.name} - Level ${player.level}`}} />
+                                <UserProfileLink user={{...player, id: player.id.toString(), role: (player as any).role || 'player', dataAiHint: `Player ${player.name} - Level ${player.level}`}} />
                             </TableCell>
                             <TableCell>
                                 <Badge variant="secondary">Level {player.level}</Badge>

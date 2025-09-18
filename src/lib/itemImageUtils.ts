@@ -126,7 +126,7 @@ function generateCSGODatabaseUrls(itemName: string, itemType: string): string[] 
   // Steam blocks external access to their image API
   
   // Try exact mapping first
-  const mappedName = itemMap[itemType as keyof typeof itemMap]?.[itemName];
+  const mappedName = (itemMap[itemType as keyof typeof itemMap] as Record<string, string>)?.[itemName];
   if (mappedName) {
     urls.push(`https://www.csgodatabase.com/images/${itemType}/webp/${mappedName}.webp`);
   }

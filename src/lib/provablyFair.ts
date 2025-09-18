@@ -43,3 +43,8 @@ export function verifyGameResult(gameData: any): boolean {
   // TODO: Implement proper game result verification
   return true;
 }
+
+export async function getUserGameHistory(userId: string, limit: number = 50): Promise<any[]> {
+  // TODO: Implement user game history retrieval
+  return [];
+}

@@ -153,7 +153,7 @@ export default function ShopPage() {
                 id: item.id,
                 name: item.name,
                 description: item.description || 'No description available',
-                rarity: item.item?.rarity || 'Common',
+                rarity: (item.item?.rarity || 'Common') as any,
                 type: item.item?.type || 'Unknown',
                 image: item.item?.image || '/assets/placeholder.svg',
                 dataAiHint: item.item?.data_ai_hint || '',
@@ -207,7 +207,7 @@ export default function ShopPage() {
             ...shopItem,
             description: shopItem.description ?? 'No description available',
             type: shopItem.item?.type ?? 'Unknown',
-            rarity: shopItem.item?.rarity ?? 'Common',
+            rarity: (shopItem.item?.rarity ?? 'Common') as any,
             image: shopItem.item?.image ?? '/assets/placeholder.svg',
             dataAiHint: shopItem.item?.data_ai_hint ?? ''
           }} />)}
@@ -290,7 +290,7 @@ export default function ShopPage() {
             ...perk,
             description: perk.description ?? 'No description available',
             type: perk.item?.type ?? 'Unknown',
-            rarity: perk.item?.rarity ?? 'Common',
+            rarity: (perk.item?.rarity ?? 'Common') as any,
             image: perk.item?.image ?? '/assets/placeholder.svg',
             dataAiHint: perk.item?.data_ai_hint ?? ''
           }} />)}

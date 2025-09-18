@@ -19,6 +19,7 @@ const rarityGlow: Record<Rarity, string> = {
 };
 
 type LeaderboardPlayer = {
+  id?: string;
   name: string;
   avatar?: string;
   role: string;
@@ -39,7 +40,7 @@ interface MiniProfileCardProps {
         role?: string;
         xp?: number;
         achievement?: { title: string, icon: React.ComponentType<React.SVGProps<SVGSVGElement>> };
-        equippedItem?: { name: string, image: string, rarity: Rarity, dataAiHint: string };
+        equippedItem?: { name: string, image: string, rarity: Rarity, dataAiHint: string, type: string };
     };
 }
 
@@ -121,7 +122,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                     <XpDisplay 
                         xp={xp} 
                         level={level}
-                        userId={displayUser.id}
+                        userId={displayUser.id || displayUser.name}
                         autoFetch={true}
                         className=""
                     />

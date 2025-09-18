@@ -20,19 +20,64 @@ import type { DBAchievement, DBMission, DBShopItem, DBCrate, Rarity } from '@/li
 
 // TODO: Move these temporary data structures to Supabase
 const tempAdminData = {
-  achievements: [],
-  shopPerks: [],
-  allMissions: [],
-  ranks: {},
-  upcomingMatches: [],
-  liveMatches: [],
-  finishedMatches: [],
-  shopItems: [],
-  xpLeaderboard: [],
-  shopItemCategories: {},
-  availableCrates: [],
-  supportTickets: [],
-  recentTopics: []
+  achievements: {
+    'Gameplay': [
+      { title: 'First Win', description: 'Win your first match', icon: 'trophy' },
+      { title: 'Winning Streak', description: 'Win 5 matches in a row', icon: 'fire' }
+    ],
+    'Social': [
+      { title: 'Team Player', description: 'Play 10 team matches', icon: 'users' }
+    ]
+  },
+  shopPerks: [
+    { id: '1', name: 'XP Boost', description: '50% more XP for 24 hours', price: 500 },
+    { id: '2', name: 'Gem Multiplier', description: '2x gems from matches', price: 1000 }
+  ],
+  allMissions: [
+    { id: '1', title: 'Daily Login', description: 'Login every day', reward: '100 gems', type: 'daily' },
+    { id: '2', title: 'Win 5 Games', description: 'Win 5 competitive matches', reward: '500 gems', type: 'weekly' }
+  ],
+  ranksData: {
+    'Bronze': [
+      { name: 'Bronze I', requirement: '0 points' },
+      { name: 'Bronze II', requirement: '100 points' }
+    ],
+    'Silver': [
+      { name: 'Silver I', requirement: '500 points' },
+      { name: 'Silver II', requirement: '700 points' }
+    ]
+  },
+  liveMatchesData: [
+    { id: '1', team1: 'Team A', team2: 'Team B', status: 'live', viewers: 1200 }
+  ],
+  upcomingMatchesData: [
+    { id: '2', team1: 'Team C', team2: 'Team D', status: 'upcoming', scheduledTime: '2024-01-15T10:00:00Z' }
+  ],
+  finishedMatchesData: [
+    { id: '3', team1: 'Team E', team2: 'Team F', status: 'finished', winner: 'Team E' }
+  ],
+  shopItems: [
+    { id: '1', name: 'AK-47 Redline', category: 'weapons', price: 1500, rarity: 'rare' }
+  ],
+  xpLeaderboardData: [
+    { id: '1', name: 'Player1', xp: 15000, level: 50 },
+    { id: '2', name: 'Player2', xp: 12000, level: 45 }
+  ],
+  shopItemCategories: {
+    'weapons': 'Weapons',
+    'skins': 'Skins',
+    'equipment': 'Equipment'
+  },
+  availableCrates: [
+    { id: '1', name: 'Weapon Crate', price: 250, rarity: 'common', items: [] }
+  ],
+  supportTickets: [
+    { id: '1', title: 'Login Issue', status: 'Open', priority: 'High', user: 'User123' },
+    { id: '2', title: 'Payment Problem', status: 'Closed', priority: 'Medium', user: 'User456' }
+  ],
+  recentTopics: [
+    { id: '1', title: 'New Update Discussion', author: { displayName: 'Moderator1' }, replies: 25 }
+  ]
 };
 import Image from "next/image";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -117,7 +162,7 @@ export default function AdminDashboardPage() {
     const { user } = useAuth();
     const router = useRouter();
     const [activeNav, setActiveNav] = React.useState('dashboard');
-    const [perks] = React.useState(shopPerks);
+    const [perks] = React.useState(tempAdminData.shopPerks);
     const [date, setDate] = React.useState<Date>()
     const [adminStats, setAdminStats] = React.useState<AdminStats | null>(null);
     const [users, setUsers] = React.useState<User[]>([]);
@@ -216,10 +261,10 @@ export default function AdminDashboardPage() {
         );
     }
     
-    const allAchievements = Object.values(achievements).flat();
+    const allAchievements = Object.values(tempAdminData.achievements).flat();
     // Use real matches from database instead of mock data
-    const allMatches = matches.length > 0 ? matches : [...liveMatchesData, ...upcomingMatchesData, ...finishedMatchesData];
-    const allShopItemsAndPerks = [...shopItems, ...shopPerks];
+    const allMatches = matches.length > 0 ? matches : [...tempAdminData.liveMatchesData, ...tempAdminData.upcomingMatchesData, ...tempAdminData.finishedMatchesData];
+    const allShopItemsAndPerks = [...shopItems, ...tempAdminData.shopPerks];
     
     // Load additional admin data
     const loadAdminData = async () => {
@@ -1138,7 +1183,7 @@ export default function AdminDashboardPage() {
         name: user.displayName || user.email,
         status: user.isBanned ? 'Banned' : user.isMuted ? 'Muted' : 'Active',
         lastSeen: user.lastActive ? new Date(user.lastActive).toLocaleDateString() : 'Never'
-    })) : xpLeaderboardData.map(user => ({
+    })) : tempAdminData.xpLeaderboardData.map((user: any) => ({
         ...user,
         roles: Math.random() > 0.9 ? ['VIP'] : (Math.random() > 0.95 ? ['Moderator'] : []),
         status: 'Active',
@@ -2668,7 +2713,6 @@ export default function AdminDashboardPage() {
                                                         <UserProfileLink user={{
                                                             name: user.name,
                                                             avatar: user.avatar || '/default-avatar.png',
-                                                            dataAiHint: user.dataAiHint || user.name,
                                                             xp: user.xp || 0
                                                         }} />
                                                     </TableCell>
@@ -2713,13 +2757,12 @@ export default function AdminDashboardPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {recentTopics.map(topic => (
+                                            {tempAdminData.recentTopics.map((topic: any) => (
                                                 <TableRow key={topic.id}>
                                                     <TableCell className="font-medium">{topic.title}</TableCell>
                                                     <TableCell><UserProfileLink user={{
                                                         name: topic.author.displayName,
                                                         avatar: topic.author.avatarUrl || '/default-avatar.png',
-                                                        dataAiHint: `Forum user ${topic.author.displayName}`,
                                                         xp: 0,
                                                         level: 1,
                                                         rank: 0
@@ -2779,7 +2822,7 @@ export default function AdminDashboardPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {supportTickets.filter(t => t.status === 'Open').map(ticket => (
+                                            {tempAdminData.supportTickets.filter((t: any) => t.status === 'Open').map((ticket: any) => (
                                                 <TableRow key={ticket.id}>
                                                     <TableCell className="font-medium">{ticket.subject}</TableCell>
                                                     <TableCell>
@@ -3100,7 +3143,7 @@ export default function AdminDashboardPage() {
                                                 <SelectValue placeholder="Select a category" />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {Object.keys(shopItemCategories).map(category => (
+                                                {Object.keys(tempAdminData.shopItemCategories).map(category => (
                                                     <SelectItem key={category} value={category.toLowerCase().replace(/\s/g, '-')}>{category}</SelectItem>
                                                 ))}
                                             </SelectContent>
@@ -3245,11 +3288,11 @@ export default function AdminDashboardPage() {
                                 <CardTitle>Manage Ranks</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
-                                {Object.entries(ranksData).map(([tier, ranks]) => (
+                                {Object.entries(tempAdminData.ranksData).map(([tier, ranks]: [string, any]) => (
                                     <div key={tier}>
                                         <h3 className="font-bold text-lg mb-2">{tier}</h3>
                                         <div className="space-y-2">
-                                            {ranks.map(rank => (
+                                            {ranks.map((rank: any) => (
                                                 <div key={rank.title} className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg">
                                                     <div className="flex items-center gap-4">
                                                         <Image src={`https://picsum.photos/seed/${rank.title}/48/48`} alt={rank.title} width={48} height={48} className="rounded-full" data-ai-hint="rank badge" />
@@ -3353,7 +3396,7 @@ export default function AdminDashboardPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {perks.map(perk => (
+                                        {perks.map((perk: any) => (
                                             <TableRow key={perk.id}>
                                                 <TableCell className="font-medium">{perk.name}</TableCell>
                                                 <TableCell className="capitalize">{perk.type.split('-')[0]}</TableCell>
@@ -3452,12 +3495,12 @@ export default function AdminDashboardPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {allAchievements.map((ach) => (
+                                        {allAchievements.map((ach: any) => (
                                             <TableRow key={ach.title}>
                                                 <TableCell className="font-medium">{ach.title}</TableCell>
                                                 <TableCell>
                                                     {/* Find which category this achievement belongs to */}
-                                                    {Object.entries(achievements).find(([, items]) => items.some(item => item.title === ach.title))?.[0]}
+                                                    {Object.entries(tempAdminData.achievements).find(([, items]: [string, any]) => items.some((item: any) => item.title === ach.title))?.[0]}
                                                 </TableCell>
                                                 <TableCell className="text-xs text-muted-foreground w-1/2">{ach.description}</TableCell>
                                                 <TableCell className="text-right">
@@ -3552,7 +3595,7 @@ export default function AdminDashboardPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {allMissions.map((mission) => (
+                                        {tempAdminData.allMissions.map((mission: any) => (
                                             <TableRow key={mission.id}>
                                                 <TableCell className="font-medium">{mission.title}</TableCell>
                                                 <TableCell className="capitalize">{'tier' in mission ? 'Main' : 'Daily'}</TableCell>
@@ -3639,7 +3682,7 @@ export default function AdminDashboardPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {availableCrates.map((crate) => (
+                                        {tempAdminData.availableCrates.map((crate: any) => (
                                             <TableRow key={crate.id}>
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-3">
@@ -3890,7 +3933,7 @@ export default function AdminDashboardPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {supportTickets.map((ticket) => (
+                                    {tempAdminData.supportTickets.map((ticket: any) => (
                                         <TableRow key={ticket.id}>
                                             <TableCell className="font-mono">{ticket.id}</TableCell>
                                             <TableCell>User</TableCell>

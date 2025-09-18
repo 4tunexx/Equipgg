@@ -1,18 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Target, Gift, Trophy } from "lucide-react";
+
 // Temporary feature highlights data - TODO: move to database
 const featureHighlightsData = [
   {
-    icon: "target",
+    icon: Target,
     title: "Precision Betting",
     description: "Make informed bets on CS2 matches with real-time odds"
   },
   {
-    icon: "gift",
+    icon: Gift,
     title: "Crate Opening",
     description: "Unlock rare skins and items from exclusive crates"
   },
   {
-    icon: "trophy",
+    icon: Trophy,
     title: "Competitive Gaming",
     description: "Climb the leaderboards and earn rewards"
   }

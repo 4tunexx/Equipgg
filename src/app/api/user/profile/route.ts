@@ -32,8 +32,8 @@ export async function GET(request: NextRequest) {
     // Placeholders for stats, achievements, referrals
     const betsWon = 0;
     const winRate = 0;
-    const achievements = [];
-    const referrals = [];
+    const achievements: any[] = [];
+    const referrals: any[] = [];
     return NextResponse.json({
       success: true,
       profile: {

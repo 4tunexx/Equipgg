@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the result
-    const isValid = verifyGameResult(
-      verificationData.serverSeed,
-      verificationData.clientSeed,
-      verificationData.nonce,
-      verificationData.gameType,
-      verificationData.result
-    );
+    const isValid = verifyGameResult({
+      serverSeed: verificationData.serverSeed,
+      clientSeed: verificationData.clientSeed,
+      nonce: verificationData.nonce,
+      gameType: verificationData.gameType,
+      result: verificationData.result
+    });
 
     return NextResponse.json({
       success: true,
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      gameHistory: gameHistory.map(game => ({
+      gameHistory: gameHistory.map((game: any) => ({
         gameId: game.gameId,
         gameType: game.gameType,
         nonce: game.nonce,

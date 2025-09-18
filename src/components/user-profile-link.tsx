@@ -17,6 +17,7 @@ type LeaderboardPlayer = {
     xp?: number;
     isVip?: boolean;
     role?: string;
+    dataAiHint?: string;
     achievement?: { 
         title: string; 
         icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; 
@@ -79,7 +80,18 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
                 </TooltipTrigger>
                 <TooltipPrimitive.Portal>
                     <TooltipContent side="bottom" align="start" className="p-0 bg-transparent border-none shadow-none z-50">
-                        <MiniProfileCard user={user} />
+                        <MiniProfileCard user={{
+                            ...user,
+                            name: user.name || user.username || 'Unknown User',
+                            dataAiHint: user.dataAiHint || user.name || user.username || 'User',
+                            role: user.role || 'player',
+                            avatar: user.avatar || undefined,
+                            xp: user.xp || 0,
+                            equippedItem: user.equippedItem ? {
+                                ...user.equippedItem,
+                                type: 'skins'
+                            } : undefined
+                        }} />
                     </TooltipContent>
                 </TooltipPrimitive.Portal>
             </Tooltip>

@@ -38,7 +38,13 @@ const rarityGlow: Record<Rarity, string> = {
 
 // Type aliases for easier use
 type InventoryItem = DBInventoryItem & { item: DBItem };
-type CrateData = DBCrate;
+interface CrateWithItems extends DBCrate {
+  items: Array<DBItem & { dropChance: number }>;
+  xpReward?: number;
+  coinReward?: number;
+}
+
+type CrateData = CrateWithItems;
 
 
 const greatnessFeatures = [
@@ -107,7 +113,14 @@ export default function CratesPage() {
         
         // Fetch crates from Supabase
         const crates = await queries.getAllCrates();
-        setAllCrates(crates);
+        // Transform DBCrate to CrateWithItems with mock data
+        const cratesWithItems = crates.map(crate => ({
+          ...crate,
+          items: [], // Add empty items array for now
+          xpReward: 50,
+          coinReward: 100
+        }));
+        setAllCrates(cratesWithItems);
         
         // Fetch user inventory from Supabase
         const inventory = await queries.getUserInventory(user.id);
@@ -277,7 +290,7 @@ export default function CratesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {allCrates.map((crate) => (
-            <CrateItem key={crate.id} crate={crate} onOpen={() => handleOpenCrate(crate)} disabled={isAnimating || (userKeys[crate.id] || 0) <= 0} keysOwned={userKeys[crate.id] || 0} />
+            <CrateItem key={crate.id} crate={crate} onOpen={() => handleOpenCrate(crate)} disabled={isAnimating || (userKeys[crate.id] || 0) <= 0} />
           ))}
         </div>
       )}
@@ -323,24 +336,36 @@ export default function CratesPage() {
                 </DialogHeader>
             </VisuallyHidden>
             <div className="h-[450px] flex flex-col justify-center items-center relative">
-                {wonItem && <CrateOpeningAnimation items={inventoryData} wonItem={wonItem} onAnimationEnd={handleAnimationEnd} />}
+                {wonItem && <CrateOpeningAnimation items={inventoryData.map(inv => ({
+                  id: inv.item.id,
+                  name: inv.item.name,
+                  type: inv.item.type,
+                  rarity: inv.item.rarity,
+                  image: inv.item.image || '/placeholder.png'
+                }))} wonItem={{
+                  id: wonItem.item.id,
+                  name: wonItem.item.name,
+                  type: wonItem.item.type,
+                  rarity: wonItem.item.rarity,
+                  image: wonItem.item.image || '/placeholder.png'
+                }} onAnimationEnd={handleAnimationEnd} />}
             </div>
             {isRevealed && wonItem && activeCrate && (
                  <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center animate-in fade-in-50 duration-500">
                     <DialogHeader>
                         <DialogTitle className="text-center text-3xl font-bold">You Won!</DialogTitle>
                     </DialogHeader>
-                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500", rarityGlow[wonItem.rarity])}>
+                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500", rarityGlow[wonItem.item.rarity as Rarity])}>
                         <ItemImage
-                          itemName={wonItem.name}
-                          itemType={wonItem.type as 'skins' | 'knives' | 'gloves' | 'agents'}
+                          itemName={wonItem.item.name}
+                          itemType={wonItem.item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
                           width={192}
                           height={192}
                           className="object-contain"
                         />
                     </div>
-                    <h3 className={cn("text-2xl font-semibold", rarityColors[wonItem.rarity])}>{wonItem.name}</h3>
-                    <p className="text-muted-foreground">{wonItem.rarity} {wonItem.type}</p>
+                    <h3 className={cn("text-2xl font-semibold", rarityColors[wonItem.item.rarity as Rarity])}>{wonItem.item.name}</h3>
+                    <p className="text-muted-foreground">{wonItem.item.rarity} {wonItem.item.type}</p>
 
                     <div className="mt-4 flex items-center gap-6">
                         <div className='flex items-center gap-2 text-sky-400 font-semibold'>

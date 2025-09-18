@@ -142,7 +142,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
       // Determine team ID and odds based on selected team
       const isTeam1 = selectedBetTeam === match.team1.name;
       const teamId = isTeam1 ? match.team1.name : match.team2.name;
-      const odds = isTeam1 ? match.odds1 : match.odds2;
+      const odds = isTeam1 ? (match.odds?.team1 || 1.5) : (match.odds?.team2 || 1.5);
       
       const response = await fetch('/api/betting/place', {
         method: 'POST',
@@ -192,7 +192,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
         
         // Emit Socket.io event for real-time updates
         emitBetPlaced({
-          userId: user?.id || user?.uid || '',
+          userId: user?.id || '',
           username: user?.displayName || 'Anonymous',
           matchId: match.id,
           team: selectedBetTeam || '',
@@ -307,11 +307,11 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
           <div className="flex justify-between items-center text-xs text-muted-foreground mb-4">
             <div className="flex items-center gap-2">
               <Gamepad2 className="w-4 h-4" />
-              <span>{match.tournament || match.event_name || 'CS2 Match'}</span>
+              <span>{match.tournament || 'CS2 Match'}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              <span>{match.startTime || match.start_time || match.time}</span>
+              <span>{match.startTime}</span>
             </div>
           </div>
 
@@ -333,7 +333,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
               <span className="text-2xl font-bold">VS</span>
               <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
                 <MapPin className="w-3 h-3" />
-                <span>{match.map || 'TBD'}</span>
+                <span>TBD</span>
               </div>
               <CollapsibleTrigger asChild>
                 <Button
@@ -448,11 +448,11 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
                         <div className="grid grid-cols-2 gap-2">
                             <Button variant={selectedBetTeam === match.team1.name ? 'default' : 'outline'} onClick={() => setSelectedBetTeam(match.team1.name)} className="flex flex-col py-3 h-auto">
                               <span className="font-semibold">{match.team1.name}</span>
-                              <span className="text-xs opacity-75">{match.odds1}x odds</span>
+                              <span className="text-xs opacity-75">{match.odds?.team1 || 1.5}x odds</span>
                             </Button>
                             <Button variant={selectedBetTeam === match.team2.name ? 'default' : 'outline'} onClick={() => setSelectedBetTeam(match.team2.name)} className="flex flex-col py-3 h-auto">
                               <span className="font-semibold">{match.team2.name}</span>
-                              <span className="text-xs opacity-75">{match.odds2}x odds</span>
+                              <span className="text-xs opacity-75">{match.odds?.team2 || 1.5}x odds</span>
                             </Button>
                         </div>
                         <div className="flex items-center gap-2">
@@ -466,7 +466,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
                         </div>
                         {selectedBetTeam && betAmount && Number(betAmount) > 0 && (
                           <div className="text-center text-sm text-muted-foreground">
-                            Potential winnings: <span className="font-semibold text-primary">{Math.floor(Number(betAmount) * (selectedBetTeam === match.team1.name ? match.odds1 : match.odds2)).toLocaleString()} coins</span>
+                            Potential winnings: <span className="font-semibold text-primary">{Math.floor(Number(betAmount) * (selectedBetTeam === match.team1.name ? (match.odds?.team1 || 1.5) : (match.odds?.team2 || 1.5))).toLocaleString()} coins</span>
                           </div>
                         )}
                         <Button 

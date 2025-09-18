@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const packageData = GEM_PACKAGES[packageId];
+    const packageData = GEM_PACKAGES[packageId as keyof typeof GEM_PACKAGES];
     if (!packageData) {
       return NextResponse.json({ error: 'Invalid package' }, { status: 400 });
     }

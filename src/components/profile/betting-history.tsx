@@ -11,8 +11,15 @@ const bettingHistoryData = [
     betAmount: 100,
     odds: 1.85,
     potentialWin: 185,
-    status: 'won' as const,
-    timestamp: '2024-01-15T10:30:00Z'
+    status: 'won' as 'won' | 'lost' | 'pending',
+    timestamp: '2024-01-15T10:30:00Z',
+    match: {
+      team1: { name: 'FaZe', logo: '/assets/placeholder.svg', dataAiHint: 'FaZe clan logo' },
+      team2: { name: 'NAVI', logo: '/assets/placeholder.svg', dataAiHint: 'NAVI team logo' }
+    },
+    team: { name: 'FaZe', logo: '/assets/placeholder.svg', dataAiHint: 'FaZe clan logo' },
+    amount: 100,
+    potentialWinnings: 185
   }
 ];
 import Image from "next/image";
@@ -57,14 +64,14 @@ export function BettingHistory() {
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-right font-mono">{bet.amount.toLocaleString()}</TableCell>
-                                <TableCell className={cn("text-right font-mono", bet.status === 'Won' ? 'text-green-400' : 'text-primary')}>
-                                    {bet.status === 'Lost' ? '-' : bet.potentialWinnings.toLocaleString()}
+                                <TableCell className={cn("text-right font-mono", bet.status === 'won' ? 'text-green-400' : 'text-primary')}>
+                                    {bet.status === 'lost' ? '-' : bet.potentialWinnings.toLocaleString()}
                                 </TableCell>
                                 <TableCell className="text-right">
                                     <Badge variant={
-                                        bet.status === 'Active' ? 'secondary' :
-                                        bet.status === 'Won' ? 'default' : 'destructive'
-                                    } className={cn(bet.status === 'Won' && 'bg-green-600')}>{bet.status}</Badge>
+                                        bet.status === 'pending' ? 'secondary' :
+                                        bet.status === 'won' ? 'default' : 'destructive'
+                                    } className={cn(bet.status === 'won' && 'bg-green-600')}>{bet.status}</Badge>
                                 </TableCell>
                             </TableRow>
                         ))}

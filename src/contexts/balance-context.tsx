@@ -34,7 +34,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      console.log('🔄 Fetching balance for user:', user.id || user.uid);
+      console.log('🔄 Fetching balance for user:', user.id);
       const response = await fetch(`/api/user/stats?t=${Date.now()}`, {
         credentials: 'include',
         headers: {

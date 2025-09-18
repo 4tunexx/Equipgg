@@ -7,7 +7,8 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
 import { createSupabaseQueries } from '@/lib/supabase/queries';
-import type { DBShopItem, Rarity } from '@/lib/supabase/queries';
+import type { Rarity } from '@/lib/supabase/queries';
+import { ShopItem } from '@/types/shop';
 import { cn } from '@/lib/utils';
 
 // Define utility constants locally
@@ -27,15 +28,6 @@ const rarityGlow: Record<Rarity, string> = {
   'Legendary': 'shadow-yellow-500/50'
 };
 
-type ShopItem = DBShopItem & {
-  item: {
-    id: string;
-    name: string;
-    type: string;
-    rarity: Rarity;
-    image: string | null;
-  };
-};
 import { useToast } from '@/hooks/use-toast';
 import { useState } from 'react';
 import { useAuth } from '@/components/auth-provider';
@@ -158,7 +150,9 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
               className="object-contain transition-transform group-hover:scale-110"
             />
           ) : (
-            item.icon && <item.icon className="w-16 h-16 text-primary transition-transform group-hover:scale-110" />
+            <div className="w-16 h-16 text-primary transition-transform group-hover:scale-110 flex items-center justify-center">
+              <ShoppingCart className="w-8 h-8" />
+            </div>
           )}
         </div>
         <h3 className="font-semibold text-lg flex-grow">{item.name}</h3>

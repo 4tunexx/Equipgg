@@ -11,6 +11,8 @@ import { fallbackImages } from '@/lib/constants';
 
 interface CrateWithItems extends DBCrate {
   items: Array<DBItem & { dropChance: number }>;
+  dataAiHint?: string;
+  rarityChances?: string;
 }
 
 interface CrateItemProps {
@@ -25,7 +27,7 @@ export function CrateItem({ crate, onOpen, disabled = false }: CrateItemProps) {
       <CardContent className="p-4 flex-grow flex flex-col items-center text-center">
         <div className="relative w-32 h-32 mb-4">
           <Image
-            src={crate.image}
+            src={crate.image || '/assets/placeholder.svg'}
             alt={crate.name}
             width={128}
             height={128}

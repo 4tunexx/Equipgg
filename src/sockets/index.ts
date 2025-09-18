@@ -5,7 +5,7 @@ import { setupGamesSocket } from './games';
 import { setupBettingSocket } from './betting';
 import { setupXpSocket } from './xp';
 import { setupAchievementsSocket } from './achievements';
-import { setupInventorySocket } from './inventory';
+import setupInventorySocket from './inventory';
 import { setupLeaderboardsSocket } from './leaderboards';
 import { setupChatSocket } from './chat';
 import { setupAdminSocket } from './admin';
@@ -31,7 +31,6 @@ export function setupSocketHandlers(io: Server) {
     const bettingHandler = setupBettingSocket(io);
     const xpHandler = setupXpSocket(io);
     const achievementsHandler = setupAchievementsSocket(io);
-    const inventoryHandler = setupInventorySocket(io);
     const leaderboardsHandler = setupLeaderboardsSocket(io);
     const chatHandler = setupChatSocket(io);
     const adminHandler = setupAdminSocket(io);
@@ -41,7 +40,7 @@ export function setupSocketHandlers(io: Server) {
     bettingHandler(authenticatedSocket);
     xpHandler(authenticatedSocket);
     achievementsHandler(authenticatedSocket);
-    inventoryHandler(authenticatedSocket);
+    setupInventorySocket(io, authenticatedSocket);
     leaderboardsHandler(authenticatedSocket);
     chatHandler(authenticatedSocket);
     adminHandler(authenticatedSocket);
