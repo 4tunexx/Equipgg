@@ -537,6 +537,85 @@ export class SupabaseQueries {
     if (error) throw error;
     return data;
   }
+
+  // Crate opening method
+  async openCrate(userId: string, crateId: string) {
+    // Get crate info and check if user can afford it
+    const { data: crate, error: crateError } = await this.supabase
+      .from('crates')
+      .select('*')
+      .eq('id', crateId)
+      .single();
+
+    if (crateError) throw crateError;
+
+    // Get user's current coins
+    const { data: user, error: userError } = await this.supabase
+      .from('users')
+      .select('coins')
+      .eq('id', userId)
+      .single();
+
+    if (userError) throw userError;
+
+    if (user.coins < crate.price) {
+      throw new Error('Insufficient coins');
+    }
+
+    // Get crate items with drop chances
+    const { data: crateItems, error: itemsError } = await this.supabase
+      .from('crate_items')
+      .select('*, item:items(*)')
+      .eq('crate_id', crateId);
+
+    if (itemsError) throw itemsError;
+
+    // Select random item based on drop chances
+    const totalChance = crateItems.reduce((sum, ci) => sum + ci.drop_chance, 0);
+    const random = Math.random() * totalChance;
+    let runningSum = 0;
+    let selectedItem = null;
+
+    for (const crateItem of crateItems) {
+      runningSum += crateItem.drop_chance;
+      if (random <= runningSum) {
+        selectedItem = crateItem;
+        break;
+      }
+    }
+
+    if (!selectedItem) {
+      selectedItem = crateItems[0]; // Fallback to first item
+    }
+
+    // Add item to user's inventory
+    const { data: inventoryItem, error: invError } = await this.supabase
+      .from('inventory_items')
+      .insert([{
+        user_id: userId,
+        item_id: selectedItem.item.id
+      }])
+      .select('*, item:items(*)')
+      .single();
+
+    if (invError) throw invError;
+
+    // Deduct coins from user
+    const { error: updateError } = await this.supabase
+      .from('users')
+      .update({ coins: user.coins - crate.price })
+      .eq('id', userId);
+
+    if (updateError) throw updateError;
+
+    // Log activity
+    await this.addActivity(userId, 'crate_open', selectedItem.item.id);
+
+    return {
+      item: inventoryItem,
+      remainingCoins: user.coins - crate.price
+    };
+  }
 }
 
 export const createSupabaseQueries = (supabase: SupabaseClient) => {
