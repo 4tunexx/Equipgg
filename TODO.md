@@ -1,5 +1,21 @@
 # Project TODOs
 
+## Deployment & Build Process
+- [x] Fix UI component path resolution in Vercel deployment
+  - [x] Create ensure-components.js script to verify and create UI components
+  - [x] Fix reference error in ensure-components.js (colors variable)
+  - [x] Make ensure-components.js verify multiple component types
+- [x] Create self-contained auth pages
+  - [x] Implement fix-auth-pages.js script with inline components
+  - [x] Generate simplified sign-in and sign-up pages
+- [x] Improve build process
+  - [x] Create vercel-build.js custom build script
+  - [x] Update package.json scripts
+  - [x] Configure vercel.json to use custom build
+- [ ] Test deployment on Vercel
+  - [ ] Verify components are generated correctly
+  - [ ] Verify auth pages work properly
+
 ## UI Components
 - [x] Fix UI component path resolution in Vercel deployment
 - [ ] Implement responsive design for mobile users
@@ -7,6 +23,7 @@
 
 ## Authentication
 - [x] Fix auth-provider import issue
+- [x] Create simplified auth provider for builds
 - [ ] Improve error handling in sign-in process
 - [ ] Implement password reset functionality
 - [ ] Add email verification flow

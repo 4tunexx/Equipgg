@@ -9,6 +9,21 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Colors for console output
+const colors = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  cyan: '\x1b[36m'
+};
+
+function log(message, color = colors.reset) {
+  console.log(`${color}${message}${colors.reset}`);
+}
+
 // Define paths
 const ROOT_DIR = path.resolve(__dirname, '..');
 const SRC_DIR = path.join(ROOT_DIR, 'src');
@@ -28,45 +43,6 @@ if (IS_VERCEL) {
   const dirContents = fs.readdirSync(process.cwd());
   log('Contents:', colors.reset);
   dirContents.forEach(item => log(` - ${item}`));
-}
-
-// Colors for console output
-const colors = {
-  reset: '\x1b[0m',
-  bright: '\x1b[1m',
-  red: '\x1b[31m',
-  green: '\x1b[32m',
-  yellow: '\x1b[33m',
-  blue: '\x1b[34m',
-  cyan: '\x1b[36m'
-};
-
-function log(message, color = colors.reset) {
-  console.log(`${color}${message}${colors.reset}`);
-}
-
-// Check if directories exist and create if necessary
-function checkDirectory(dir) {
-  if (!fs.existsSync(dir)) {
-    log(`Directory does not exist: ${dir}`, colors.red);
-    log(`Creating directory: ${dir}`, colors.yellow);
-    try {
-      fs.mkdirSync(dir, { recursive: true });
-      // Verify the directory was created
-      if (fs.existsSync(dir)) {
-        log(`✅ Directory created successfully: ${dir}`, colors.green);
-        return true;
-      } else {
-        log(`❌ Failed to create directory: ${dir}`, colors.red);
-        return false;
-      }
-    } catch (error) {
-      log(`❌ Error creating directory ${dir}: ${error.message}`, colors.red);
-      return false;
-    }
-  }
-  log(`✅ Directory exists: ${dir}`, colors.green);
-  return true;
 }
 
 // Template component content
@@ -288,39 +264,28 @@ export function cn(...inputs: ClassValue[]) {
   }
 };
 
-// Check specific UI components that are being imported
-function checkComponents() {
-  const requiredComponents = [
-    'button.tsx',
-    'input.tsx',
-    'label.tsx',
-    'card.tsx'
-  ];
-  
-  let allComponentsExist = true;
-  
-  // Ensure utils.ts exists for component dependencies
-  ensureUtilsFile();
-  
-  for (const component of requiredComponents) {
-    const componentPath = path.join(UI_DIR, component);
-    if (!fs.existsSync(componentPath)) {
-      log(`Missing UI component: ${component}`, colors.red);
-      log(`Creating ${component}...`, colors.yellow);
-      
-      if (componentTemplates[component]) {
-        fs.writeFileSync(componentPath, componentTemplates[component]);
-        log(`Created ${component}`, colors.green);
+// Check if directories exist and create if necessary
+function checkDirectory(dir) {
+  if (!fs.existsSync(dir)) {
+    log(`Directory does not exist: ${dir}`, colors.red);
+    log(`Creating directory: ${dir}`, colors.yellow);
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      // Verify the directory was created
+      if (fs.existsSync(dir)) {
+        log(`✅ Directory created successfully: ${dir}`, colors.green);
+        return true;
       } else {
-        log(`No template available for ${component}`, colors.red);
-        allComponentsExist = false;
+        log(`❌ Failed to create directory: ${dir}`, colors.red);
+        return false;
       }
-    } else {
-      log(`Found UI component: ${component}`, colors.green);
+    } catch (error) {
+      log(`❌ Error creating directory ${dir}: ${error.message}`, colors.red);
+      return false;
     }
   }
-  
-  return allComponentsExist;
+  log(`✅ Directory exists: ${dir}`, colors.green);
+  return true;
 }
 
 // Auth provider template
@@ -429,40 +394,39 @@ function checkAuthProvider() {
   return true;
 }
 
-// Run diagnostics on path resolution
-function checkPathResolution() {
-  log('\nChecking path resolution and Next.js configuration...', colors.bright);
+// Check specific UI components that are being imported
+function checkComponents() {
+  const requiredComponents = [
+    'button.tsx',
+    'input.tsx',
+    'label.tsx',
+    'card.tsx'
+  ];
   
-  try {
-    // Check tsconfig
-    if (fs.existsSync(path.join(ROOT_DIR, 'tsconfig.json'))) {
-      log('Found tsconfig.json', colors.green);
-      const tsconfig = require(path.join(ROOT_DIR, 'tsconfig.json'));
-      if (tsconfig?.compilerOptions?.paths?.['@/*']) {
-        log('Path alias @/* is correctly configured in tsconfig.json', colors.green);
+  let allComponentsExist = true;
+  
+  // Ensure utils.ts exists for component dependencies
+  ensureUtilsFile();
+  
+  for (const component of requiredComponents) {
+    const componentPath = path.join(UI_DIR, component);
+    if (!fs.existsSync(componentPath)) {
+      log(`Missing UI component: ${component}`, colors.red);
+      log(`Creating ${component}...`, colors.yellow);
+      
+      if (componentTemplates[component]) {
+        fs.writeFileSync(componentPath, componentTemplates[component]);
+        log(`Created ${component}`, colors.green);
       } else {
-        log('Path alias @/* may not be correctly configured in tsconfig.json', colors.yellow);
+        log(`No template available for ${component}`, colors.red);
+        allComponentsExist = false;
       }
+    } else {
+      log(`Found UI component: ${component}`, colors.green);
     }
-    
-    // Check components.json
-    if (fs.existsSync(path.join(ROOT_DIR, 'components.json'))) {
-      log('Found components.json', colors.green);
-    }
-    
-    // Check next.config.js
-    if (fs.existsSync(path.join(ROOT_DIR, 'next.config.js'))) {
-      log('Found next.config.js', colors.green);
-    }
-    
-    // Check for .env files
-    if (fs.existsSync(path.join(ROOT_DIR, '.env'))) {
-      log('Found .env file', colors.green);
-    }
-    
-  } catch (error) {
-    log(`Error checking path resolution: ${error.message}`, colors.red);
   }
+  
+  return allComponentsExist;
 }
 
 // Determine if we're running on Vercel
@@ -514,6 +478,42 @@ function writeComponentFile(filePath, content) {
   }
 }
 
+// Run diagnostics on path resolution
+function checkPathResolution() {
+  log('\nChecking path resolution and Next.js configuration...', colors.bright);
+  
+  try {
+    // Check tsconfig
+    if (fs.existsSync(path.join(ROOT_DIR, 'tsconfig.json'))) {
+      log('Found tsconfig.json', colors.green);
+      const tsconfig = require(path.join(ROOT_DIR, 'tsconfig.json'));
+      if (tsconfig?.compilerOptions?.paths?.['@/*']) {
+        log('Path alias @/* is correctly configured in tsconfig.json', colors.green);
+      } else {
+        log('Path alias @/* may not be correctly configured in tsconfig.json', colors.yellow);
+      }
+    }
+    
+    // Check components.json
+    if (fs.existsSync(path.join(ROOT_DIR, 'components.json'))) {
+      log('Found components.json', colors.green);
+    }
+    
+    // Check next.config.js
+    if (fs.existsSync(path.join(ROOT_DIR, 'next.config.js'))) {
+      log('Found next.config.js', colors.green);
+    }
+    
+    // Check for .env files
+    if (fs.existsSync(path.join(ROOT_DIR, '.env'))) {
+      log('Found .env file', colors.green);
+    }
+    
+  } catch (error) {
+    log(`Error checking path resolution: ${error.message}`, colors.red);
+  }
+}
+
 // Main function
 function main() {
   log('\n===== UI Component Verification =====', colors.bright);
@@ -548,21 +548,19 @@ function main() {
   if (isVercel) {
     log('\n🔍 Vercel-specific checks:', colors.bright);
     
-    // Check if we can resolve the file paths using require.resolve
     try {
-      const resolved = require.resolve('@/components/ui/button');
-      log(`✅ Successfully resolved @/components/ui/button: ${resolved}`, colors.green);
-    } catch (error) {
-      log(`❌ Failed to resolve @/components/ui/button: ${error.message}`, colors.red);
-    }
-    
-    // Output file permissions
-    try {
+      log(`Button component path: ${path.join(UI_DIR, 'button.tsx')}`, colors.reset);
+      
+      // Output file permissions if file exists
       const buttonPath = path.join(UI_DIR, 'button.tsx');
-      const stats = fs.statSync(buttonPath);
-      log(`Button component permissions: ${stats.mode.toString(8)}`, colors.reset);
+      if (fs.existsSync(buttonPath)) {
+        const stats = fs.statSync(buttonPath);
+        log(`Button component permissions: ${stats.mode.toString(8)}`, colors.reset);
+      } else {
+        log(`Button component does not exist at ${buttonPath}`, colors.red);
+      }
     } catch (error) {
-      log(`Error checking permissions: ${error.message}`, colors.red);
+      log(`Error in Vercel-specific checks: ${error.message}`, colors.red);
     }
   }
   

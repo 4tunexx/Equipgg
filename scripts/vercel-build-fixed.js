@@ -76,11 +76,21 @@ const LIB_DIR = path.join(process.cwd(), 'src', 'lib');
 
 // Run our component verification script
 logStep('3', 'Running component verification');
-executeCommand('node scripts/ensure-components.js');
+try {
+  executeCommand('node scripts/ensure-components.js');
+  logSuccess('Component verification completed successfully');
+} catch (error) {
+  logWarning('Component verification had issues, but continuing build');
+}
 
 // Fix auth pages directly
 logStep('4', 'Fixing auth pages with inline components');
-executeCommand('node scripts/fix-auth-pages.js');
+try {
+  executeCommand('node scripts/fix-auth-pages.js');
+  logSuccess('Auth pages fixed successfully');
+} catch (error) {
+  logWarning('Auth page fixes had issues, but continuing build');
+}
 
 // Build the application
 logStep('5', 'Building the application');
