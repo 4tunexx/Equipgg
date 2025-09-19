@@ -171,15 +171,34 @@ export default function SignUpPage() {
     setIsLoading(true);
     
     try {
-      // This is a placeholder for the actual authentication logic
-      console.log('Sign up attempt with:', { email, username });
-      // In a real implementation, you would call your auth service here
-      setTimeout(() => {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          displayName: username 
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (response.ok && data.ok) {
+        // Successful registration
+        console.log('Registration successful:', data);
+        alert('Registration successful! Please check your email to verify your account.');
+        // Redirect to sign-in
+        window.location.href = '/sign-in';
+      } else {
+        // Registration failed
+        alert(data.error || 'Registration failed');
         setIsLoading(false);
-        // Redirect or show success message
-      }, 1000);
+      }
     } catch (error) {
       console.error('Sign up error:', error);
+      alert('Network error. Please try again.');
       setIsLoading(false);
     }
   };
