@@ -179,23 +179,34 @@ export default function SignInPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+        credentials: 'include', // Important for cookies
       });
+
+      console.log('Response status:', response.status);
 
       if (response.ok) {
         const data = await response.json();
         console.log('Sign in successful:', data);
         
-        // Redirect to dashboard
-        window.location.href = '/dashboard';
+        // Store user data in localStorage for immediate access
+        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('session', JSON.stringify(data.session));
+        
+        // Small delay to ensure data is stored
+        setTimeout(() => {
+          console.log('Redirecting to dashboard...');
+          window.location.href = '/dashboard';
+        }, 100);
+        
       } else {
         const errorData = await response.json();
         console.error('Sign in failed:', errorData);
         alert('Sign in failed: ' + (errorData.message || 'Unknown error'));
+        setIsLoading(false);
       }
     } catch (error) {
       console.error('Sign in error:', error);
       alert('Sign in failed: Network error');
-    } finally {
       setIsLoading(false);
     }
   };
