@@ -125,7 +125,7 @@ export function HeroSection() {
             The ultimate CS2 virtual betting and gaming platform. Bet, craft, and conquer the leaderboards.
           </p>
           <div 
-            className={`flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-3 sm:space-y-0 sm:space-x-4 transition-all duration-1000 ease-out transform ${
+            className={`flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 transition-all duration-1000 ease-out transform ${
               isVisible 
                 ? 'translate-y-0 opacity-100' 
                 : 'translate-y-full opacity-0'
