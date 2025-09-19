@@ -72,10 +72,10 @@ export function HeroSection() {
         data-ai-hint="CS2 abstract background"
         priority
       />
-      <div className="relative z-10 p-4 flex items-center w-full max-w-6xl mx-auto">
-        <div className='flex-1 text-left'>
+      <div className="relative z-10 p-4 flex flex-col lg:flex-row items-center w-full max-w-6xl mx-auto gap-8">
+        <div className='flex-1 text-center lg:text-left order-2 lg:order-1'>
           <h1 
-            className={`text-4xl sm:text-6xl md:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
+            className={`text-2xl sm:text-4xl lg:text-6xl xl:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
               isVisible 
                 ? 'translate-x-0 opacity-100' 
                 : '-translate-x-full opacity-0'
@@ -85,7 +85,7 @@ export function HeroSection() {
             Level Up Your Game
           </h1>
           <p 
-            className={`max-w-lg text-lg md:text-xl text-foreground/80 mb-8 transition-all duration-1000 ease-out transform ${
+            className={`max-w-lg mx-auto lg:mx-0 text-sm sm:text-lg lg:text-xl text-foreground/80 mb-6 lg:mb-8 transition-all duration-1000 ease-out transform ${
               isVisible 
                 ? 'translate-x-0 opacity-100' 
                 : '-translate-x-full opacity-0'
@@ -95,7 +95,7 @@ export function HeroSection() {
             The ultimate CS2 virtual betting and gaming platform. Bet, craft, and conquer the leaderboards.
           </p>
           <div 
-            className={`flex items-center space-x-4 transition-all duration-1000 ease-out transform ${
+            className={`flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-3 sm:space-y-0 sm:space-x-4 transition-all duration-1000 ease-out transform ${
               isVisible 
                 ? 'translate-y-0 opacity-100' 
                 : 'translate-y-full opacity-0'
@@ -105,7 +105,7 @@ export function HeroSection() {
             <AuthModal defaultTab="register">
               <Button
                 size="lg"
-                className="w-40 justify-center bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
+                className="w-full sm:w-40 justify-center bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
               >
                 <UserPlus className="mr-2" />
                 REGISTER
@@ -115,7 +115,7 @@ export function HeroSection() {
               <Button 
                 size="lg" 
                 variant="secondary" 
-                className="w-40 justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/10"
+                className="w-full sm:w-40 justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/10"
               >
                 <LogIn className="mr-2" />
                 LOGIN
@@ -123,9 +123,9 @@ export function HeroSection() {
             </AuthModal>
           </div>
         </div>
-        <div className="flex-1 flex justify-center items-center relative">
+        <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0">
           {/* Layered Logo Animation */}
-          <div className="relative w-full max-w-2xl h-96 flex items-center justify-center group cursor-pointer hover:scale-105 transition-transform duration-300">
+          <div className="relative w-full max-w-xs sm:max-w-md lg:max-w-2xl h-48 sm:h-64 lg:h-96 flex items-center justify-center group cursor-pointer hover:scale-105 transition-transform duration-300">
             {/* Main Logo (1.png) - Drops from top - Background layer */}
             <Image
               src="/1.png"
