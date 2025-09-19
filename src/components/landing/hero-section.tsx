@@ -104,86 +104,89 @@ export function HeroSection() {
         </div>
 
         {/* Main content with proper flex layout */}
-        <div className="flex flex-col lg:flex-row items-center gap-8">
-        <div className='flex-1 text-center lg:text-left order-2 lg:order-1'>
-          <h1 
-            className={`text-2xl sm:text-4xl lg:text-6xl xl:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
-              isVisible 
-                ? 'translate-x-0 opacity-100' 
-                : '-translate-x-full opacity-0'
-            }`}
-            style={{ transitionDelay: '0.2s' }}
-          >
-            Level Up Your Game
-          </h1>
-          <p 
-            className={`max-w-lg mx-auto lg:mx-0 text-sm sm:text-lg lg:text-xl text-foreground/80 mb-6 lg:mb-8 transition-all duration-1000 ease-out transform ${
-              isVisible 
-                ? 'translate-x-0 opacity-100' 
-                : '-translate-x-full opacity-0'
-            }`}
-            style={{ transitionDelay: '0.4s' }}
-          >
-            The ultimate CS2 virtual betting and gaming platform. Bet, craft, and conquer the leaderboards.
-          </p>
-          <div 
-            className={`flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 transition-all duration-1000 ease-out transform ${
-              isVisible 
-                ? 'translate-y-0 opacity-100' 
-                : 'translate-y-full opacity-0'
-            }`}
-            style={{ transitionDelay: '0.6s' }}
-          >
-            <AuthModal defaultTab="register">
-              <Button
-                size="lg"
-                className="w-full sm:w-40 justify-center bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
-              >
-                <UserPlus className="mr-2" />
-                REGISTER
-              </Button>
-            </AuthModal>
-            <AuthModal defaultTab="login">
-              <Button 
-                size="lg" 
-                variant="secondary" 
-                className="w-full sm:w-40 justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/10"
-              >
-                <LogIn className="mr-2" />
-                LOGIN
-              </Button>
-            </AuthModal>
-          </div>
-        </div>
-        <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0">
-          {/* Layered Logo Animation - Desktop Only */}
-          <div className="hidden lg:flex relative h-96 w-full max-w-lg">
-            {/* First logo - drops from top */}
-            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
-              <Image 
-                src="/1.png" 
-                alt="Equip.gg Logo" 
-                width={500}
-                height={400}
-                className="max-h-80 w-auto object-contain"
-                key={`logo1-desktop-${logoKey}`}
-                priority
-              />
-            </div>
-            {/* Second logo - slides from under */}
-            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnderDesktop_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
-              <Image 
-                src="/2.png" 
-                alt="Equip.gg Logo Layer" 
-                width={500}
-                height={400}
-                className="max-h-64 w-auto object-contain"
-                key={`logo2-desktop-${logoKey}`}
-                priority
-              />
+        <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-full">
+          {/* Text content */}
+          <div className='flex-1 text-center lg:text-left order-2 lg:order-1 min-w-0'>
+            <h1 
+              className={`text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
+                isVisible 
+                  ? 'translate-x-0 opacity-100' 
+                  : '-translate-x-full opacity-0'
+              }`}
+              style={{ transitionDelay: '0.2s' }}
+            >
+              Level Up Your Game
+            </h1>
+            <p 
+              className={`max-w-lg mx-auto lg:mx-0 text-sm sm:text-lg lg:text-xl text-foreground/80 mb-6 lg:mb-8 transition-all duration-1000 ease-out transform ${
+                isVisible 
+                  ? 'translate-x-0 opacity-100' 
+                  : '-translate-x-full opacity-0'
+              }`}
+              style={{ transitionDelay: '0.4s' }}
+            >
+              The ultimate CS2 virtual betting and gaming platform. Bet, craft, and conquer the leaderboards.
+            </p>
+            <div 
+              className={`flex flex-col sm:flex-row items-center justify-center lg:justify-start space-y-4 sm:space-y-0 sm:space-x-4 transition-all duration-1000 ease-out transform ${
+                isVisible 
+                  ? 'translate-y-0 opacity-100' 
+                  : 'translate-y-full opacity-0'
+              }`}
+              style={{ transitionDelay: '0.6s' }}
+            >
+              <AuthModal defaultTab="register">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-40 justify-center bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
+                >
+                  <UserPlus className="mr-2" />
+                  REGISTER
+                </Button>
+              </AuthModal>
+              <AuthModal defaultTab="login">
+                <Button 
+                  size="lg" 
+                  variant="secondary" 
+                  className="w-full sm:w-40 justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/10"
+                >
+                  <LogIn className="mr-2" />
+                  LOGIN
+                </Button>
+              </AuthModal>
             </div>
           </div>
-        </div>
+          
+          {/* Logo container */}
+          <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0 w-full max-w-lg lg:max-w-none">
+            {/* Layered Logo Animation - Desktop Only */}
+            <div className="hidden lg:flex relative h-96 w-full max-w-lg mx-auto">
+              {/* First logo - drops from top */}
+              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
+                <Image 
+                  src="/1.png" 
+                  alt="Equip.gg Logo" 
+                  width={500}
+                  height={400}
+                  className="max-h-80 w-auto object-contain"
+                  key={`logo1-desktop-${logoKey}`}
+                  priority
+                />
+              </div>
+              {/* Second logo - slides from under */}
+              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnderDesktop_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+                <Image 
+                  src="/2.png" 
+                  alt="Equip.gg Logo Layer" 
+                  width={500}
+                  height={400}
+                  className="max-h-64 w-auto object-contain"
+                  key={`logo2-desktop-${logoKey}`}
+                  priority
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'cookie';
-import { repairCorruptedSession } from "../../../../lib/auth-utils";
+import { getAuthSession } from "../../../../lib/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     console.log('Attempting to repair session:', sessionToken.substring(0, 8) + '...');
     
-    const repairedSession = await repairCorruptedSession(sessionToken);
+    const repairedSession = await getAuthSession(request);
     
     if (repairedSession) {
       console.log('Session repaired successfully for user:', repairedSession.email);

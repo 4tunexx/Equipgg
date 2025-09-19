@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from "../../../lib/auth-utils";
-import { secureDb } from "../../../lib/secure-db";
+import { createServerSupabaseClient } from "../../../lib/supabase";
 
 interface User {
   id: string;
   email: string;
-  displayName: string;
-  avatarUrl: string | null;
+  display_name: string;
+  avatar_url: string | null;
   xp: number;
   level: number;
   role: string;
   coins: number;
-  gems: number;
+  gems?: number;
 }
 
 export async function GET(req: NextRequest) {
@@ -22,20 +22,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ user: null });
     }
     
-    const user = await secureDb.findOne<User>('users', { id: session.user_id });
+    const supabase = createServerSupabaseClient();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('id, email, display_name, avatar_url, xp, level, role, coins')
+      .eq('id', session.user_id)
+      .single();
+    
+    if (error) {
+      console.error('Error fetching user:', error);
+      return NextResponse.json({ user: null });
+    }
+    
     if (user) {
       // Map to expected frontend fields
       return NextResponse.json({
         user: {
           id: user.id,
           email: user.email,
-          displayName: user.displayName,
-          avatarUrl: user.avatarUrl || null,
-          xp: user.xp,
-          level: user.level,
-          role: user.role,
-          coins: user.coins,
-          gems: user.gems,
+          displayName: user.display_name,
+          avatarUrl: user.avatar_url,
+          xp: user.xp || 0,
+          level: user.level || 1,
+          role: user.role || 'user',
+          coins: user.coins || 0,
+          gems: 0, // TODO: Add gems field to database if needed
         }
       });
     }

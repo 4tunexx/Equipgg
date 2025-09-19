@@ -1,10 +1,9 @@
-// Removed: import { getDb, getOne, getAll, run } from './db';
-import { sanitizeSqlIdentifier, validateSqlQuery } from './security';
-import { supabase } from './supabase';
+import { createServerSupabaseClient } from './supabase';
 
 // Secure database wrapper with input validation
 export class SecureDatabase {
   private static instance: SecureDatabase;
+  private supabase = createServerSupabaseClient();
 
   static getInstance(): SecureDatabase {
     if (!SecureDatabase.instance) {
@@ -97,7 +96,7 @@ export class SecureDatabase {
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
     
-    const { data, error } = await supabase
+    const { data, error } = await this.supabase
       .from(table)
       .select('*')
       .match(sanitizedWhere)
@@ -120,7 +119,7 @@ export class SecureDatabase {
       throw new Error(`Invalid table name: ${table}`);
     }
 
-    let query = supabase.from(table).select('*');
+    let query = this.supabase.from(table).select('*');
 
     if (where && Object.keys(where).length > 0) {
       const sanitizedWhere = this.sanitizeWhereClause(where);
@@ -168,7 +167,7 @@ export class SecureDatabase {
       }
     }
 
-    const { data: result, error } = await supabase
+    const { data: result, error } = await this.supabase
       .from(table)
       .insert(sanitizedData)
       .select()
@@ -204,7 +203,7 @@ export class SecureDatabase {
       }
     }
 
-    const { data: result, error } = await supabase
+    const { data: result, error } = await this.supabase
       .from(table)
       .update(sanitizedData)
       .match(sanitizedWhere)
@@ -226,7 +225,7 @@ export class SecureDatabase {
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
     
-    const { error } = await supabase
+    const { error } = await this.supabase
       .from(table)
       .delete()
       .match(sanitizedWhere);
@@ -249,7 +248,7 @@ export class SecureDatabase {
       throw new Error('Invalid function name for RPC.');
     }
 
-    const { data, error } = await supabase.rpc(functionName, params);
+    const { data, error } = await this.supabase.rpc(functionName, params);
     if (error) {
       console.error(`Error in executeSecureQuery for function ${functionName}:`, error);
       return [];

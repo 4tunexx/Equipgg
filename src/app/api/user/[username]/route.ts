@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from "../../../../lib/secure-db";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 export async function GET(
   request: NextRequest,
@@ -12,10 +12,26 @@ export async function GET(
       return NextResponse.json({ error: 'Username is required' }, { status: 400 });
     }
 
-    // Get user data by username (displayName) or email
-    let user = await secureDb.findOne('users', { display_name: username });
-    if (!user) {
-      user = await secureDb.findOne('users', { email: username });
+    const supabase = createServerSupabaseClient();
+
+    // Get user data by username (display_name) or email
+    let { data: user, error } = await supabase
+      .from('users')
+      .select('id, display_name, avatar_url, xp, level, role, coins, created_at')
+      .eq('display_name', username)
+      .single();
+    
+    if (error && !user) {
+      // Try by email
+      const { data: userByEmail, error: emailError } = await supabase
+        .from('users')
+        .select('id, display_name, avatar_url, xp, level, role, coins, created_at')
+        .eq('email', username)
+        .single();
+      
+      if (!emailError && userByEmail) {
+        user = userByEmail;
+      }
     }
 
     if (!user) {
@@ -33,8 +49,8 @@ export async function GET(
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,
-        avatar: user.avatarUrl || `https://picsum.photos/40/40?random=${user.id}`,
-        avatarUrl: user.avatarUrl,
+        avatar: user.avatar_url || `https://picsum.photos/40/40?random=${user.id}`,
+        avatarUrl: user.avatar_url,
         createdAt: user.created_at,
         dataAiHint: 'user avatar'
       }
