@@ -1,5 +1,14 @@
 import { NextResponse } from 'next/server';
-import { FeaturedItem } from '@/lib/mock-data';
+
+// Local type definition for FeaturedItem
+type FeaturedItem = {
+  id: number;
+  name: string;
+  image: string;
+  rarity: string;
+  type: string;
+  dataAiHint: string;
+};
 
 // Mock featured items data
 const featuredItems: FeaturedItem[] = [

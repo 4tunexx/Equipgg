@@ -1,16 +1,16 @@
 
 'use client';
 
-import { PrestigeActivityFeed } from '@/components/prestige-activity-feed';
-import { Footer } from '@/components/footer';
-import { FeaturedItemsCarousel } from '@/components/landing/featured-items-carousel';
-import { LeaderboardPreview } from '@/components/landing/leaderboard-preview';
-import { LiveStats } from '@/components/landing/live-stats';
-import { UpcomingMatches } from '@/components/landing/upcoming-matches';
-import { HeroSection } from '@/components/landing/hero-section';
-import { FeatureHighlights } from '@/components/landing/feature-highlights';
-import { FlashSaleBanner } from '@/components/flash-sale-banner';
-import { Particles } from '@/components/particles';
+import { PrestigeActivityFeed } from "../components/prestige-activity-feed";
+import { Footer } from "../components/footer";
+import { FeaturedItemsCarousel } from "../components/landing/featured-items-carousel";
+import { LeaderboardPreview } from "../components/landing/leaderboard-preview";
+import { LiveStats } from "../components/landing/live-stats";
+import { UpcomingMatches } from "../components/landing/upcoming-matches";
+import { HeroSection } from "../components/landing/hero-section";
+import { FeatureHighlights } from "../components/landing/feature-highlights";
+import { FlashSaleBanner } from "../components/flash-sale-banner";
+import { Particles } from "../components/particles";
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 

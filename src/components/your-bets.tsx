@@ -10,12 +10,31 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import type { Bet } from "@/lib/mock-data";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { useAuth } from '@/components/auth-provider';
+} from "./ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+// Define Bet type locally until moved to Supabase types
+type Bet = {
+  id: string;
+  matchTitle: string;
+  team: {
+    name: string;
+    logo: string;
+    dataAiHint: string;
+  };
+  amount: number;
+  odds: number;
+  potentialWin: number;
+  potentialWinnings: number;
+  status: 'pending' | 'won' | 'lost';
+  timestamp: string;
+  match: {
+    team1: { name: string; logo: string; dataAiHint: string; };
+    team2: { name: string; logo: string; dataAiHint: string; };
+  };
+};
+import { Badge } from "./ui/badge";
+import { cn } from "../lib/utils";
+import { useAuth } from "./auth-provider";
 import { Loader2 } from 'lucide-react';
 
 type YourBetsProps = {
@@ -132,9 +151,9 @@ export function YourBets({ refreshTrigger }: YourBetsProps) {
                 <TableCell className="text-right font-mono text-primary">{bet.potentialWinnings.toLocaleString()}</TableCell>
                 <TableCell className="text-right">
                   <Badge variant={
-                    bet.status === 'Active' ? 'secondary' :
-                    bet.status === 'Won' ? 'default' : 'destructive'
-                  } className={cn(bet.status === 'Won' && 'bg-green-600')}>{bet.status}</Badge>
+                    bet.status === 'pending' ? 'secondary' :
+                    bet.status === 'won' ? 'default' : 'destructive'
+                  } className={cn(bet.status === 'won' && 'bg-green-600')}>{bet.status}</Badge>
                 </TableCell>
               </TableRow>
             ))}

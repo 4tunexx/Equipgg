@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
+import { supabase } from "../../../lib/supabase";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
 
 const queries = createSupabaseQueries(supabase);
 

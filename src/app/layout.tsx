@@ -1,10 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { cn } from '@/lib/utils';
-import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/components/auth-provider';
-import { SocketProvider } from '@/contexts/socket-context';
-import { matchScheduler } from '@/lib/scheduler';
+import { cn } from "../lib/utils";
+import { Toaster } from "../components/ui/toaster";
+import { AuthProvider } from "../components/auth-provider";
+import { SocketProvider } from "../contexts/socket-context";
+import { matchScheduler } from "../lib/scheduler";
 
 export const metadata: Metadata = {
   title: 'EquipGG - CS2 Virtual Betting & Gaming',

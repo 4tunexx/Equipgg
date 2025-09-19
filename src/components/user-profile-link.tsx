@@ -1,12 +1,34 @@
 
 'use client';
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MiniProfileCard } from "@/components/mini-profile-card";
-import type { LeaderboardPlayer } from "@/lib/mock-data";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { MiniProfileCard } from "./mini-profile-card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
+import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
+
+// Local type definition for LeaderboardPlayer
+type LeaderboardPlayer = {
+    id?: string;
+    name?: string;
+    username?: string;
+    avatar?: string | null;
+    level?: number;
+    xp?: number;
+    isVip?: boolean;
+    role?: string;
+    dataAiHint?: string;
+    achievement?: { 
+        title: string; 
+        icon: React.ComponentType<React.SVGProps<SVGSVGElement>>; 
+    };
+    equippedItem?: { 
+        name: string; 
+        image: string; 
+        rarity: any; 
+        dataAiHint: string; 
+    };
+};
 
 interface UserProfileLinkProps {
     user: LeaderboardPlayer & { 
@@ -58,7 +80,18 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
                 </TooltipTrigger>
                 <TooltipPrimitive.Portal>
                     <TooltipContent side="bottom" align="start" className="p-0 bg-transparent border-none shadow-none z-50">
-                        <MiniProfileCard user={user} />
+                        <MiniProfileCard user={{
+                            ...user,
+                            name: user.name || user.username || 'Unknown User',
+                            dataAiHint: user.dataAiHint || user.name || user.username || 'User',
+                            role: user.role || 'player',
+                            avatar: user.avatar || undefined,
+                            xp: user.xp || 0,
+                            equippedItem: user.equippedItem ? {
+                                ...user.equippedItem,
+                                type: 'skins'
+                            } : undefined
+                        }} />
                     </TooltipContent>
                 </TooltipPrimitive.Portal>
             </Tooltip>

@@ -2,20 +2,49 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { CrateItem } from '@/components/crate-item';
-import { CrateOpeningAnimation } from '@/components/crate-opening-animation';
-import { inventoryData, InventoryItem, rarityColors, rarityGlow, availableCrates as allCrates, CrateData } from '@/lib/mock-data';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from "../../../components/ui/button";
+import { CrateItem } from "../../../components/crate-item";
+import { CrateOpeningAnimation } from "../../../components/crate-opening-animation";
+import { useAuth } from "../../../hooks/use-auth";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { supabase } from "../../../lib/supabase/client";
+import type { DBCrate, DBInventoryItem, DBItem, Rarity } from "../../../lib/supabase/queries";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ItemImage from "../../../components/ItemImage";
+import { cn } from "../../../lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { CheckCircle, Gift, Star, Trophy, Coins } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useAuth } from '@/hooks/use-auth';
+import { useToast } from "../../../hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
+
+// Define utility constants
+const rarityColors: Record<Rarity, string> = {
+  'Common': 'from-gray-500/20 to-gray-600/20 border-gray-500/30',
+  'Uncommon': 'from-green-500/20 to-green-600/20 border-green-500/30',
+  'Rare': 'from-blue-500/20 to-blue-600/20 border-blue-500/30',
+  'Epic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
+  'Legendary': 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30'
+};
+
+const rarityGlow: Record<Rarity, string> = {
+  'Common': 'shadow-gray-500/50',
+  'Uncommon': 'shadow-green-500/50',
+  'Rare': 'shadow-blue-500/50',
+  'Epic': 'shadow-purple-500/50',
+  'Legendary': 'shadow-yellow-500/50'
+};
+
+// Type aliases for easier use
+type InventoryItem = DBInventoryItem & { item: DBItem };
+interface CrateWithItems extends DBCrate {
+  items: Array<DBItem & { dropChance: number }>;
+  xpReward?: number;
+  coinReward?: number;
+}
+
+type CrateData = CrateWithItems;
 
 
 const greatnessFeatures = [
@@ -70,15 +99,35 @@ export default function CratesPage() {
   const [userLevel, setUserLevel] = useState(1);
   const [showInventoryFullAlert, setShowInventoryFullAlert] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [allCrates, setAllCrates] = useState<CrateData[]>([]);
+  const [inventoryData, setInventoryData] = useState<InventoryItem[]>([]);
   const { toast } = useToast();
 
-  // Fetch user data and keys
+  // Fetch user data and crates from Supabase
   useEffect(() => {
     const fetchUserData = async () => {
       if (!user) return;
       
       try {
-        // Fetch user keys with cache busting
+        const queries = createSupabaseQueries(supabase);
+        
+        // Fetch crates from Supabase
+        const crates = await queries.getAllCrates();
+        // Transform DBCrate to CrateWithItems with mock data
+        const cratesWithItems = crates.map(crate => ({
+          ...crate,
+          items: [], // Add empty items array for now
+          xpReward: 50,
+          coinReward: 100
+        }));
+        setAllCrates(cratesWithItems);
+        
+        // Fetch user inventory from Supabase
+        const inventory = await queries.getUserInventory(user.id);
+        setInventoryData(inventory as InventoryItem[]);
+        setInventoryCount(inventory.length);
+        
+        // Fetch user keys with cache busting (keep existing API call for now)
         const keysResponse = await fetch(`/api/user/keys?t=${Date.now()}`);
         if (keysResponse.ok) {
           const keysData = await keysResponse.json();
@@ -86,12 +135,11 @@ export default function CratesPage() {
           console.log('🔑 Fetched keys:', keysData.keys);
         }
 
-        // Fetch user profile for level and inventory count
+        // Fetch user profile for level 
         const profileResponse = await fetch('/api/user/profile');
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
           setUserLevel(profileData.level || 1);
-          setInventoryCount(profileData.inventoryCount || 0);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);
@@ -242,7 +290,7 @@ export default function CratesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {allCrates.map((crate) => (
-            <CrateItem key={crate.id} crate={crate} onOpen={() => handleOpenCrate(crate)} disabled={isAnimating || (userKeys[crate.id] || 0) <= 0} keysOwned={userKeys[crate.id] || 0} />
+            <CrateItem key={crate.id} crate={crate} onOpen={() => handleOpenCrate(crate)} disabled={isAnimating || (userKeys[crate.id] || 0) <= 0} />
           ))}
         </div>
       )}
@@ -288,24 +336,36 @@ export default function CratesPage() {
                 </DialogHeader>
             </VisuallyHidden>
             <div className="h-[450px] flex flex-col justify-center items-center relative">
-                {wonItem && <CrateOpeningAnimation items={inventoryData} wonItem={wonItem} onAnimationEnd={handleAnimationEnd} />}
+                {wonItem && <CrateOpeningAnimation items={inventoryData.map(inv => ({
+                  id: inv.item.id,
+                  name: inv.item.name,
+                  type: inv.item.type,
+                  rarity: inv.item.rarity,
+                  image: inv.item.image || '/placeholder.png'
+                }))} wonItem={{
+                  id: wonItem.item.id,
+                  name: wonItem.item.name,
+                  type: wonItem.item.type,
+                  rarity: wonItem.item.rarity,
+                  image: wonItem.item.image || '/placeholder.png'
+                }} onAnimationEnd={handleAnimationEnd} />}
             </div>
             {isRevealed && wonItem && activeCrate && (
                  <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center animate-in fade-in-50 duration-500">
                     <DialogHeader>
                         <DialogTitle className="text-center text-3xl font-bold">You Won!</DialogTitle>
                     </DialogHeader>
-                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500", rarityGlow[wonItem.rarity])}>
+                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500", rarityGlow[wonItem.item.rarity as Rarity])}>
                         <ItemImage
-                          itemName={wonItem.name}
-                          itemType={wonItem.type as 'skins' | 'knives' | 'gloves' | 'agents'}
+                          itemName={wonItem.item.name}
+                          itemType={wonItem.item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
                           width={192}
                           height={192}
                           className="object-contain"
                         />
                     </div>
-                    <h3 className={cn("text-2xl font-semibold", rarityColors[wonItem.rarity])}>{wonItem.name}</h3>
-                    <p className="text-muted-foreground">{wonItem.rarity} {wonItem.type}</p>
+                    <h3 className={cn("text-2xl font-semibold", rarityColors[wonItem.item.rarity as Rarity])}>{wonItem.item.name}</h3>
+                    <p className="text-muted-foreground">{wonItem.item.rarity} {wonItem.item.type}</p>
 
                     <div className="mt-4 flex items-center gap-6">
                         <div className='flex items-center gap-2 text-sky-400 font-semibold'>

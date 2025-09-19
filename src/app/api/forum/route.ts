@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { secureDb } from "../../../lib/secure-db";
 
 interface ForumCategory {
   id: string;

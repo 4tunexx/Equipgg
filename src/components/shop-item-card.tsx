@@ -2,16 +2,35 @@
 'use client';
 
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import ItemImage from "./ItemImage";
+import { Card, CardContent, CardFooter } from "./ui/card";
+import { Button } from "./ui/button";
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
-import type { ShopItem } from '@/lib/mock-data';
-import { cn } from '@/lib/utils';
-import { rarityColors, rarityGlow } from '@/lib/mock-data';
-import { useToast } from '@/hooks/use-toast';
+import { createSupabaseQueries } from "../lib/supabase/queries";
+import type { Rarity } from "../lib/supabase/queries";
+import { ShopItem } from '../types/shop';
+import { cn } from "../lib/utils";
+
+// Define utility constants locally
+const rarityColors: Record<Rarity, string> = {
+  'Common': 'from-gray-500/20 to-gray-600/20 border-gray-500/30',
+  'Uncommon': 'from-green-500/20 to-green-600/20 border-green-500/30',
+  'Rare': 'from-blue-500/20 to-blue-600/20 border-blue-500/30',
+  'Epic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
+  'Legendary': 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30'
+};
+
+const rarityGlow: Record<Rarity, string> = {
+  'Common': 'shadow-gray-500/50',
+  'Uncommon': 'shadow-green-500/50',
+  'Rare': 'shadow-blue-500/50',
+  'Epic': 'shadow-purple-500/50',
+  'Legendary': 'shadow-yellow-500/50'
+};
+
+import { useToast } from "../hooks/use-toast";
 import { useState } from 'react';
-import { useAuth } from '@/components/auth-provider';
+import { useAuth } from "./auth-provider";
 
 type ShopItemCardProps = {
   item: ShopItem;
@@ -131,7 +150,9 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
               className="object-contain transition-transform group-hover:scale-110"
             />
           ) : (
-            item.icon && <item.icon className="w-16 h-16 text-primary transition-transform group-hover:scale-110" />
+            <div className="w-16 h-16 text-primary transition-transform group-hover:scale-110 flex items-center justify-center">
+              <ShoppingCart className="w-8 h-8" />
+            </div>
           )}
         </div>
         <h3 className="font-semibold text-lg flex-grow">{item.name}</h3>

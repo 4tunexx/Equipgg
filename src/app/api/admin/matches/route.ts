@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
+import { secureDb } from "../../../../lib/secure-db";
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
 import { parse } from 'cookie';
 
 // GET /api/admin/matches - Get all matches for admin management

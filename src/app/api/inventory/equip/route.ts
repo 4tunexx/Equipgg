@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase } from "../../../../lib/supabase";
 
 const validSlots = ['primary', 'secondary', 'knife', 'gloves', 'agent'] as const;
 type SlotType = typeof validSlots[number];

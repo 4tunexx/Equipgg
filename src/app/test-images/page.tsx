@@ -1,6 +1,6 @@
 'use client';
 
-import ItemImage from '@/components/ItemImage';
+import ItemImage from "../../components/ItemImage";
 
 export default function TestImagesPage() {
   const testItems = [

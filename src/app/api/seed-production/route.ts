@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { secureDb } from "../../../lib/secure-db";
 import bcrypt from 'bcryptjs';
 
 export async function POST(req: NextRequest) {

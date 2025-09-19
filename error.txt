@@ -1,0 +1,258 @@
+
+08:03:11.072 Running build in Washington, D.C., USA (East) – iad1
+08:03:11.074 Build machine configuration: 2 cores, 8 GB
+08:03:11.132 Cloning github.com/4tunexx/Equipgg (Branch: codespace-urban-space-zebra-q7x6rggjvpjwh6457, Commit: 9e5ba69)
+08:03:13.312 Cloning completed: 2.179s
+08:03:14.624 Restored build cache from previous deployment (CjTxQqXLkzXxqfFsRf7Qu4ZQyDQk)
+08:03:15.466 Running "vercel build"
+08:03:15.868 Vercel CLI 48.0.2
+08:03:16.241 Running "install" command: `npm install`...
+08:03:28.266 
+08:03:28.266 added 58 packages, removed 113 packages, changed 169 packages, and audited 858 packages in 12s
+08:03:28.267 
+08:03:28.267 96 packages are looking for funding
+08:03:28.267   run `npm fund` for details
+08:03:28.327 
+08:03:28.328 4 vulnerabilities (3 low, 1 moderate)
+08:03:28.328 
+08:03:28.328 To address all issues possible (including breaking changes), run:
+08:03:28.328   npm audit fix --force
+08:03:28.329 
+08:03:28.329 Some issues need review, and may require choosing
+08:03:28.329 a different dependency.
+08:03:28.330 
+08:03:28.330 Run `npm audit` for details.
+08:03:28.367 Detected Next.js version: 15.3.3
+08:03:28.367 Running "npm run build"
+08:03:28.482 
+08:03:28.483 > nextn@0.1.0 prebuild
+08:03:28.483 > node scripts/force-typescript.js && node scripts/ensure-components.js && node scripts/fix-auth-pages.js
+08:03:28.483 
+08:03:28.517 🔧 Checking TypeScript installation...
+08:03:29.318 📦 TypeScript not in list, but build will continue...
+08:03:29.318 ✅ TypeScript check complete
+08:03:29.352 [33mRunning in Vercel environment, checking directory structure...[0m
+08:03:29.353 [0mCurrent directory: /vercel/path0[0m
+08:03:29.353 [0mContents:[0m
+08:03:29.353 [0m - .babelrc.backup[0m
+08:03:29.353 [0m - .data[0m
+08:03:29.354 [0m - .env.example[0m
+08:03:29.354 [0m - .eslintrc.json[0m
+08:03:29.354 [0m - .git[0m
+08:03:29.354 [0m - .gitignore[0m
+08:03:29.354 [0m - .idx[0m
+08:03:29.355 [0m - .modified[0m
+08:03:29.355 [0m - .next[0m
+08:03:29.355 [0m - .vercel[0m
+08:03:29.355 [0m - DATABASE_MIGRATION_SUMMARY.md[0m
+08:03:29.355 [0m - DEPLOYMENT_CHECKLIST.md[0m
+08:03:29.356 [0m - DEPLOYMENT_FIX_SUMMARY.md[0m
+08:03:29.356 [0m - DEPLOYMENT_GUIDE.md[0m
+08:03:29.356 [0m - DEPLOYMENT_READY_SUMMARY.md[0m
+08:03:29.356 [0m - FIXES_SUMMARY.md[0m
+08:03:29.356 [0m - PRODUCTION_DEPLOYMENT_GUIDE.md[0m
+08:03:29.357 [0m - PRODUCTION_STATUS.md[0m
+08:03:29.357 [0m - PROVABLY_FAIR_DOCUMENTATION.md[0m
+08:03:29.357 [0m - README.md[0m
+08:03:29.357 [0m - README_CLEANUP.md[0m
+08:03:29.358 [0m - SECURITY_AUDIT_REPORT.md[0m
+08:03:29.358 [0m - SECURITY_IMPLEMENTATION_GUIDE.md[0m
+08:03:29.358 [0m - SOCKET_INTEGRATION.md[0m
+08:03:29.358 [0m - SUPABASE_SETUP_GUIDE.md[0m
+08:03:29.358 [0m - TODO.md[0m
+08:03:29.359 [0m - VERCEL_DEPLOYMENT_FIX.md[0m
+08:03:29.360 [0m - VERCEL_DEPLOYMENT_GUIDE.md[0m
+08:03:29.360 [0m - VERCEL_SUPABASE_DEPLOYMENT_SUMMARY.md[0m
+08:03:29.360 [0m - components.json[0m
+08:03:29.360 [0m - deployerror.txt[0m
+08:03:29.360 [0m - docs[0m
+08:03:29.361 [0m - env.example[0m
+08:03:29.361 [0m - env.production.example[0m
+08:03:29.361 [0m - env.supabase.example[0m
+08:03:29.361 [0m - jest.config.js[0m
+08:03:29.361 [0m - jest.setup.ts[0m
+08:03:29.362 [0m - next-env.d.ts[0m
+08:03:29.362 [0m - next.config.backup.js[0m
+08:03:29.362 [0m - next.config.js[0m
+08:03:29.362 [0m - node_modules[0m
+08:03:29.362 [0m - package-lock.json[0m
+08:03:29.363 [0m - package.json[0m
+08:03:29.363 [0m - postcss.config.mjs[0m
+08:03:29.363 [0m - problems2.txt[0m
+08:03:29.363 [0m - public[0m
+08:03:29.365 [0m - scanme.txt[0m
+08:03:29.365 [0m - scripts[0m
+08:03:29.365 [0m - server.js[0m
+08:03:29.365 [0m - src[0m
+08:03:29.365 [0m - stub_legacy_routes.sh[0m
+08:03:29.365 [0m - supabase[0m
+08:03:29.365 [0m - tailwind.config.ts[0m
+08:03:29.366 [0m - temp-queries.ts[0m
+08:03:29.366 [0m - test.config.json[0m
+08:03:29.366 [0m - tryme.txt[0m
+08:03:29.366 [0m - tryme2.txt[0m
+08:03:29.366 [0m - tryme3.txt[0m
+08:03:29.366 [0m - tsconfig.json[0m
+08:03:29.366 [0m - update-package.js[0m
+08:03:29.366 [0m - vercel.json[0m
+08:03:29.366 [1m
+08:03:29.366 ===== UI Component Verification =====[0m
+08:03:29.366 [32mRunning on Vercel: Yes[0m
+08:03:29.366 [0mNode version: v22.19.0[0m
+08:03:29.366 [0mWorking directory: /vercel/path0[0m
+08:03:29.366 [32m✅ Directory exists: /vercel/path0/src/components[0m
+08:03:29.367 [32m✅ Directory exists: /vercel/path0/src/components/ui[0m
+08:03:29.367 [32mFound UI component: button.tsx[0m
+08:03:29.367 [32mFound UI component: input.tsx[0m
+08:03:29.367 [32mFound UI component: label.tsx[0m
+08:03:29.367 [32mFound UI component: card.tsx[0m
+08:03:29.367 [32mFound UI component: tabs.tsx[0m
+08:03:29.368 [32mFound UI component: switch.tsx[0m
+08:03:29.368 [32mFound UI component: table.tsx[0m
+08:03:29.368 [32mFound UI component: dialog.tsx[0m
+08:03:29.368 [32mFound UI component: badge.tsx[0m
+08:03:29.368 [32mFound UI component: scroll-area.tsx[0m
+08:03:29.368 [32mFound UI component: textarea.tsx[0m
+08:03:29.368 [32mFound auth provider: auth-provider.tsx[0m
+08:03:29.368 [1m
+08:03:29.368 Checking path resolution and Next.js configuration...[0m
+08:03:29.368 [32mFound tsconfig.json[0m
+08:03:29.368 [32mPath alias @/* is correctly configured in tsconfig.json[0m
+08:03:29.368 [32mFound components.json[0m
+08:03:29.368 [32mFound next.config.js[0m
+08:03:29.368 [1m
+08:03:29.368 📁 Project Structure:[0m
+08:03:29.369 [1m📁 /vercel/path0/src/components[0m
+08:03:29.373 [0m  📄 ItemImage.tsx[0m
+08:03:29.373 [0m  📄 UserBadge.tsx[0m
+08:03:29.374 [1m  📁 __tests__/[0m
+08:03:29.374 [0m    📄 auth-provider.test.tsx[0m
+08:03:29.374 [0m  📄 admin-balance-manager.tsx[0m
+08:03:29.374 [0m  📄 auth-modal.tsx[0m
+08:03:29.374 [0m  📄 auth-provider.tsx[0m
+08:03:29.374 [0m  📄 crate-item.tsx[0m
+08:03:29.375 [0m  📄 crate-opening-animation.tsx[0m
+08:03:29.375 [0m  📄 flash-sale-banner.tsx[0m
+08:03:29.375 [0m  📄 footer.tsx[0m
+08:03:29.375 [1m  📁 games/[0m
+08:03:29.375 [0m    📄 coinflip-game-panel.tsx[0m
+08:03:29.376 [0m    📄 coinflip-game.tsx[0m
+08:03:29.376 [0m    📄 crash-game.tsx[0m
+08:03:29.376 [0m    📄 plinko-game.tsx[0m
+08:03:29.376 [0m    📄 provably-fair-crash.tsx[0m
+08:03:29.376 [0m    📄 provably-fair-plinko.tsx[0m
+08:03:29.376 [0m    📄 sweeper-game.tsx[0m
+08:03:29.376 [0m  📄 inventory-level-progression.tsx[0m
+08:03:29.376 [1m  📁 landing/[0m
+08:03:29.376 [0m    📄 feature-highlights.tsx[0m
+08:03:29.376 [0m    📄 featured-items-carousel.tsx[0m
+08:03:29.376 [0m    📄 hero-section.tsx[0m
+08:03:29.376 [0m    📄 landing-nav.tsx[0m
+08:03:29.376 [0m    📄 leaderboard-preview.tsx[0m
+08:03:29.377 [0m    📄 live-stats.tsx[0m
+08:03:29.377 [0m    📄 upcoming-matches.tsx[0m
+08:03:29.377 [0m  📄 level-up-animation.tsx[0m
+08:03:29.377 [0m  📄 live-chat.tsx[0m
+08:03:29.377 [0m  📄 match-card.tsx[0m
+08:03:29.377 [0m  📄 mini-profile-card.tsx[0m
+08:03:29.377 [0m  📄 mission-summary-card.tsx[0m
+08:03:29.377 [0m  📄 particles.tsx[0m
+08:03:29.377 [0m  📄 prestige-activity-feed.tsx[0m
+08:03:29.377 [1m  📁 profile/[0m
+08:03:29.377 [0m    📄 betting-history.tsx[0m
+08:03:29.377 [0m    📄 trade-up-history.tsx[0m
+08:03:29.377 [0m  📄 shop-item-card.tsx[0m
+08:03:29.377 [0m  📄 stat-card.tsx[0m
+08:03:29.377 [0m  📄 streaming-player.tsx[0m
+08:03:29.377 [0m  📄 team-logo.tsx[0m
+08:03:29.377 [0m  📄 trade-up.tsx[0m
+08:03:29.377 [1m  📁 ui/[0m
+08:03:29.378 [1m    📁 __tests__/[0m
+08:03:29.378 [0m      📄 button.test.tsx[0m
+08:03:29.378 [0m      📄 card.test.tsx[0m
+08:03:29.378 [0m      📄 toast.test.tsx[0m
+08:03:29.378 [0m    📄 accordion.tsx[0m
+08:03:29.378 [0m    📄 alert-dialog.tsx[0m
+08:03:29.378 [0m    📄 alert.tsx[0m
+08:03:29.378 [0m    📄 aspect-ratio.tsx[0m
+08:03:29.378 [0m    📄 avatar.tsx[0m
+08:03:29.378 [0m    📄 badge.tsx[0m
+08:03:29.378 [0m    📄 button.tsx[0m
+08:03:29.378 [0m    📄 calendar.tsx[0m
+08:03:29.378 [0m    📄 card.tsx[0m
+08:03:29.378 [0m    📄 carousel.tsx[0m
+08:03:29.378 [0m    📄 chart.tsx[0m
+08:03:29.378 [0m    📄 checkbox.tsx[0m
+08:03:29.378 [0m    📄 collapsible.tsx[0m
+08:03:29.379 [0m    📄 dialog.tsx[0m
+08:03:29.379 [0m    📄 dropdown-menu.tsx[0m
+08:03:29.379 [0m    📄 form.tsx[0m
+08:03:29.379 [0m    📄 input.tsx[0m
+08:03:29.379 [0m    📄 label.tsx[0m
+08:03:29.379 [0m    📄 menubar.tsx[0m
+08:03:29.379 [0m    📄 popover.tsx[0m
+08:03:29.379 [0m    📄 progress.tsx[0m
+08:03:29.379 [0m    📄 radio-group.tsx[0m
+08:03:29.379 [0m    📄 scroll-area.tsx[0m
+08:03:29.379 [0m    📄 select.tsx[0m
+08:03:29.379 [0m    📄 separator.tsx[0m
+08:03:29.379 [0m    📄 sheet.tsx[0m
+08:03:29.379 [0m    📄 sidebar.tsx[0m
+08:03:29.379 [0m    📄 skeleton.tsx[0m
+08:03:29.379 [0m    📄 slider.tsx[0m
+08:03:29.380 [0m    📄 switch.tsx[0m
+08:03:29.380 [0m    📄 table.tsx[0m
+08:03:29.380 [0m    📄 tabs.tsx[0m
+08:03:29.380 [0m    📄 textarea.tsx[0m
+08:03:29.380 [0m    📄 toast.tsx[0m
+08:03:29.380 [0m    📄 toaster.tsx[0m
+08:03:29.380 [0m    📄 toggle-group.tsx[0m
+08:03:29.380 [0m    📄 tooltip.tsx[0m
+08:03:29.380 [0m  📄 user-avatar.tsx[0m
+08:03:29.380 [0m  📄 user-profile-link.tsx[0m
+08:03:29.380 [0m  📄 xp-display.tsx[0m
+08:03:29.380 [0m  📄 xp-manager.tsx[0m
+08:03:29.380 [0m  📄 your-bets.tsx[0m
+08:03:29.380 [32m
+08:03:29.380 ✅ All required components verified[0m
+08:03:29.380 [1m
+08:03:29.380 🔍 Vercel-specific checks:[0m
+08:03:29.380 [0mButton component path: /vercel/path0/src/components/ui/button.tsx[0m
+08:03:29.380 [0mButton component permissions: 100644[0m
+08:03:29.380 [1m
+08:03:29.380 ===================================
+08:03:29.380 [0m
+08:03:29.412 [1m
+08:03:29.413 ===== Fixing Auth Pages =====[0m
+08:03:29.413 [32m✅ Created sign-in page at /vercel/path0/src/app/(auth)/sign-in/page.tsx[0m
+08:03:29.414 [32m✅ Created sign-up page at /vercel/path0/src/app/(auth)/sign-up/page.tsx[0m
+08:03:29.414 [32m
+08:03:29.414 ✅ Auth pages fixed successfully![0m
+08:03:29.414 [1m
+08:03:29.414 ===========================
+08:03:29.415 [0m
+08:03:29.418 
+08:03:29.418 > nextn@0.1.0 build
+08:03:29.418 > next build
+08:03:29.418 
+08:03:30.120  ⚠ Invalid next.config.js options detected: 
+08:03:30.121  ⚠     Unrecognized key(s) in object: 'swcMinify'
+08:03:30.121  ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+08:03:30.182    ▲ Next.js 15.3.3
+08:03:30.183    - Experiments (use with caution):
+08:03:30.183      ✓ forceSwcTransforms
+08:03:30.183 
+08:03:30.302    Creating an optimized production build ...
+08:04:10.209  ✓ Compiled successfully in 35.0s
+08:04:10.222    Skipping validation of types
+08:04:10.223    Skipping linting
+08:04:10.293 It looks like you're trying to use TypeScript but do not have the required package(s) installed.
+08:04:10.294 
+08:04:10.294 Please install typescript by running:
+08:04:10.294 
+08:04:10.294 	npm install --save-dev typescript
+08:04:10.294 
+08:04:10.294 If you are not trying to use TypeScript, please remove the tsconfig.json file from your package root (and any TypeScript files in your app and pages directories).
+08:04:10.294 
+08:04:10.300 Next.js build worker exited with code: 1 and signal: null
+08:04:10.319 Error: Command "npm run build" exited with 1

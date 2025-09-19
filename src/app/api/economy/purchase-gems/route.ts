@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession } from '@/lib/auth-utils';
-import { supabase } from '@/lib/supabase';
+import { getAuthSession } from "../../../../lib/auth-utils";
+import { supabase } from "../../../../lib/supabase";
 import { v4 as uuidv4 } from 'uuid';
 
 // Gem packages with real money pricing
@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const packageData = GEM_PACKAGES[packageId];
+    const packageData = GEM_PACKAGES[packageId as keyof typeof GEM_PACKAGES];
     if (!packageData) {
       return NextResponse.json({ error: 'Invalid package' }, { status: 400 });
     }

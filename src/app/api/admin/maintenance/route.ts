@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { secureDb } from "../../../../lib/secure-db";
 import { parse } from 'cookie';
 
 // POST /api/admin/maintenance - Perform system maintenance actions

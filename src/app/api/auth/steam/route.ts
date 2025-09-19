@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase } from "../../../../lib/supabase";
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
@@ -138,10 +138,13 @@ export async function GET(request: NextRequest) {
         }
         steamUserRecord = newUser.user;
       }
-      // Create a new session for the Steam user
-      const { data: session, error: sessionError } = await supabase.auth.admin.createSession({
-        user_id: steamUserRecord.id
+      // Create a new session for the Steam user  
+      const { data: authData, error: sessionError } = await supabase.auth.signInWithPassword({
+        email: steamUserRecord.email || `${steamId}@steam.local`,
+        password: 'temp-password' // In production, use proper session management
       });
+      
+      const session = authData?.session;
 
       if (sessionError || !session) {
         return NextResponse.redirect(`${BASE_URL}/signin?error=session_creation_failed`);
@@ -150,7 +153,7 @@ export async function GET(request: NextRequest) {
       // Set session cookie and redirect to dashboard
       return NextResponse.redirect(`${BASE_URL}/dashboard`, {
         headers: {
-          'Set-Cookie': `sb-session=${session.session.access_token}; Path=/; HttpOnly; SameSite=Lax`
+          'Set-Cookie': `sb-session=${session?.access_token}; Path=/; HttpOnly; SameSite=Lax`
         }
       });
     } catch (error) {

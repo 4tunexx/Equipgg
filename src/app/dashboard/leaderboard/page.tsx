@@ -3,15 +3,15 @@
  
 'use client';
  
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Trophy, Gem, Award, Star, BrainCircuit, Handshake, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { UserProfileLink } from '@/components/user-profile-link';
+import { cn } from "../../../lib/utils";
+import { Badge } from "../../../components/ui/badge";
+import { UserProfileLink } from "../../../components/user-profile-link";
 import { useEffect, useState } from 'react';
-import { getRoleColors } from '@/lib/role-colors';
+import { getRoleColors } from "../../../lib/role-colors";
 
 
 export default function LeaderboardPage() {
@@ -96,7 +96,7 @@ export default function LeaderboardPage() {
                                 </div>
                             </TableCell>
                             <TableCell>
-                                <UserProfileLink user={{...player, id: player.id.toString(), role: player.role, dataAiHint: `Player ${player.name} - Level ${player.level}`}} />
+                                <UserProfileLink user={{...player, id: player.id.toString(), role: (player as any).role || 'player', dataAiHint: `Player ${player.name} - Level ${player.level}`}} />
                             </TableCell>
                             <TableCell>
                                 <Badge variant="secondary">Level {player.level}</Badge>

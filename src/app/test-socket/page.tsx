@@ -1,12 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSocket } from '@/contexts/socket-context';
-import { useAuth } from '@/components/auth-provider';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import { useSocket } from "../../contexts/socket-context";
+import { useAuth } from "../../components/auth-provider";
+import { Button } from "../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Input } from "../../components/ui/input";
+import { Badge } from "../../components/ui/badge";
 
 export default function TestSocketPage() {
   const { socket, isConnected, emitBetPlaced, emitXpGained } = useSocket();

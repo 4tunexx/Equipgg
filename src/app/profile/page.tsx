@@ -1,16 +1,16 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/components/auth-provider';
-import { UserAvatar } from '@/components/user-avatar';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Separator } from '@/components/ui/separator';
+import { useAuth } from "../../components/auth-provider";
+import { UserAvatar } from "../../components/user-avatar";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Label } from "../../components/ui/label";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
+import { Separator } from "../../components/ui/separator";
 import { Upload, Link, User } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "../../hooks/use-toast";
 
 export default function ProfilePage() {
   const { user } = useAuth();

@@ -27,3 +27,24 @@ export function getNextNonce(userId: string): Promise<number> {
   // TODO: Implement nonce management
   return Promise.resolve(1);
 }
+
+export async function getGameVerificationData(gameId: string): Promise<any> {
+  // TODO: Implement game verification data retrieval
+  return {
+    gameId,
+    serverSeed: generateSeed(),
+    clientSeed: generateSeed(),
+    nonce: 1,
+    result: null
+  };
+}
+
+export function verifyGameResult(gameData: any): boolean {
+  // TODO: Implement proper game result verification
+  return true;
+}
+
+export async function getUserGameHistory(userId: string, limit: number = 50): Promise<any[]> {
+  // TODO: Implement user game history retrieval
+  return [];
+}

@@ -2,23 +2,23 @@
 'use client';
 
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
+import ItemImage from "../../../components/ItemImage";
 import {
   Card,
   CardContent,
-} from '@/components/ui/card';
-import { rarityGlow, equippedSlotsConfig, InventoryItem, Rarity } from '@/lib/types';
-import { cn } from '@/lib/utils';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from "../../../components/ui/card";
+import { rarityGlow, equippedSlotsConfig, InventoryItem, Rarity } from "../../../lib/types";
+import { cn } from "../../../lib/utils";
+import { ScrollArea } from "../../../components/ui/scroll-area";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+} from "../../../components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../../components/ui/tooltip";
 
-import { Separator } from '@/components/ui/separator';
+import { Separator } from "../../../components/ui/separator";
 
 import { Trash2, DollarSign, Replace, Loader2 } from 'lucide-react';
 import {
@@ -31,7 +31,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
+} from "../../../components/ui/alert-dialog";
 import {
   Dialog,
   DialogContent,
@@ -39,18 +39,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
+} from "../../../components/ui/dialog";
+import { useToast } from "../../../hooks/use-toast";
 
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TradeUp } from '@/components/trade-up';
-import { InventoryLevelProgression } from '@/components/inventory-level-progression';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { TradeUp } from "../../../components/trade-up";
+import { InventoryLevelProgression } from "../../../components/inventory-level-progression";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useAuth } from '@/hooks/use-auth';
-import { useBalance } from '@/contexts/balance-context';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { useAuth } from "../../../hooks/use-auth";
+import { useBalance } from "../../../contexts/balance-context";
+import { Badge } from "../../../components/ui/badge";
+import { Button } from "../../../components/ui/button";
 
 // Calculate inventory slots based on user level: 10 slots at level 1, +5 every 5 levels
 const getInventorySlots = (level: number): number => {
@@ -882,7 +882,7 @@ export default function InventoryPage() {
         <div>
           <h2 className="text-2xl font-bold font-headline mb-4">Equipped</h2>
           <div className="space-y-2">
-          {equippedSlotsConfig.map(slot => {
+          {Object.values(equippedSlotsConfig).map((slot: any) => {
             const item = equippedItems[slot.id];
             return (
               <div

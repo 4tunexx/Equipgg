@@ -1,8 +1,8 @@
 'use client';
 
-import { useXP } from '@/hooks/use-xp';
-import { LevelUpAnimation } from '@/components/level-up-animation';
-import { XpDisplay } from '@/components/xp-display';
+import { useXP } from "../hooks/use-xp";
+import { LevelUpAnimation } from "./level-up-animation";
+import { XpDisplay } from "./xp-display";
 import { useEffect } from 'react';
 
 interface XPManagerProps {

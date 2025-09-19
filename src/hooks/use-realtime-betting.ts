@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useCallback } from 'react';
-import { useSocket } from '@/contexts/socket-context';
-import { useAuth } from '@/components/auth-provider';
-import { useBalance } from '@/contexts/balance-context';
+import { useSocket } from "../contexts/socket-context";
+import { useAuth } from "../components/auth-provider";
+import { useBalance } from "../contexts/balance-context";
 import { toast } from 'sonner';
 
 interface BetPlacedEvent {
@@ -53,7 +53,7 @@ export function useRealtimeBetting() {
 
     const handleBetPlaced = (data: BetPlacedEvent) => {
       // Only show notifications for other users' bets
-      if (data.userId !== (user?.id || user?.uid)) {
+      if (data.userId !== user?.id) {
         toast.info(`${data.username} placed a ${data.amount.toLocaleString()} coin bet on ${data.team}`, {
           duration: 3000,
         });
@@ -65,7 +65,7 @@ export function useRealtimeBetting() {
     return () => {
       socket.off('betPlaced', handleBetPlaced);
     };
-  }, [socket, isConnected, user?.id, user?.uid]);
+  }, [socket, isConnected, user?.id]);
 
   // Listen for bet result events
   useEffect(() => {
@@ -95,7 +95,7 @@ export function useRealtimeBetting() {
     if (!socket || !isConnected || !user) return;
 
     const handleXpGained = (data: XpGainedEvent) => {
-      if (data.userId === (user.id || user.uid)) {
+      if (data.userId === user.id) {
         if (data.leveledUp) {
           toast.success(`🎉 Level Up! You're now level ${data.newLevel}!`, {
             duration: 5000,
@@ -120,7 +120,7 @@ export function useRealtimeBetting() {
     if (!socket || !isConnected || !user) return;
 
     const handleBalanceUpdated = (data: BalanceUpdatedEvent) => {
-      if (data.userId === (user.id || user.uid)) {
+      if (data.userId === user.id) {
         updateBalance({
           coins: data.coins,
           gems: data.gems,

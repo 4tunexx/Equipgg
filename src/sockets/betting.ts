@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, BetPlacedEvent, BetResultEvent, OddsUpdateEvent } from './types';
 import { emitToAll, emitToUser, createEventData, isAdmin } from './utils';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export function setupBettingSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

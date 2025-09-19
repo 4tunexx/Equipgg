@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getItemImageSync } from '@/lib/itemImageUtils';
+import { getItemImageSync } from "../../lib/itemImageUtils";
 
 export default function TestSteamImagesPage() {
   const [imageUrls, setImageUrls] = useState<Array<{name: string, url: string}>>([]);

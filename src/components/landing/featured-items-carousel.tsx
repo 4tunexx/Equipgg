@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { Card, CardContent } from "@/components/ui/card";
+import ItemImage from "../ItemImage";
+import { Card, CardContent } from "../ui/card";
 interface FeaturedItem {
   id: string;
   name: string;

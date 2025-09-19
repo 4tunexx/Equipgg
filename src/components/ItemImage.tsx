@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { getItemImage, getItemImageSync, preloadImage } from '@/lib/itemImageUtils';
+import { getItemImage, getItemImageSync, preloadImage } from '../lib/itemImageUtils';
 
 interface ItemImageProps {
   itemName: string;
@@ -152,7 +152,7 @@ export function useItemImagesPreload(itemNames: string[], itemTypes?: ('skins' |
       );
       
       try {
-        const { preloadImages } = await import('@/lib/itemImageUtils');
+        const { preloadImages } = await import('../lib/itemImageUtils');
         await preloadImages(urls);
         setPreloadedImages(new Set(urls));
       } catch (error) {

@@ -1,4 +1,4 @@
-import { DBItem, Rarity } from '@/lib/supabase/queries';
+import { DBItem, Rarity } from '../lib/supabase/queries';
 
 export interface CrateItem {
   id: string;

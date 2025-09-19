@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase } from "../../../../lib/supabase";
 
 // POST /api/inventory/sell - Sell an item from inventory
 export async function POST(request: NextRequest) {

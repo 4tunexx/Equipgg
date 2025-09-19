@@ -7,15 +7,27 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "../../components/ui/card";
 import { Gem, Gift } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { LiveChat } from '@/components/live-chat';
-import { StatCard } from '@/components/stat-card';
-import { useAuth } from '@/components/auth-provider';
-import { useBalance } from '@/contexts/balance-context';
+import { Progress } from "../../components/ui/progress";
+import { LiveChat } from "../../components/live-chat";
+import { StatCard } from "../../components/stat-card";
+import { useAuth } from "../../hooks/use-auth";
+import { useBalance } from "../../contexts/balance-context";
 import { useState, useEffect } from 'react';
-import { dailyMissions, getRankByLevel } from '@/lib/mock-data';
+import { createSupabaseQueries } from "../../lib/supabase/queries";
+import { supabase } from "../../lib/supabase/client";
+import type { DBUser, DBMission } from "../../lib/supabase/queries";
+
+// Helper function to get rank by level (temporary until we move to Supabase)
+function getRankByLevel(level: number): string {
+  if (level >= 50) return 'Grandmaster';
+  if (level >= 40) return 'Master';
+  if (level >= 30) return 'Expert';
+  if (level >= 20) return 'Advanced';
+  if (level >= 10) return 'Intermediate';
+  return 'Beginner';
+}
 
 interface UserStats {
   level: number;
@@ -47,10 +59,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
+  const [dailyMissions, setDailyMissions] = useState<DBMission[]>([]);
 
   useEffect(() => {
     const fetchDailyMissions = async () => {
       try {
+        // Fetch from API for now, TODO: move to Supabase
         const response = await fetch('/api/missions/summary', {
           credentials: 'include',
           headers: {
@@ -62,6 +76,15 @@ export default function DashboardPage() {
           setDailyStats(data);
         } else {
           console.error('Failed to fetch daily missions:', response.status, response.statusText);
+        }
+
+        // Fetch missions from Supabase
+        if (user) {
+          const queries = createSupabaseQueries(supabase);
+          const missions = await queries.getUserMissions(user.id);
+          // Filter for daily missions for the display
+          const dailyMissionsData = missions.filter(m => m.mission?.type === 'daily').slice(0, 1);
+          setDailyMissions(dailyMissionsData.map(um => um.mission!));
         }
       } catch (error) {
         console.error('Failed to fetch daily missions:', error);
@@ -203,18 +226,18 @@ export default function DashboardPage() {
                     />
                   </div>
                   {dailyMissions.slice(0, 1).map((mission) => (
-                    <div key={mission.id} className="flex items-center gap-4">
-                      <div className="p-2 bg-secondary rounded-md">
-                        <mission.icon className="w-6 h-6 text-primary"/>
+                    <Card key={mission.id} className="hover:shadow-md transition-shadow cursor-pointer flex items-center p-4 space-x-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Gift className="w-6 h-6 text-primary"/>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{mission.title}</p>
-                        <Progress value={dailyStats.dailyCompleted > 0 ? 100 : 0} className="h-2 mt-1" />
+                        <p className="font-semibold truncate">{mission.name}</p>
+                        <p className="text-sm text-muted-foreground truncate">{mission.description}</p>
                       </div>
-                      <span className="text-sm font-mono text-muted-foreground w-16 text-right shrink-0">
-                        +{mission.xpReward} XP
-                      </span>
-                    </div>
+                      <div className="text-sm font-medium text-primary">
+                        +{mission.xp_reward} XP
+                      </div>
+                    </Card>
                   ))}
                   <p className="text-sm text-muted-foreground">
                     {dailyStats.dailyCompleted}/{dailyStats.totalDaily} daily missions completed

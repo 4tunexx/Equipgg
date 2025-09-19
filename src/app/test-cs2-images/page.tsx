@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { getItemImageSync } from '@/lib/itemImageUtils';
+import { getItemImageSync } from "../../lib/itemImageUtils";
 
 export default function TestCS2ImagesPage() {
   const [testResults, setTestResults] = useState<Array<{name: string, url: string, status: string}>>([]);

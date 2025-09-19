@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import secureDb from '@/lib/secureDb';
+import secureDb from "../../../../lib/secureDb";
 import { parse } from 'cookie';
 import { v4 as uuidv4 } from 'uuid';
-import { Session } from '@/types/session';
-import { User } from '@/types/database';
-import { ModerationAction, UserModeration } from '@/types/moderation';
+import { Session } from '../../../../types/session';
+import { User } from '../../../../types/database';
+import { ModerationAction, UserModeration } from '../../../../types/moderation';
 
 // POST /api/admin/moderation - Apply moderation action to user
 export async function POST(request: NextRequest) {

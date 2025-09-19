@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Get user data from users table
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, displayName, role, coins, gems, xp, level, created_at')
+      .select('id, email, display_name, role, coins, gems, xp, level, created_at')
       .eq('id', user.id)
       .single();
     if (error || !data) {
@@ -32,15 +32,15 @@ export async function GET(request: NextRequest) {
     // Placeholders for stats, achievements, referrals
     const betsWon = 0;
     const winRate = 0;
-    const achievements = [];
-    const referrals = [];
+    const achievements: any[] = [];
+    const referrals: any[] = [];
     return NextResponse.json({
       success: true,
       profile: {
         user: {
           id: data.id,
           email: data.email,
-          displayName: data.displayName,
+          displayName: data.display_name,
           role: data.role,
           coins: data.coins || 0,
           gems: data.gems || 0,

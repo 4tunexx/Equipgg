@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession } from '@/lib/auth-utils';
-import { supabase } from '@/lib/supabase';
+import { getAuthSession } from "../../../../lib/auth-utils";
+import { supabase } from "../../../../lib/supabase";
 
 // Economy balance limits to prevent inflation
 const BALANCE_LIMITS = {

@@ -1,17 +1,35 @@
 
 'use client';
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
-import type { LeaderboardPlayer, Rarity } from "@/lib/mock-data";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Card, CardContent, CardHeader } from "./ui/card";
+import { Progress } from "./ui/progress";
+import { cn } from "../lib/utils";
+import type { DBUser, Rarity } from "../lib/supabase/queries";
 import { BadgeCheck, Trophy } from "lucide-react";
 import Image from "next/image";
-import ItemImage from "@/components/ItemImage";
-import { rarityGlow } from "@/lib/mock-data";
-import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
-import { XpDisplay } from "@/components/xp-display";
+import ItemImage from "./ItemImage";
+// Define utility constants locally
+const rarityGlow: Record<Rarity, string> = {
+  'Common': 'shadow-gray-500/50',
+  'Uncommon': 'shadow-green-500/50',
+  'Rare': 'shadow-blue-500/50',
+  'Epic': 'shadow-purple-500/50',
+  'Legendary': 'shadow-yellow-500/50'
+};
+
+type LeaderboardPlayer = {
+  id?: string;
+  name: string;
+  avatar?: string;
+  role: string;
+  dataAiHint: string;
+  xp: number;
+  level?: number;
+  coins?: number;
+};
+import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
+import { XpDisplay } from "./xp-display";
 import { useState, useEffect } from "react";
 
 interface MiniProfileCardProps {
@@ -22,7 +40,7 @@ interface MiniProfileCardProps {
         role?: string;
         xp?: number;
         achievement?: { title: string, icon: React.ComponentType<React.SVGProps<SVGSVGElement>> };
-        equippedItem?: { name: string, image: string, rarity: Rarity, dataAiHint: string };
+        equippedItem?: { name: string, image: string, rarity: Rarity, dataAiHint: string, type: string };
     };
 }
 
@@ -104,7 +122,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                     <XpDisplay 
                         xp={xp} 
                         level={level}
-                        userId={displayUser.id}
+                        userId={displayUser.id || displayUser.name}
                         autoFetch={true}
                         className=""
                     />

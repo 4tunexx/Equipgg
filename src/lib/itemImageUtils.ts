@@ -1,4 +1,4 @@
-import { itemMap, getItemType } from '@/config/itemMap';
+import { itemMap, getItemType } from "../config/itemMap";
 
 // CSGODatabase is the most reliable source for CS2 item images
 // Steam blocks external access to their image API
@@ -126,7 +126,7 @@ function generateCSGODatabaseUrls(itemName: string, itemType: string): string[] 
   // Steam blocks external access to their image API
   
   // Try exact mapping first
-  const mappedName = itemMap[itemType as keyof typeof itemMap]?.[itemName];
+  const mappedName = (itemMap[itemType as keyof typeof itemMap] as Record<string, string>)?.[itemName];
   if (mappedName) {
     urls.push(`https://www.csgodatabase.com/images/${itemType}/webp/${mappedName}.webp`);
   }

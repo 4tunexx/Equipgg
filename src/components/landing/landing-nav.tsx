@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { Gamepad2 } from 'lucide-react';
-import { useSiteSettings } from '@/hooks/use-site-settings';
+import { useSiteSettings } from "../../hooks/use-site-settings";
 import { useEffect, useState } from 'react';
 
 export function LandingNav() {

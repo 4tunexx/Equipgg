@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from "../lib/supabase";
+import { useToast } from "../hooks/use-toast";
 import type { Session, User } from '@supabase/supabase-js';
 
 interface ApiUser {
@@ -11,12 +11,6 @@ interface ApiUser {
   displayName?: string;
   avatarUrl?: string;
   role?: string;
-  provider?: 'steam' | 'default';
-  steamProfile?: {
-    steamId?: string;
-    avatar?: string;
-    profileUrl?: string;
-  };
   provider?: 'steam' | 'default';
   steamProfile?: {
     steamId?: string;
@@ -46,8 +40,8 @@ export type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   enabled: boolean;
-  signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<any>;
   signOutUser: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -108,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: profile?.role || 'user',
           level: profile?.level || 1,
           xp: profile?.xp || 0,
-          provider: session.user.app_metadata?.provider || 'default',
+          provider: (session.user.app_metadata?.provider as 'steam' | 'default') || 'default',
           steamProfile: session.user.user_metadata?.steamProfile
         });
       } else {
@@ -220,7 +214,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           role: profile?.role || 'user',
           level: profile?.level || 1,
           xp: profile?.xp || 0,
-          provider: user.app_metadata?.provider || 'default',
+          provider: (user.app_metadata?.provider as 'steam' | 'default') || 'default',
           steamProfile: user.user_metadata?.steamProfile
         });
       }

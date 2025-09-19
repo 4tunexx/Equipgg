@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from '@/components/auth-provider';
+import { useAuth } from "../components/auth-provider";
 
 interface UserBalance {
   coins: number;
@@ -34,7 +34,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      console.log('🔄 Fetching balance for user:', user.id || user.uid);
+      console.log('🔄 Fetching balance for user:', user.id);
       const response = await fetch(`/api/user/stats?t=${Date.now()}`, {
         credentials: 'include',
         headers: {

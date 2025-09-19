@@ -2,14 +2,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
 import { UserProfileLink } from '../user-profile-link';
 import { ToggleGroup, ToggleGroupItem } from '../ui/toggle-group';
-import { cn } from '@/lib/utils';
+import { cn } from "../../lib/utils";
 import { Label } from '../ui/label';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth } from "../../hooks/use-auth";
 import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 

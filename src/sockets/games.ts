@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, GameStartEvent, GameResultEvent } from './types';
 import { emitToGame, emitToUser, createEventData, joinGameRoom } from './utils';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export function setupGamesSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

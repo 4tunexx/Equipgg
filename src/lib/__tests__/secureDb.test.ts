@@ -1,17 +1,20 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { secureDb } from '@/lib/secureDb';
+import secureDb from "../secureDb";
 
 // Mock Supabase client
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: jest.fn(() => ({
-    from: jest.fn(() => ({
-      select: jest.fn(),
-      insert: jest.fn(),
-      update: jest.fn(),
-      delete: jest.fn(),
-    })),
+const mockSupabase = {
+  from: jest.fn(() => ({
+    select: jest.fn(),
+    insert: jest.fn(),
+    update: jest.fn(),
+    delete: jest.fn(),
+    eq: jest.fn(),
   })),
+};
+
+jest.mock('@supabase/supabase-js', () => ({
+  createClient: jest.fn(() => mockSupabase),
 }));
 
 describe('secureDb', () => {
@@ -26,7 +29,7 @@ describe('secureDb', () => {
 
   it('sanitizes where clauses', async () => {
     await secureDb.select('users', {
-      id: "'; DROP TABLE users; --",
+      where: { id: "'; DROP TABLE users; --" } as any,
     });
 
     const supabaseClient = require('@supabase/supabase-js').createClient();
@@ -47,18 +50,18 @@ describe('secureDb', () => {
   it('supports basic CRUD operations', async () => {
     // Create
     await secureDb.insert('users', { name: 'Test User' });
-    expect(supabase.from().insert).toHaveBeenCalledWith({ name: 'Test User' });
+    expect(mockSupabase.from().insert).toHaveBeenCalledWith({ name: 'Test User' });
 
     // Read
-    await secureDb.select('users', { id: '123' });
-    expect(supabase.from().select).toHaveBeenCalled();
+    await secureDb.select('users', { where: { id: '123' } as any });
+    expect(mockSupabase.from().select).toHaveBeenCalled();
 
     // Update
-    await secureDb.update('users', { id: '123' }, { name: 'Updated User' });
-    expect(supabase.from().update).toHaveBeenCalledWith({ name: 'Updated User' });
+    await secureDb.update('users', { id: '123' } as any, { name: 'Updated User' } as any);
+    expect(mockSupabase.from().update).toHaveBeenCalledWith({ name: 'Updated User' });
 
     // Delete
     await secureDb.delete('users', { id: '123' });
-    expect(supabase.from().delete).toHaveBeenCalled();
+    expect(mockSupabase.from().delete).toHaveBeenCalled();
   });
 });

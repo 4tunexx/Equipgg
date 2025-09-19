@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { addXP, getUserXPInfo, getXPRequirements } from '@/lib/xp-service';
-import { defaultXPConfig } from '@/lib/xp-config';
+import { getAuthSession, createUnauthorizedResponse } from "../../../lib/auth-utils";
+import { addXP, getUserXPInfo, getXPRequirements } from "../../../lib/xp-service";
+import { defaultXPConfig } from "../../../lib/xp-config";
 
 // GET /api/xp - Get user's XP information
 export async function GET(request: NextRequest) {

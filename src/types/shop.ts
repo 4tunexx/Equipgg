@@ -1,4 +1,4 @@
-import { Rarity } from '@/lib/supabase/queries';
+import { Rarity } from '../lib/supabase/queries';
 
 export interface ShopItem {
   id: string;

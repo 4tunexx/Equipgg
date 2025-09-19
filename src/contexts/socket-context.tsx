@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuth } from '@/components/auth-provider';
-import { socketFallback } from '@/lib/socket-fallback';
+import { useAuth } from "../components/auth-provider";
+import { socketFallback } from "../lib/socket-fallback";
 
 interface SocketContextType {
   socket: Socket | null;
@@ -122,10 +122,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   // Join user room when user is available
   useEffect(() => {
-    if (socket && (user?.id || user?.uid)) {
-      socket.emit('join-user-room', user.id || user.uid);
+    if (socket && user?.id) {
+      socket.emit('join-user-room', user.id);
     }
-  }, [socket, user?.id, user?.uid]);
+  }, [socket, user?.id]);
 
   const emitBetPlaced = (data: BetPlacedData) => {
     if (socket && isConnected) {

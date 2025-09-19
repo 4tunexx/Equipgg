@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parse } from 'cookie';
-import { repairCorruptedSession } from '@/lib/auth-utils';
+import { repairCorruptedSession } from "../../../../lib/auth-utils";
 
 export async function POST(request: NextRequest) {
   try {

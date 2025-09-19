@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Badge } from "../../../components/ui/badge";
+import { Progress } from "../../../components/ui/progress";
 import { Gem, Coins, CreditCard, Gamepad2, ArrowRightLeft, TrendingUp, Shield, Zap, Crown } from 'lucide-react';
 import Link from 'next/link';
-import { useBalance } from '@/contexts/balance-context';
+import { useBalance } from "../../../contexts/balance-context";
+import { useAuth } from "../../../hooks/use-auth";
+import { XpDisplay } from "../../../components/xp-display";
 
 interface UserBalance {
   coins: number;
@@ -28,6 +30,7 @@ interface EconomyStats {
 
 export default function GemEconomyPage() {
   const { balance: userBalance } = useBalance();
+  const { user } = useAuth();
   const [economyStats, setEconomyStats] = useState<EconomyStats | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import secureDb from '@/lib/secureDb';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../../lib/auth-utils";
+import secureDb from "../../../../../lib/secureDb";
 import { v4 as uuidv4 } from 'uuid';
 
 interface User {

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import { formatActivityMessage } from '@/lib/activity-logger';
+import { supabase } from "../../../lib/supabase";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { formatActivityMessage } from "../../../lib/activity-logger";
 
 interface ActivityItem {
   id: string;
@@ -27,7 +27,7 @@ export async function GET() {
     let activities: any[] = [];
     try {
       const { data, error } = await supabase
-        .from('user_activity_feed')
+        .from('activity_feed')
         .select(`
           id,
           user_id,
@@ -52,9 +52,9 @@ export async function GET() {
       if (error) {
         // Check if the error is due to a missing relationship
         if (error.code === '42P01' || error.message.includes('relation')) { // '42P01' is undefined_table
-            console.log('Users relation not found on user_activity_feed, fetching separately.');
+            console.log('Users relation not found on activity_feed, fetching separately.');
             const { data: activityFeed, error: activityFeedError } = await supabase
-              .from('user_activity_feed')
+              .from('activity_feed')
               .select('*')
               .order('created_at', { ascending: false })
               .limit(50);

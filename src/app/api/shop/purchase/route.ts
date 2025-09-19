@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { supabase } from '@/lib/supabase';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
+import { supabase } from "../../../../lib/supabase";
 // Removed mock data import - now using database queries
-import { trackShopVisit } from '@/lib/mission-tracker';
-import { trackCollectionAchievement } from '@/lib/achievement-tracker';
+import { trackShopVisit } from "../../../../lib/mission-tracker";
+import { trackCollectionAchievement } from "../../../../lib/achievement-tracker";
 
 export async function POST(request: NextRequest) {
   try {

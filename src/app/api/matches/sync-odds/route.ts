@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { syncOddsFromHLTV } from '@/lib/hltv-scraper';
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
+import { syncOddsFromHLTV } from "../../../../lib/hltv-scraper";
 
 // POST /api/matches/sync-odds - Sync odds from HLTV (Admin only)
 export async function POST(request: NextRequest) {

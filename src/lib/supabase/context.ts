@@ -1,6 +1,6 @@
 import { createContext, useContext } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase } from "../supabase";
 import { createSupabaseQueries, SupabaseQueries } from './queries';
 
 export type SupabaseContextType = {

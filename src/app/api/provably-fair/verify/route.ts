@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getGameVerificationData, verifyGameResult } from '@/lib/provablyFair';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
+import { getGameVerificationData, verifyGameResult } from "../../../../lib/provablyFair";
 
 // Verify a specific game result
 export async function POST(request: NextRequest) {
@@ -24,13 +24,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the result
-    const isValid = verifyGameResult(
-      verificationData.serverSeed,
-      verificationData.clientSeed,
-      verificationData.nonce,
-      verificationData.gameType,
-      verificationData.result
-    );
+    const isValid = verifyGameResult({
+      serverSeed: verificationData.serverSeed,
+      clientSeed: verificationData.clientSeed,
+      nonce: verificationData.nonce,
+      gameType: verificationData.gameType,
+      result: verificationData.result
+    });
 
     return NextResponse.json({
       success: true,
@@ -66,12 +66,12 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    const { getUserGameHistory } = await import('@/lib/provablyFair');
+    const { getUserGameHistory } = await import('../../../../lib/provablyFair');
     const gameHistory = await getUserGameHistory(session.user_id, limit);
 
     return NextResponse.json({
       success: true,
-      gameHistory: gameHistory.map(game => ({
+      gameHistory: gameHistory.map((game: any) => ({
         gameId: game.gameId,
         gameType: game.gameType,
         nonce: game.nonce,

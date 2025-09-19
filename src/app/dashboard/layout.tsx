@@ -13,7 +13,7 @@ import {
   SidebarSeparator,
   SidebarInset,
   SidebarTrigger,
-} from '@/components/ui/sidebar';
+} from "../../components/ui/sidebar";
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
@@ -41,22 +41,22 @@ import {
   History,
 
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { UserAvatar } from '@/components/user-avatar';
-import { Progress } from '@/components/ui/progress';
-import { PrestigeActivityFeed } from '@/components/prestige-activity-feed';
-import { cn } from '@/lib/utils';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useToast } from '@/hooks/use-toast';
-import { getRoleColors, getRoleInlineStyle } from '@/lib/role-colors';
-import { useAuth } from '@/components/auth-provider';
-import { AdminBalanceManager } from '@/components/admin-balance-manager';
-import { useSiteSettings } from '@/hooks/use-site-settings';
-import { XpDisplay } from '@/components/xp-display';
-import { XPManager } from '@/components/xp-manager';
-import { BalanceProvider, useBalance } from '@/contexts/balance-context';
+import { Button } from "../../components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
+import { UserAvatar } from "../../components/user-avatar";
+import { Progress } from "../../components/ui/progress";
+import { PrestigeActivityFeed } from "../../components/prestige-activity-feed";
+import { cn } from "../../lib/utils";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "../../components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
+import { useToast } from "../../hooks/use-toast";
+import { getRoleColors, getRoleInlineStyle } from "../../lib/role-colors";
+import { useAuth } from "../../components/auth-provider";
+import { AdminBalanceManager } from "../../components/admin-balance-manager";
+import { useSiteSettings } from "../../hooks/use-site-settings";
+import { XpDisplay } from "../../components/xp-display";
+import { XPManager } from "../../components/xp-manager";
+import { BalanceProvider, useBalance } from "../../contexts/balance-context";
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -239,7 +239,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     };
 
     loadUserData();
-  }, [user?.uid, user?.role]); // Also depend on user ID and role to refresh when switching accounts
+  }, [user?.id, user?.role]); // Also depend on user ID and role to refresh when switching accounts
 
   
   const currentPage = navLinks.find((link) => pathname.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard'));

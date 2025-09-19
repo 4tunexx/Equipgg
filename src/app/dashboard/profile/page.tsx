@@ -1,29 +1,31 @@
 
 
 'use client';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ranks, badges, achievements, referrals, equippedItems, inventoryData, achievedItems, getRankByLevel } from "@/lib/mock-data";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { useAuth } from "../../../hooks/use-auth";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { supabase } from "../../../lib/supabase/client";
+import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from "../../../lib/supabase/queries";
 import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge as UiBadge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch";
-import { BettingHistory } from "@/components/profile/betting-history";
-import { TradeUpHistory } from "@/components/profile/trade-up-history";
-import { MiniProfileCard } from "@/components/mini-profile-card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useAuth } from "@/components/auth-provider";
-import { useBalance } from "@/contexts/balance-context";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
+import { Progress } from "../../../components/ui/progress";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Badge as UiBadge } from "../../../components/ui/badge";
+import { useToast } from "../../../hooks/use-toast";
+import { cn } from "../../../lib/utils";
+import { Switch } from "../../../components/ui/switch";
+import { BettingHistory } from "../../../components/profile/betting-history";
+import { TradeUpHistory } from "../../../components/profile/trade-up-history";
+import { MiniProfileCard } from "../../../components/mini-profile-card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { useBalance } from "../../../contexts/balance-context";
 import { useState, useEffect } from "react";
-import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
-import { XpDisplay } from "@/components/xp-display";
+import { getRoleColors, getRoleInlineStyle } from "../../../lib/role-colors";
+import { XpDisplay } from "../../../components/xp-display";
 
 
 export default function ProfilePage() {
@@ -38,6 +40,56 @@ export default function ProfilePage() {
   const [achievements, setAchievements] = useState<any>({});
   const [userHistory, setUserHistory] = useState<any>(null);
   const referralCode = "REF-4F2B9A1C";
+  
+  // Mock data for missing variables
+  const badges = {
+    "Achievement Badges": [
+      { title: "First Win", description: "Won your first bet" },
+      { title: "Lucky Streak", description: "Won 5 bets in a row" },
+      { title: "High Roller", description: "Placed a bet over 10,000 coins" }
+    ],
+    "Special Badges": [
+      { title: "VIP Member", description: "Premium member status" },
+      { title: "Early Adopter", description: "Joined during beta" }
+    ]
+  };
+  
+  const ranks = {
+    "Competitive Ranks": [
+      { id: "silver1", name: "Silver I", title: "Silver I", level: 1, image: "/ranks/silver1.png", description: "Levels 1-9" },
+      { id: "silver2", name: "Silver II", title: "Silver II", level: 10, image: "/ranks/silver2.png", description: "Levels 10-24" },
+      { id: "gold1", name: "Gold I", title: "Gold I", level: 25, image: "/ranks/gold1.png", description: "Levels 25+" }
+    ]
+  };
+  
+  const getRankByLevel = (level: number) => {
+    if (level >= 25) return "Gold I";
+    if (level >= 10) return "Silver II";
+    return "Silver I";
+  };
+  
+  const achievedItems = new Set([
+    "First Win Badge",
+    "Lucky Streak Badge",
+    "High Roller Badge"
+  ]);
+  
+  const equippedItems = {
+    primary: { id: "ak47-redline", name: "AK-47 | Redline" },
+    secondary: { id: "glock-fade", name: "Glock-18 | Fade" },
+    knife: { id: "karambit-doppler", name: "Karambit | Doppler" }
+  };
+  
+  const inventoryData = [
+    { id: "ak47-redline", name: "AK-47 | Redline" },
+    { id: "m4a4-asiimov", name: "M4A4 | Asiimov" },
+    { id: "glock-fade", name: "Glock-18 | Fade" }
+  ];
+  
+  const referrals = [
+    { id: "1", name: "Player123", username: "Player123", date: "2024-01-15", status: "active", bonus: 500 },
+    { id: "2", name: "GamerPro", username: "GamerPro", date: "2024-01-20", status: "active", bonus: 300 }
+  ];
   
   // Fetch user stats from API
   useEffect(() => {
@@ -318,7 +370,8 @@ export default function ProfilePage() {
                            dataAiHint: 'user profile',
                            xp: balance?.xp || 0,
                            level: balance?.level || 1,
-                           rank: 1
+                           rank: 1,
+                           role: user?.role || 'player'
                          }} />
                     </div>
                     <div className="space-y-6">

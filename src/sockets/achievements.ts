@@ -1,8 +1,8 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, AchievementUnlockedEvent } from './types';
 import { emitToUser, emitToAll, createEventData } from './utils';
-import { supabase } from '@/lib/supabase';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
+import { supabase } from '../lib/supabase';
+import { createSupabaseQueries } from '../lib/supabase/queries';
 
 export function setupAchievementsSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

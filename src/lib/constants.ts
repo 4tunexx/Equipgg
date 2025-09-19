@@ -1,4 +1,4 @@
-import { Rarity } from '@/lib/supabase/queries';
+import { Rarity } from "/supabase/queries";
 
 // Rarity colors for UI elements
 export const rarityColors: Record<Rarity, string> = {

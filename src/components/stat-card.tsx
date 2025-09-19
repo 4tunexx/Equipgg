@@ -3,7 +3,7 @@
 
 import { useEffect, useRef } from 'react';
 import { useInView } from 'react-intersection-observer';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 type StatCardProps = {
   label: string;
