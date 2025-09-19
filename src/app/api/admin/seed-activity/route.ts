@@ -51,7 +51,7 @@ export const POST: RouteHandler = createApiHandler(async (request: NextRequest) 
   });
 
   // Insert activities using secureDb
-  await secureDb.insert<Activity>('user_activity_feed', activities);
+  await secureDb.insert<Activity>('activity_feed', activities);
 
   return NextResponse.json({ 
     success: true,

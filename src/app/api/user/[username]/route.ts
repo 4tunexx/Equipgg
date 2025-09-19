@@ -13,7 +13,7 @@ export async function GET(
     }
 
     // Get user data by username (displayName) or email
-    let user = await secureDb.findOne('users', { displayName: username });
+    let user = await secureDb.findOne('users', { display_name: username });
     if (!user) {
       user = await secureDb.findOne('users', { email: username });
     }
@@ -27,9 +27,9 @@ export async function GET(
       success: true,
       user: {
         id: user.id,
-        name: user.displayName,
-        displayName: user.displayName,
-        username: user.displayName,
+        name: user.display_name,
+        displayName: user.display_name,
+        username: user.display_name,
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,
