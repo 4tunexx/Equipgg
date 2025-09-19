@@ -5,6 +5,13 @@
  * Handles full database cleanup and restoration with all game content
  */
 
+// Skip migration during Vercel builds
+if (process.env.VERCEL || process.env.CI) {
+  console.log('🚫 Skipping database migration during build process');
+  console.log('ℹ️  Database should be migrated separately via Supabase dashboard');
+  process.exit(0);
+}
+
 const { createClient } = require('@supabase/supabase-js');
 const fs = require('fs');
 const path = require('path');
