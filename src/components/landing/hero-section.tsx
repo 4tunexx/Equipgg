@@ -73,7 +73,41 @@ export function HeroSection() {
         priority
       />
       <div className="relative z-10 p-4 flex flex-col lg:flex-row items-center w-full max-w-6xl mx-auto gap-8">
-        <div className='flex-1 text-center lg:text-left order-2 lg:order-1'>
+        {/* Logo Animation - Mobile Version (moved to top level) */}
+        <div className="lg:hidden w-full flex justify-center absolute top-4 left-0 right-0 z-50">
+          <div className="relative h-64 w-full max-w-sm mx-auto bg-yellow-400 border-4 border-red-600" style={{position: 'relative', zIndex: 9999}}>
+            {/* DEBUGGING: Simple static logo first */}
+            <div className="absolute inset-0 flex items-center justify-center bg-blue-500/50">
+              <div className="text-white text-xl font-bold bg-black p-2">LOGO HERE</div>
+            </div>
+            {/* First logo - drops from top */}
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
+              <Image 
+                src="/1.png" 
+                alt="Equip.gg Logo" 
+                width={300}
+                height={200}
+                className="max-h-48 w-auto object-contain opacity-100"
+                key={`logo1-mobile-${logoKey}`}
+                priority
+              />
+            </div>
+            {/* Second logo - slides from under */}
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+              <Image 
+                src="/2.png" 
+                alt="Equip.gg Logo Layer" 
+                width={300}
+                height={200}
+                className="max-h-40 w-auto object-contain opacity-100"
+                key={`logo2-mobile-${logoKey}`}
+                priority
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className='flex-1 text-center lg:text-left order-2 lg:order-1 pt-72 lg:pt-0'>
           <h1 
             className={`text-2xl sm:text-4xl lg:text-6xl xl:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
               isVisible 
@@ -124,40 +158,33 @@ export function HeroSection() {
           </div>
         </div>
         <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0">
-          {/* Layered Logo Animation */}
-                  {/* Logo Animation - Mobile Version */}
-        <div className="lg:hidden w-full flex justify-center mb-8 order-1">
-          <div className="relative h-80 w-full max-w-md mx-auto bg-yellow-400 border-4 border-red-600 z-50" style={{position: 'relative', zIndex: 9999}}>
-            {/* DEBUGGING: Simple static logo first */}
-            <div className="absolute inset-0 flex items-center justify-center bg-blue-500/50">
-              <div className="text-white text-2xl font-bold bg-black p-4">LOGO SHOULD BE HERE</div>
-            </div>
+          {/* Layered Logo Animation - Desktop Only */}
+          <div className="hidden lg:flex relative h-96 w-full max-w-lg">
             {/* First logo - drops from top */}
             <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
               <Image 
                 src="/1.png" 
                 alt="Equip.gg Logo" 
-                width={400}
-                height={300}
-                className="max-h-60 w-auto object-contain opacity-100"
-                key={`logo1-mobile-${logoKey}`}
+                width={500}
+                height={400}
+                className="max-h-80 w-auto object-contain"
+                key={`logo1-desktop-${logoKey}`}
                 priority
               />
             </div>
             {/* Second logo - slides from under */}
-            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnderDesktop_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
               <Image 
                 src="/2.png" 
                 alt="Equip.gg Logo Layer" 
-                width={400}
-                height={300}
-                className="max-h-48 w-auto object-contain opacity-100"
-                key={`logo2-mobile-${logoKey}`}
+                width={500}
+                height={400}
+                className="max-h-64 w-auto object-contain"
+                key={`logo2-desktop-${logoKey}`}
                 priority
               />
             </div>
           </div>
-        </div>
         </div>
       </div>
     </section>
