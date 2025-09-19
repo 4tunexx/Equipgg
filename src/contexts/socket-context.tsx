@@ -62,42 +62,41 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Disable socket in development and production mode to prevent timeout errors
-    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'production') {
-      console.log('Socket.io disabled in development/production mode');
-      setSocket(null);
-      setIsConnected(false);
-      socketFallback.setConnected(false);
-      return;
-    }
+    // Get Socket.IO URL from environment or use default
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.SOCKET_IO_URL || 'http://localhost:3001';
+    
+    console.log('🚀 Initializing Socket.io connection to:', socketUrl);
 
     // Initialize socket connection
-    const newSocket = io('http://localhost:9003', {
+    const newSocket = io(socketUrl, {
       transports: ['websocket', 'polling'],
-      timeout: 2000,
-      autoConnect: false
+      timeout: 5000,
+      autoConnect: false,
+      reconnection: true,
+      reconnectionDelay: 1000,
+      reconnectionAttempts: 5
     });
 
     // Set a timeout for connection
     const connectTimeout = setTimeout(() => {
       if (!newSocket.connected) {
-        console.log('Socket connection timeout, disabling socket');
+        console.log('Socket connection timeout, using fallback mode');
         newSocket.disconnect();
         setSocket(null);
         setIsConnected(false);
         socketFallback.setConnected(false);
       }
-    }, 3000);
+    }, 6000);
 
     newSocket.on('connect', () => {
-      console.log('Connected to Socket.io server');
+      console.log('✅ Connected to Socket.io server');
       setIsConnected(true);
       socketFallback.setConnected(true);
       clearTimeout(connectTimeout);
     });
 
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from Socket.io server');
+    newSocket.on('disconnect', (reason) => {
+      console.log('❌ Disconnected from Socket.io server:', reason);
       setIsConnected(false);
       socketFallback.setConnected(false);
     });
