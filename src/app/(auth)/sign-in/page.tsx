@@ -170,15 +170,32 @@ export default function SignInPage() {
     setIsLoading(true);
     
     try {
-      // This is a placeholder for the actual authentication logic
       console.log('Sign in attempt with:', { email });
-      // In a real implementation, you would call your auth service here
-      setTimeout(() => {
-        setIsLoading(false);
-        // Redirect or show success message
-      }, 1000);
+      
+      // Make API call to sign in
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('Sign in successful:', data);
+        
+        // Redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        const errorData = await response.json();
+        console.error('Sign in failed:', errorData);
+        alert('Sign in failed: ' + (errorData.message || 'Unknown error'));
+      }
     } catch (error) {
       console.error('Sign in error:', error);
+      alert('Sign in failed: Network error');
+    } finally {
       setIsLoading(false);
     }
   };
