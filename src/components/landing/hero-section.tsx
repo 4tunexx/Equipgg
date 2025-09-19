@@ -75,11 +75,7 @@ export function HeroSection() {
       <div className="relative z-10 p-4 flex flex-col lg:flex-row items-center w-full max-w-6xl mx-auto gap-8">
         {/* Logo Animation - Mobile Version (moved to top level) */}
         <div className="lg:hidden w-full flex justify-center absolute top-4 left-0 right-0 z-50">
-          <div className="relative h-64 w-full max-w-sm mx-auto bg-yellow-400 border-4 border-red-600" style={{position: 'relative', zIndex: 9999}}>
-            {/* DEBUGGING: Simple static logo first */}
-            <div className="absolute inset-0 flex items-center justify-center bg-blue-500/50">
-              <div className="text-white text-xl font-bold bg-black p-2">LOGO HERE</div>
-            </div>
+          <div className="relative h-64 w-full max-w-sm mx-auto">
             {/* First logo - drops from top */}
             <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
               <Image 
