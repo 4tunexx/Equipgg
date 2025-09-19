@@ -36,7 +36,7 @@ export function HeroSection() {
 
   return (
     <section className="relative h-[60vh] md:h-[80vh] flex items-center justify-center text-center text-white overflow-hidden">
-      <div className={`absolute top-0 left-0 container flex h-14 items-center z-20 transition-all duration-1000 ease-out transform ${
+      <div className={`absolute top-0 left-0 container flex h-14 items-center z-30 transition-all duration-1000 ease-out transform ${
         isVisible 
           ? 'translate-y-0 opacity-100' 
           : '-translate-y-full opacity-0'
@@ -74,16 +74,16 @@ export function HeroSection() {
       />
       <div className="relative z-10 p-4 flex flex-col lg:flex-row items-center w-full max-w-6xl mx-auto gap-8">
         {/* Logo Animation - Mobile Version */}
-        <div className="lg:hidden w-full flex justify-center absolute top-8 left-0 right-0 z-50">
-          <div className="relative h-48 w-72 mx-auto">
+        <div className="lg:hidden w-full flex justify-center absolute top-20 left-0 right-0 z-40">
+          <div className="relative h-44 w-80 mx-auto">
             {/* First logo - drops from top */}
             <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
               <Image 
                 src="/1.png" 
                 alt="Equip.gg Logo" 
-                width={280}
-                height={180}
-                className="max-h-40 w-auto object-contain"
+                width={300}
+                height={200}
+                className="max-h-36 w-auto object-contain"
                 key={`logo1-mobile-${logoKey}`}
                 priority
               />
@@ -93,9 +93,9 @@ export function HeroSection() {
               <Image 
                 src="/2.png" 
                 alt="Equip.gg Logo Layer" 
-                width={280}
-                height={180}
-                className="max-h-32 w-auto object-contain"
+                width={300}
+                height={200}
+                className="max-h-28 w-auto object-contain"
                 key={`logo2-mobile-${logoKey}`}
                 priority
               />
@@ -103,7 +103,7 @@ export function HeroSection() {
           </div>
         </div>
 
-        <div className='flex-1 text-center lg:text-left order-2 lg:order-1 pt-56 lg:pt-0'>
+        <div className='flex-1 text-center lg:text-left order-2 lg:order-1 pt-48 lg:pt-0'>
           <h1 
             className={`text-2xl sm:text-4xl lg:text-6xl xl:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
               isVisible 
