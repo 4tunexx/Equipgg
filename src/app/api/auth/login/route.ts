@@ -16,8 +16,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Return session and user info
-    return NextResponse.json({ ok: true, session: data.session, user: data.user });
+    // Create response with session cookie
+    const response = NextResponse.json({ ok: true, session: data.session, user: data.user });
+    
+    // Set the session cookie that middleware expects
+    response.cookies.set('equipgg_session', data.session.access_token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/'
+    });
+
+    return response;
   } catch (error) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

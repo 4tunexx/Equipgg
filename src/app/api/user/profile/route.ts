@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     // Get user data from users table
     const { data, error } = await supabase
       .from('users')
-      .select('id, email, display_name, role, coins, gems, xp, level, created_at')
+      .select('id, email, displayname, role, coins, gems, xp, level, created_at')
       .eq('id', user.id)
       .single();
     if (error || !data) {
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         user: {
           id: data.id,
           email: data.email,
-          displayName: data.display_name,
+          displayName: data.displayname,
           role: data.role,
           coins: data.coins || 0,
           gems: data.gems || 0,

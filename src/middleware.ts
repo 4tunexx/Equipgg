@@ -36,7 +36,7 @@ export function middleware(request: NextRequest) {
     // If no session token found, redirect to signin
     if (!sessionToken) {
       console.log('No session token, redirecting to signin');
-      const signInUrl = new URL('/signin', request.url)
+      const signInUrl = new URL('/sign-in', request.url)
       signInUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(signInUrl)
     }

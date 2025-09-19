@@ -97,7 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: session.user.id,
           email: session.user.email || '',
-          displayName: profile?.display_name || session.user.user_metadata?.displayName,
+          displayName: profile?.displayname || session.user.user_metadata?.displayName,
           photoURL: profile?.avatar_url || session.user.user_metadata?.avatar,
           role: profile?.role || 'user',
           level: profile?.level || 1,
@@ -127,9 +127,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      return data;
+      // Use the API route which sets the proper session cookie
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed');
+      }
+
+      // The cookie is set by the API route, now we need to update the auth state
+      // Trigger a session refresh
+      const { data: sessionData, error } = await supabase.auth.getSession();
+      if (!error && sessionData.session) {
+        // The auth state change listener will handle updating the user state
+        return sessionData;
+      } else {
+        // Manually set the session if needed
+        await supabase.auth.setSession(data.session);
+        return data;
+      }
     } catch (error) {
       console.error('Sign in error:', error);
       throw error;
@@ -154,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { error: profileError } = await supabase.from('users').insert({
           id: data.user.id,
           email: data.user.email,
-          display_name: displayName,
+          displayname: displayName,  // Use correct column name
           role: 'user',
           level: 1,
           xp: 0
@@ -180,6 +203,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOutUser = useCallback(async () => {
     try {
+      // Use the logout API route which clears the session cookie
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      // Also sign out from Supabase client
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
 
