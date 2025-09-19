@@ -125,15 +125,15 @@ export function HeroSection() {
         </div>
         <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0">
           {/* Layered Logo Animation */}
-          <div className="relative w-full max-w-sm sm:max-w-md lg:max-w-2xl h-40 sm:h-64 lg:h-96 flex items-center justify-center group cursor-pointer hover:scale-105 transition-transform duration-300">
+          <div className="relative w-full max-w-sm sm:max-w-md lg:max-w-2xl h-64 sm:h-80 lg:h-96 flex items-center justify-center group cursor-pointer hover:scale-105 transition-transform duration-300 bg-red-500/20 border border-red-500/50">
             {/* Main Logo (1.png) - Drops from top - Background layer */}
             <Image
               src="/1.png"
               alt="Main Logo"
               width={600}
               height={200}
-              className={`absolute w-auto h-auto max-w-full max-h-32 sm:max-h-60 lg:max-h-80 object-contain transition-all duration-300 group-hover:animate-logo-shake group-hover:scale-105 group-active:scale-95 group-hover:brightness-110 ${
-                isVisible ? 'animate-drop-from-top' : 'opacity-0'
+              className={`absolute w-auto h-auto max-w-full max-h-48 sm:max-h-64 lg:max-h-80 object-contain transition-all duration-300 group-hover:animate-logo-shake group-hover:scale-105 group-active:scale-95 group-hover:brightness-110 ${
+                isVisible ? 'animate-drop-from-top opacity-100' : 'opacity-0'
               }`}
               style={{ 
                 width: 'auto', 
@@ -154,8 +154,8 @@ export function HeroSection() {
               alt="Overlay Logo"
               width={380}
               height={120}
-              className={`absolute w-auto h-auto max-w-full max-h-24 sm:max-h-40 lg:max-h-52 object-contain transition-all duration-300 group-hover:animate-logo-shake group-hover:scale-105 group-active:scale-95 group-hover:brightness-110 ${
-                isVisible ? 'animate-slide-from-under' : 'opacity-0'
+              className={`absolute w-auto h-auto max-w-full max-h-40 sm:max-h-48 lg:max-h-52 object-contain transition-all duration-300 group-hover:animate-logo-shake group-hover:scale-105 group-active:scale-95 group-hover:brightness-110 ${
+                isVisible ? 'animate-slide-from-under opacity-100' : 'opacity-0'
               }`}
               style={{ 
                 width: 'auto', 
