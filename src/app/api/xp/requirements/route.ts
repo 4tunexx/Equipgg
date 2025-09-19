@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getXPRequirements } from '@/lib/xp-service';
-import { defaultXPConfig } from '@/lib/xp-config';
+import { getXPRequirements } from "../../../../lib/xp-service";
+import { defaultXPConfig } from "../../../../lib/xp-config";
 
 // GET /api/xp/requirements - Get XP requirements for levels
 export async function GET(request: NextRequest) {

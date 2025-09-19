@@ -2,15 +2,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Gem, Rocket, Loader2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { UserProfileLink } from "../user-profile-link";
-import { useAuth } from '@/hooks/use-auth';
-import { useBalance } from '@/contexts/balance-context';
+import { useAuth } from "../../hooks/use-auth";
+import { useBalance } from "../../contexts/balance-context";
 import { toast } from 'sonner';
 
 interface GameHistoryItem {

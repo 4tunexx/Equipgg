@@ -1,8 +1,8 @@
 
 'use client';
 
-import { cn } from "@/lib/utils";
-import type { Rarity } from '@/lib/supabase/queries';
+import { cn } from "../lib/utils";
+import type { Rarity } from "../lib/supabase/queries";
 
 // Define utility constants locally
 const rarityColors: Record<Rarity, string> = {

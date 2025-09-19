@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { useAuth } from '@/components/auth-provider';
+import { useAuth } from "../components/auth-provider";
 
 interface UserBalance {
   coins: number;

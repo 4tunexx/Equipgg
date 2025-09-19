@@ -1,5 +1,5 @@
 import { AuthenticatedSocket } from './types';
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
 export async function authenticateSocket(socket: any): Promise<AuthenticatedSocket | null> {
   try {

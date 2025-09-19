@@ -7,17 +7,17 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
+} from "../../components/ui/card";
 import { Gem, Gift } from 'lucide-react';
-import { Progress } from '@/components/ui/progress';
-import { LiveChat } from '@/components/live-chat';
-import { StatCard } from '@/components/stat-card';
-import { useAuth } from '@/hooks/use-auth';
-import { useBalance } from '@/contexts/balance-context';
+import { Progress } from "../../components/ui/progress";
+import { LiveChat } from "../../components/live-chat";
+import { StatCard } from "../../components/stat-card";
+import { useAuth } from "../../hooks/use-auth";
+import { useBalance } from "../../contexts/balance-context";
 import { useState, useEffect } from 'react';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import { supabase } from '@/lib/supabase/client';
-import type { DBUser, DBMission } from '@/lib/supabase/queries';
+import { createSupabaseQueries } from "../../lib/supabase/queries";
+import { supabase } from "../../lib/supabase/client";
+import type { DBUser, DBMission } from "../../lib/supabase/queries";
 
 // Helper function to get rank by level (temporary until we move to Supabase)
 function getRankByLevel(level: number): string {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { secureDb } from '@/lib/secure-db';
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
+import { secureDb } from "../../../../lib/secure-db";
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {

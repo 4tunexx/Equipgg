@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import { formatActivityMessage } from '@/lib/activity-logger';
+import { supabase } from "../../../lib/supabase";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { formatActivityMessage } from "../../../lib/activity-logger";
 
 interface ActivityItem {
   id: string;

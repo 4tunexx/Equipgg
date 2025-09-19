@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
-import { createSupabaseQueries, DBAchievement, DBUserAchievement, GameType } from '@/lib/supabase/queries';
+import { supabase } from "../../../../lib/supabase";
+import { createSupabaseQueries, DBAchievement, DBUserAchievement, GameType } from "../../../../lib/supabase/queries";
 
 const queries = createSupabaseQueries(supabase);
 

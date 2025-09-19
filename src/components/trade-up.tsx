@@ -2,17 +2,17 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from "./ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { ArrowRight, Bot, Loader2, Sparkles, XCircle } from 'lucide-react';
-import { InventoryItem, InventoryItemType, Rarity, rarityColors, rarityGlow } from '@/lib/types';
-import { cn } from '@/lib/utils';
-import { useToast } from '@/hooks/use-toast';
+import { InventoryItem, InventoryItemType, Rarity, rarityColors, rarityGlow } from "../lib/types";
+import { cn } from "../lib/utils";
+import { useToast } from "../hooks/use-toast";
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+import ItemImage from "./ItemImage";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { ScrollArea } from "./ui/scroll-area";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "./ui/tooltip";
 
 const TRADEUP_SLOTS = 5;
 

@@ -1,11 +1,11 @@
 
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from '@/hooks/use-auth';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import { supabase } from '@/lib/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { useAuth } from "../../../hooks/use-auth";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { supabase } from "../../../lib/supabase/client";
 
 // Define forum categories temporarily until we move to database
 const forumCategories = [
@@ -34,12 +34,12 @@ const recentTopics = [
     rep: 8
   }
 ];
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UserProfileLink } from "@/components/user-profile-link";
-import { Button } from "@/components/ui/button";
-import { getRoleColors } from "@/lib/role-colors";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { UserProfileLink } from "../../../components/user-profile-link";
+import { Button } from "../../../components/ui/button";
+import { getRoleColors } from "../../../lib/role-colors";
 import { MessageSquare, Plus, Minus, ArrowRight, Rss } from "lucide-react";
-import { LiveChat } from "@/components/live-chat";
+import { LiveChat } from "../../../components/live-chat";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 

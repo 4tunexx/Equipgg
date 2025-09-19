@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import secureDb from '@/lib/secureDb';
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
+import secureDb from "../../../../lib/secureDb";
 
 export async function POST(request: NextRequest) {
   try {

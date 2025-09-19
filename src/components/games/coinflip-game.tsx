@@ -2,18 +2,18 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
 import { Gem, Loader2, Swords, UserPlus, Users, CheckCircle } from "lucide-react";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "../ui/tabs";
 import { UserProfileLink } from "../user-profile-link";
 import { CoinflipGamePanel } from "./coinflip-game-panel";
-import { useAuth } from '@/hooks/use-auth';
-import { useSessionRepair } from '@/hooks/use-session-repair';
-import { useBalance } from '@/contexts/balance-context';
+import { useAuth } from "../../hooks/use-auth";
+import { useSessionRepair } from "../../hooks/use-session-repair";
+import { useBalance } from "../../contexts/balance-context";
 import { toast } from 'sonner';
 
 interface CoinflipGameHistoryItem {

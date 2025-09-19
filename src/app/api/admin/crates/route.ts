@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { supabase } from '@/lib/supabase/client';
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
+import { supabase } from "../../../../lib/supabase/client";
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {

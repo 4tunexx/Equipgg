@@ -2,16 +2,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ShopItemCard } from "@/components/shop-item-card";
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { ShopItemCard } from "../../../components/shop-item-card";
+import { Input } from "../../../components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { Button } from "../../../components/ui/button";
 import { Search, Gem, Loader2, Coins, Gamepad2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useSupabase } from '@/lib/supabase/context';
-import { useBalance } from '@/contexts/balance-context';
-import { DBShopItem } from '@/lib/supabase/queries';
+import { useSupabase } from "../../../lib/supabase/context";
+import { useBalance } from "../../../contexts/balance-context";
+import { DBShopItem } from "../../../lib/supabase/queries";
 
 const FEATURE_HIGHLIGHTS = [
   {

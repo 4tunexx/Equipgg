@@ -1,17 +1,17 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { useAuth } from '@/components/auth-provider';
-import { useBalance } from '@/contexts/balance-context';
+import { Button } from "../ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Badge } from "../ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { useAuth } from "../auth-provider";
+import { useBalance } from "../../contexts/balance-context";
 import { toast } from 'sonner';
 import { Loader2, Shield, Eye, EyeOff, Copy, CheckCircle, Play, Square } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { cn } from "../../lib/utils";
 
 interface CrashResult {
   multiplier: number;

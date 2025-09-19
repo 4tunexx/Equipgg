@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Target, Gift, Trophy } from "lucide-react";
 
 // Temporary feature highlights data - TODO: move to database

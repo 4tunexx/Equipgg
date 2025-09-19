@@ -3,75 +3,11 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 
-// TypeScript interfaces for UI components
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  className?: string;
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
-  asChild?: boolean;
-}
-
-interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  className?: string;
-}
-
-interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
-  className?: string;
-}
-
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  className?: string;
-}
-
-interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement> {
-  className?: string;
-}
-
-// Section data interfaces
-interface SectionItem {
-  title: string;
-  description: string;
-}
-
-interface BaseSection {
-  id: string;
-  title: string;
-}
-
-interface HeroSection extends BaseSection {
-  subtitle: string;
-  description: string;
-  buttonText: string;
-  imagePath: string;
-}
-
-interface FeatureSection extends BaseSection {
-  items: SectionItem[];
-}
-
-interface AboutSection extends BaseSection {
-  description: string;
-}
-
-type Section = HeroSection | FeatureSection | AboutSection;
-
-// Type guard functions
-const isHeroSection = (section: Section): section is HeroSection => {
-  return 'subtitle' in section && 'buttonText' in section && 'imagePath' in section;
-};
-
-const isFeatureSection = (section: Section): section is FeatureSection => {
-  return 'items' in section;
-};
-
-const isAboutSection = (section: Section): section is AboutSection => {
-  return 'description' in section && !('items' in section) && !('subtitle' in section);
-};
-
 // Inline UI components to avoid import resolution issues
-const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, variant, size, ...props }, ref) => {
+const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
+  const Comp = asChild ? 'slot' : 'button';
   return (
-    <button
+    <Comp
       className={`inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none ring-offset-background ${
         variant === 'default' ?
           'bg-primary text-primary-foreground hover:bg-primary/90' :
@@ -100,7 +36,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(({ className, va
 });
 Button.displayName = "Button";
 
-const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
+const Card = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}
@@ -109,7 +45,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props 
 ));
 Card.displayName = "Card";
 
-const CardHeader = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
+const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={`flex flex-col space-y-1.5 p-6 ${className}`}
@@ -118,7 +54,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...
 ));
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTMLHeadingElement>>(({ className, ...props }, ref) => (
+const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
   <h3
     ref={ref}
     className={`text-2xl font-semibold leading-none tracking-tight ${className}`}
@@ -127,7 +63,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
 ));
 CardTitle.displayName = "CardTitle";
 
-const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(({ className, ...props }, ref) => (
+const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
   <p
     ref={ref}
     className={`text-sm text-muted-foreground ${className}`}
@@ -136,12 +72,12 @@ const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttribu
 ));
 CardDescription.displayName = "CardDescription";
 
-const CardContent = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
+const CardContent = React.forwardRef(({ className, ...props }, ref) => (
   <div ref={ref} className={`p-6 pt-0 ${className}`} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
-const CardFooter = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...props }, ref) => (
+const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={`flex items-center p-6 pt-0 ${className}`}
@@ -150,7 +86,7 @@ const CardFooter = React.forwardRef<HTMLDivElement, CardProps>(({ className, ...
 ));
 CardFooter.displayName = "CardFooter";
 
-const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type, ...props }, ref) => {
+const Input = React.forwardRef(({ className, type, ...props }, ref) => {
   return (
     <input
       type={type}
@@ -162,7 +98,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(({ className, type,
 });
 Input.displayName = "Input";
 
-const Label = React.forwardRef<HTMLLabelElement, LabelProps>(({ className, ...props }, ref) => (
+const Label = React.forwardRef(({ className, ...props }, ref) => (
   <label
     ref={ref}
     className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}
@@ -171,7 +107,7 @@ const Label = React.forwardRef<HTMLLabelElement, LabelProps>(({ className, ...pr
 ));
 Label.displayName = "Label";
 
-const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ className, ...props }, ref) => {
+const Textarea = React.forwardRef(({ className, ...props }, ref) => {
   return (
     <textarea
       className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
@@ -183,7 +119,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(({ classNa
 Textarea.displayName = "Textarea";
 
 export default function LandingManagement() {
-  const [sections, setSections] = useState<Section[]>([
+  const [sections, setSections] = useState([
     {
       id: 'hero',
       title: 'Hero Section',
@@ -200,18 +136,13 @@ export default function LandingManagement() {
         { title: 'Case Opening', description: 'Open cases with exclusive skins' },
         { title: 'Trade Up', description: 'Trade your skins for better ones' }
       ]
-    },
-    {
-      id: 'about',
-      title: 'About Us',
-      description: 'Learn more about our platform and mission'
     }
   ]);
   
-  const [currentSection, setCurrentSection] = useState<Section | null>(null);
-  const [editingSection, setEditingSection] = useState<Section | null>(null);
+  const [currentSection, setCurrentSection] = useState(null);
+  const [editingSection, setEditingSection] = useState(null);
   
-  const handleSectionSelect = (section: Section) => {
+  const handleSectionSelect = (section) => {
     setCurrentSection(section);
     setEditingSection({...section});
   };
@@ -227,7 +158,7 @@ export default function LandingManagement() {
   };
   
   const handleAddSection = () => {
-    const newSection: AboutSection = {
+    const newSection = {
       id: `section-${Date.now()}`,
       title: 'New Section',
       description: 'Section description here'
@@ -289,74 +220,64 @@ export default function LandingManagement() {
                   <Label htmlFor="section-title">Section Title</Label>
                   <Input
                     id="section-title"
-                    value={editingSection?.title || ''}
-                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                      editingSection && setEditingSection({...editingSection, title: e.target.value})
-                    }
+                    value={editingSection.title}
+                    onChange={(e) => setEditingSection({...editingSection, title: e.target.value})}
                   />
                 </div>
                 
-                {editingSection && isHeroSection(editingSection) && (
+                {editingSection.subtitle !== undefined && (
                   <div>
                     <Label htmlFor="section-subtitle">Subtitle</Label>
                     <Input
                       id="section-subtitle"
-                      value={editingSection.subtitle || ''}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        setEditingSection({...editingSection, subtitle: e.target.value})
-                      }
+                      value={editingSection.subtitle}
+                      onChange={(e) => setEditingSection({...editingSection, subtitle: e.target.value})}
                     />
                   </div>
                 )}
                 
-                {editingSection && (isHeroSection(editingSection) || isAboutSection(editingSection)) && (
+                {editingSection.description !== undefined && (
                   <div>
                     <Label htmlFor="section-description">Description</Label>
                     <Textarea
                       id="section-description"
-                      value={editingSection.description || ''}
-                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => 
-                        setEditingSection({...editingSection, description: e.target.value})
-                      }
+                      value={editingSection.description}
+                      onChange={(e) => setEditingSection({...editingSection, description: e.target.value})}
                     />
                   </div>
                 )}
                 
-                {editingSection && isHeroSection(editingSection) && (
+                {editingSection.buttonText !== undefined && (
                   <div>
                     <Label htmlFor="button-text">Button Text</Label>
                     <Input
                       id="button-text"
-                      value={editingSection.buttonText || ''}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        setEditingSection({...editingSection, buttonText: e.target.value})
-                      }
+                      value={editingSection.buttonText}
+                      onChange={(e) => setEditingSection({...editingSection, buttonText: e.target.value})}
                     />
                   </div>
                 )}
                 
-                {editingSection && isHeroSection(editingSection) && (
+                {editingSection.imagePath !== undefined && (
                   <div>
                     <Label htmlFor="image-path">Image Path</Label>
                     <Input
                       id="image-path"
-                      value={editingSection.imagePath || ''}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => 
-                        setEditingSection({...editingSection, imagePath: e.target.value})
-                      }
+                      value={editingSection.imagePath}
+                      onChange={(e) => setEditingSection({...editingSection, imagePath: e.target.value})}
                     />
                   </div>
                 )}
                 
-                {editingSection && isFeatureSection(editingSection) && (
+                {editingSection.items && (
                   <div>
                     <Label className="block mb-2">Items</Label>
-                    {editingSection.items.map((item: SectionItem, index: number) => (
+                    {editingSection.items.map((item, index) => (
                       <div key={index} className="grid grid-cols-2 gap-2 mb-2 p-2 border rounded">
                         <Input
                           placeholder="Title"
                           value={item.title}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          onChange={(e) => {
                             const newItems = [...editingSection.items];
                             newItems[index] = {...newItems[index], title: e.target.value};
                             setEditingSection({...editingSection, items: newItems});
@@ -365,7 +286,7 @@ export default function LandingManagement() {
                         <Input
                           placeholder="Description"
                           value={item.description}
-                          onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                          onChange={(e) => {
                             const newItems = [...editingSection.items];
                             newItems[index] = {...newItems[index], description: e.target.value};
                             setEditingSection({...editingSection, items: newItems});

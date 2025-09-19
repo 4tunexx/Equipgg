@@ -2,14 +2,14 @@
 'use client';
 
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import ItemImage from "./ItemImage";
+import { Card, CardContent, CardFooter } from "./ui/card";
+import { Button } from "./ui/button";
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import type { Rarity } from '@/lib/supabase/queries';
-import { ShopItem } from '@/types/shop';
-import { cn } from '@/lib/utils';
+import { createSupabaseQueries } from "../lib/supabase/queries";
+import type { Rarity } from "../lib/supabase/queries";
+import { ShopItem } from '../types/shop';
+import { cn } from "../lib/utils";
 
 // Define utility constants locally
 const rarityColors: Record<Rarity, string> = {
@@ -28,9 +28,9 @@ const rarityGlow: Record<Rarity, string> = {
   'Legendary': 'shadow-yellow-500/50'
 };
 
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from "../hooks/use-toast";
 import { useState } from 'react';
-import { useAuth } from '@/components/auth-provider';
+import { useAuth } from "./auth-provider";
 
 type ShopItemCardProps = {
   item: ShopItem;

@@ -1,5 +1,5 @@
-import { getRoleColors, getRoleIcon, getRoleDisplayName } from '@/lib/role-colors';
-import { cn } from '@/lib/utils';
+import { getRoleColors, getRoleIcon, getRoleDisplayName } from "../lib/role-colors";
+import { cn } from "../lib/utils";
 
 interface UserBadgeProps {
   role: string;

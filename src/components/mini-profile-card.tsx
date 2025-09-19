@@ -1,14 +1,14 @@
 
 'use client';
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
-import { cn } from "@/lib/utils";
-import type { DBUser, Rarity } from '@/lib/supabase/queries';
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { Card, CardContent, CardHeader } from "./ui/card";
+import { Progress } from "./ui/progress";
+import { cn } from "../lib/utils";
+import type { DBUser, Rarity } from "../lib/supabase/queries";
 import { BadgeCheck, Trophy } from "lucide-react";
 import Image from "next/image";
-import ItemImage from "@/components/ItemImage";
+import ItemImage from "./ItemImage";
 // Define utility constants locally
 const rarityGlow: Record<Rarity, string> = {
   'Common': 'shadow-gray-500/50',
@@ -28,8 +28,8 @@ type LeaderboardPlayer = {
   level?: number;
   coins?: number;
 };
-import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
-import { XpDisplay } from "@/components/xp-display";
+import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
+import { XpDisplay } from "./xp-display";
 import { useState, useEffect } from "react";
 
 interface MiniProfileCardProps {

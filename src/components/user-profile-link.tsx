@@ -1,11 +1,11 @@
 
 'use client';
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { MiniProfileCard } from "@/components/mini-profile-card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
+import { MiniProfileCard } from "./mini-profile-card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
-import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
+import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
 
 // Local type definition for LeaderboardPlayer
 type LeaderboardPlayer = {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { getGameVerificationData, verifyGameResult } from '@/lib/provablyFair';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
+import { getGameVerificationData, verifyGameResult } from "../../../../lib/provablyFair";
 
 // Verify a specific game result
 export async function POST(request: NextRequest) {
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
 
-    const { getUserGameHistory } = await import('@/lib/provablyFair');
+    const { getUserGameHistory } = await import('../../../../lib/provablyFair');
     const gameHistory = await getUserGameHistory(session.user_id, limit);
 
     return NextResponse.json({

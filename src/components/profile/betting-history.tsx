@@ -1,8 +1,8 @@
 
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 // Temporary betting history data - TODO: move to Supabase
 const bettingHistoryData = [
   {
@@ -24,7 +24,7 @@ const bettingHistoryData = [
 ];
 import Image from "next/image";
 import { Badge } from "../ui/badge";
-import { cn } from "@/lib/utils";
+import { cn } from "../../lib/utils";
 
 
 export function BettingHistory() {

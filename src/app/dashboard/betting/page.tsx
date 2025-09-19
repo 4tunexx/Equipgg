@@ -2,13 +2,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MatchCard } from "@/components/match-card";
-import { LiveChat } from "@/components/live-chat";
-import { YourBets } from "@/components/your-bets";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
+import { useRealtimeBetting } from "../../../hooks/use-realtime-betting";
+import { MatchCard } from "../../../components/match-card";
+import { LiveChat } from "../../../components/live-chat";
+import { YourBets } from "../../../components/your-bets";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../components/ui/tabs';
+import { Button } from '../../../components/ui/button';
 import { Plus, RefreshCw } from 'lucide-react';
-import { useRealtimeBetting } from '@/hooks/use-realtime-betting';
 
 // Local type definition for MatchStatus
 type MatchStatus = 'Upcoming' | 'Live' | 'Finished';

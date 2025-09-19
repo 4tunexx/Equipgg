@@ -1,5 +1,5 @@
 // Component Props Types
-import type { ShopItem } from '@/types/database';
+import type { ShopItem } from '/database';
 
 export interface ShopItemCardProps {
   item: ShopItem;

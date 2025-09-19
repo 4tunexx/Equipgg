@@ -1,7 +1,7 @@
 'use client';
 
-import { Progress } from "@/components/ui/progress";
-import { getLevelInfo as getNewLevelInfo, defaultXPConfig } from "@/lib/xp-config";
+import { Progress } from "./ui/progress";
+import { getLevelInfo as getNewLevelInfo, defaultXPConfig } from "../lib/xp-config";
 import { useState, useEffect } from "react";
 
 interface XpDisplayProps {

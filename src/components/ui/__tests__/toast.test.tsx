@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useToast } from '@/hooks/use-toast';
-import { Toast } from '@/components/ui/toast';
+import { useToast } from "../../../hooks/use-toast";
+import { Toast } from "../../ui/toast";
 
 // Mock the useToast hook
-jest.mock('@/hooks/use-toast', () => ({
+jest.mock('../../../hooks/use-toast', () => ({
   useToast: jest.fn(),
 }));
 

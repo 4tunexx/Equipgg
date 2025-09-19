@@ -1,11 +1,11 @@
 
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import Image from "next/image";
-import ItemImage from "@/components/ItemImage";
-import { cn } from "@/lib/utils";
+import ItemImage from "../ItemImage";
+import { cn } from "../../lib/utils";
 
 // Local rarity colors until we get them from Supabase
 const rarityColors = {

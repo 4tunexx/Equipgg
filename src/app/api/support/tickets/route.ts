@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { supabase } from '@/lib/supabase';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
+import { supabase } from "../../../../lib/supabase";
 import { v4 as uuidv4 } from 'uuid';
 
 // GET - Fetch tickets (for users: their own tickets, for mods/admins: all tickets)

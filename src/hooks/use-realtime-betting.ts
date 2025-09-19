@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useCallback } from 'react';
-import { useSocket } from '@/contexts/socket-context';
-import { useAuth } from '@/components/auth-provider';
-import { useBalance } from '@/contexts/balance-context';
+import { useSocket } from "../contexts/socket-context";
+import { useAuth } from "../components/auth-provider";
+import { useBalance } from "../contexts/balance-context";
 import { toast } from 'sonner';
 
 interface BetPlacedEvent {

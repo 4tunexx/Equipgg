@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
 import { 
   GamingNotifications, 
   EconomyNotifications, 
   SocialNotifications, 
   AdminNotifications 
-} from '@/lib/notification-utils';
+} from "../../../../lib/notification-utils";
 
 // POST - Create demo notifications for the current user
 export async function POST(request: NextRequest) {

@@ -1,11 +1,11 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { Button } from '@/components/ui/button';
-import { AuthModal } from '@/components/auth-modal';
+import { Button } from "../ui/button";
+import { AuthModal } from "../auth-modal";
 import { Gamepad2, LogIn, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { useSiteSettings } from '@/hooks/use-site-settings';
+import { useSiteSettings } from "../../hooks/use-site-settings";
 
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);

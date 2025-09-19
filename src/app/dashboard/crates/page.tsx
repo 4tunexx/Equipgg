@@ -2,22 +2,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { CrateItem } from '@/components/crate-item';
-import { CrateOpeningAnimation } from '@/components/crate-opening-animation';
-import { useAuth } from '@/hooks/use-auth';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import { supabase } from '@/lib/supabase/client';
-import type { DBCrate, DBInventoryItem, DBItem, Rarity } from '@/lib/supabase/queries';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from "../../../components/ui/button";
+import { CrateItem } from "../../../components/crate-item";
+import { CrateOpeningAnimation } from "../../../components/crate-opening-animation";
+import { useAuth } from "../../../hooks/use-auth";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { supabase } from "../../../lib/supabase/client";
+import type { DBCrate, DBInventoryItem, DBItem, Rarity } from "../../../lib/supabase/queries";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Image from 'next/image';
-import ItemImage from '@/components/ItemImage';
-import { cn } from '@/lib/utils';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import ItemImage from "../../../components/ItemImage";
+import { cn } from "../../../lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { CheckCircle, Gift, Star, Trophy, Coins } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useToast } from "../../../hooks/use-toast";
+import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 
 // Define utility constants
 const rarityColors: Record<Rarity, string> = {

@@ -1,4 +1,4 @@
-import type { ShopItem } from '@/types/database';
+import type { ShopItem } from '../../types/database';
 
 // Feature highlights for the shop
 export const shopFeatureHighlights = [

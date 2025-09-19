@@ -1,4 +1,4 @@
-import { itemMap, getItemType } from '@/config/itemMap';
+import { itemMap, getItemType } from "../config/itemMap";
 
 // CSGODatabase is the most reliable source for CS2 item images
 // Steam blocks external access to their image API

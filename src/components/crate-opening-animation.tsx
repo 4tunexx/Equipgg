@@ -3,11 +3,11 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import Image from 'next/image';
-import { cn } from '@/lib/utils';
-import { Card } from '@/components/ui/card';
-import { rarityGlow, fallbackImages } from '@/lib/constants';
-import type { CrateItem } from '@/types/crate';
-import ItemImage from '@/components/ItemImage';
+import { cn } from "../lib/utils";
+import { Card } from "./ui/card";
+import { rarityGlow, fallbackImages } from "../lib/constants";
+import type { CrateItem } from '../types/crate';
+import ItemImage from "./ItemImage";
 
 interface CrateOpeningAnimationProps {
   items: CrateItem[];

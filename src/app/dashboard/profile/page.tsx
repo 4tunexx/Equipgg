@@ -1,31 +1,31 @@
 
 
 'use client';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAuth } from '@/hooks/use-auth';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
-import { supabase } from '@/lib/supabase/client';
-import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from '@/lib/supabase/queries';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { useAuth } from "../../../hooks/use-auth";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { supabase } from "../../../lib/supabase/client";
+import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from "../../../lib/supabase/queries";
 import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History } from "lucide-react";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge as UiBadge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch";
-import { BettingHistory } from "@/components/profile/betting-history";
-import { TradeUpHistory } from "@/components/profile/trade-up-history";
-import { MiniProfileCard } from "@/components/mini-profile-card";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useBalance } from "@/contexts/balance-context";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
+import { Progress } from "../../../components/ui/progress";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Label } from "../../../components/ui/label";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Badge as UiBadge } from "../../../components/ui/badge";
+import { useToast } from "../../../hooks/use-toast";
+import { cn } from "../../../lib/utils";
+import { Switch } from "../../../components/ui/switch";
+import { BettingHistory } from "../../../components/profile/betting-history";
+import { TradeUpHistory } from "../../../components/profile/trade-up-history";
+import { MiniProfileCard } from "../../../components/mini-profile-card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { useBalance } from "../../../contexts/balance-context";
 import { useState, useEffect } from "react";
-import { getRoleColors, getRoleInlineStyle } from "@/lib/role-colors";
-import { XpDisplay } from "@/components/xp-display";
+import { getRoleColors, getRoleInlineStyle } from "../../../lib/role-colors";
+import { XpDisplay } from "../../../components/xp-display";
 
 
 export default function ProfilePage() {

@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
-import { useAuth } from '@/components/auth-provider';
-import { socketFallback } from '@/lib/socket-fallback';
+import { useAuth } from "../components/auth-provider";
+import { socketFallback } from "../lib/socket-fallback";
 
 interface SocketContextType {
   socket: Socket | null;

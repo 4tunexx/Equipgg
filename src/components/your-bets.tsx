@@ -10,8 +10,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+} from "./ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 // Define Bet type locally until moved to Supabase types
 type Bet = {
   id: string;
@@ -32,9 +32,9 @@ type Bet = {
     team2: { name: string; logo: string; dataAiHint: string; };
   };
 };
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { useAuth } from '@/components/auth-provider';
+import { Badge } from "./ui/badge";
+import { cn } from "../lib/utils";
+import { useAuth } from "./auth-provider";
 import { Loader2 } from 'lucide-react';
 
 type YourBetsProps = {

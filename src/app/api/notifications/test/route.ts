@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { GamingNotifications, EconomyNotifications, SocialNotifications } from '@/lib/notification-utils';
+import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
+import { GamingNotifications, EconomyNotifications, SocialNotifications } from "../../../../lib/notification-utils";
 
 // POST - Create test notifications for the current user
 export async function POST(request: NextRequest) {

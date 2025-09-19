@@ -2,15 +2,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Button } from "./ui/button";
+import { Card, CardContent } from "./ui/card";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
-} from '@/components/ui/collapsible';
-import { Separator } from '@/components/ui/separator';
-import type { MatchStatus } from '@/lib/supabase/queries';
+} from "./ui/collapsible";
+import { Separator } from "./ui/separator";
+import type { MatchStatus } from "../lib/supabase/queries";
 
 // Define Match type locally until moved to Supabase types
 type Match = {
@@ -24,12 +24,12 @@ type Match = {
 };
 import { ChevronDown, Gamepad2, Gem, MapPin, Users, Clock, PlayCircle, Edit } from 'lucide-react';
 import Image from 'next/image';
-import { Progress } from '@/components/ui/progress';
-import { useToast } from '@/hooks/use-toast';
+import { Progress } from "./ui/progress";
+import { useToast } from "../hooks/use-toast";
 import { AspectRatio } from './ui/aspect-ratio';
-import { useAuth } from '@/components/auth-provider';
-import { useBalance } from '@/contexts/balance-context';
-import { useSocket } from '@/contexts/socket-context';
+import { useAuth } from "./auth-provider";
+import { useBalance } from "../contexts/balance-context";
+import { useSocket } from "../contexts/socket-context";
 import { StreamingPlayer } from './streaming-player';
 import { TeamLogo } from './team-logo';
 

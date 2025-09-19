@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession } from '@/lib/auth-utils';
-import { secureDb } from '@/lib/secure-db';
+import { getAuthSession } from "../../../../lib/auth-utils";
+import { secureDb } from "../../../../lib/secure-db";
 
 // GET - Fetch gem management settings
 export async function GET(request: NextRequest) {

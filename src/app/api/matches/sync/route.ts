@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '@/lib/auth-utils';
-import { syncMatchesFromPandaScore, processMatchResults } from '@/lib/pandascore';
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
+import { syncMatchesFromPandaScore, processMatchResults } from "../../../../lib/pandascore";
 
 // POST /api/matches/sync - Sync matches from PandaScore (Admin only)
 export async function POST(request: NextRequest) {

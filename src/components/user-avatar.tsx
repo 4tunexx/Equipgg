@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Image from 'next/image';
-import { cn } from '@/lib/utils';
-import { getRoleColors } from '@/lib/role-colors';
+import { cn } from "../lib/utils";
+import { getRoleColors } from "../lib/role-colors";
 
 interface UserAvatarProps {
   user: {

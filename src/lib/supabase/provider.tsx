@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { User } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
+import { supabase } from "../supabase";
 import { createSupabaseQueries } from './queries';
 import { SupabaseContext } from './context';
 

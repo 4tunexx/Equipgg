@@ -1,8 +1,8 @@
 'use client';
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/hooks/use-toast';
+import { supabase } from "../lib/supabase";
+import { useToast } from "../hooks/use-toast";
 import type { Session, User } from '@supabase/supabase-js';
 
 interface ApiUser {

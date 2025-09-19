@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from '@/lib/auth-utils';
-import { supabase } from '@/lib/supabase';
-import { createSupabaseQueries } from '@/lib/supabase/queries';
+import { getAuthSession, createUnauthorizedResponse } from "../../../lib/auth-utils";
+import { supabase } from "../../../lib/supabase";
+import { createSupabaseQueries } from "../../../lib/supabase/queries";
 
 // GET - Fetch user notifications
 export async function GET(request: NextRequest) {

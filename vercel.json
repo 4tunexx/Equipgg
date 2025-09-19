@@ -1,11 +1,7 @@
 {
   "version": 2,
-  "name": "equipgg",
-  "alias": ["www.equipgg.net", "equipgg.net"],
   "framework": "nextjs",
-  "buildCommand": "node scripts/vercel-build.js",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30

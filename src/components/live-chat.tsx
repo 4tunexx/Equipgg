@@ -2,14 +2,14 @@
 'use client';
 
 
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+import { Input } from "./ui/input";
+import { Button } from "./ui/button";
 import { Send } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "./ui/scroll-area";
 import { UserProfileLink } from "./user-profile-link";
 import { useAuth } from "./auth-provider";
 import { useEffect, useRef, useState } from "react";
-import { getRoleColors } from "@/lib/role-colors";
+import { getRoleColors } from "../lib/role-colors";
 
 type LiveChatProps = {
     title: string;

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabaseClient';
-import { secureDb } from '@/lib/secure-db';
+import { supabase } from "../../../lib/supabaseClient";
+import { secureDb } from "../../../lib/secure-db";
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChatMessage {

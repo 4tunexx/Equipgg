@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import secureDb from '@/lib/secureDb';
+import secureDb from "../../../../lib/secureDb";
 import { v4 as uuidv4 } from 'uuid';
-import { RouteContext, RouteHandler, createApiHandler } from '@/types/api';
-import { User, Activity } from '@/types/database';
+import { RouteContext, RouteHandler, createApiHandler } from '../../../../types/api';
+import { User, Activity } from '../../../../types/database';
 
 export const POST: RouteHandler = createApiHandler(async (request: NextRequest) => {
   // Get some users to create activities for

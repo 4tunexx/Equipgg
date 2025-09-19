@@ -3,15 +3,15 @@
  
 'use client';
  
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Trophy, Gem, Award, Star, BrainCircuit, Handshake, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { UserProfileLink } from '@/components/user-profile-link';
+import { cn } from "../../../lib/utils";
+import { Badge } from "../../../components/ui/badge";
+import { UserProfileLink } from "../../../components/user-profile-link";
 import { useEffect, useState } from 'react';
-import { getRoleColors } from '@/lib/role-colors';
+import { getRoleColors } from "../../../lib/role-colors";
 
 
 export default function LeaderboardPage() {

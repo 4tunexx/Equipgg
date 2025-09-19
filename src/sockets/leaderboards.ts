@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, LeaderboardUpdateEvent } from './types';
 import { emitToAll, emitToUser } from './utils';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '../lib/supabase';
 
 export function setupLeaderboardsSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

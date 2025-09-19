@@ -1,16 +1,114 @@
 
 'use client';
 
-import { useState, useEffect } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { UserProfileLink } from "@/components/user-profile-link";
-import { CrashGame } from "@/components/games/crash-game";
-import { CoinflipGame } from "@/components/games/coinflip-game";
-import { PlinkoGame } from "@/components/games/plinko-game";
-import { SweeperGame } from "@/components/games/sweeper-game";
+import React, { useState, useEffect } from 'react'
+import { CrashGame } from "../../../components/games/crash-game";
+import { CoinflipGame } from "../../../components/games/coinflip-game";
+import { PlinkoGame } from "../../../components/games/plinko-game";
+import { SweeperGame } from "../../../components/games/sweeper-game";
 import { Bomb, Coins, Gamepad2, Puzzle, Rocket, Loader2 } from "lucide-react";
+
+// Inline UI Components
+const Tabs = ({ children, defaultValue, className = '' }: { children: React.ReactNode; defaultValue?: string; className?: string }) => {
+  const [activeTab, setActiveTab] = useState(defaultValue);
+  return (
+    <div className={className} data-active-tab={activeTab}>
+      {React.Children.map(children, child => 
+        React.isValidElement(child) ? React.cloneElement(child as any, { activeTab, setActiveTab }) : child
+      )}
+    </div>
+  );
+};
+
+const TabsList = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`}>
+    {children}
+  </div>
+);
+
+const TabsTrigger = ({ children, value, activeTab, setActiveTab }: { children: React.ReactNode; value: string; activeTab?: string; setActiveTab?: (value: string) => void }) => (
+  <button
+    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeTab === value ? 'bg-background text-foreground shadow-sm' : ''}`}
+    onClick={() => setActiveTab?.(value)}
+  >
+    {children}
+  </button>
+);
+
+const TabsContent = ({ children, value, activeTab }: { children: React.ReactNode; value: string; activeTab?: string }) => 
+  activeTab === value ? <div>{children}</div> : null;
+
+const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}>
+    {children}
+  </div>
+);
+
+const CardHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`flex flex-col space-y-1.5 p-6 ${className}`}>
+    {children}
+  </div>
+);
+
+const CardTitle = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`}>
+    {children}
+  </h3>
+);
+
+const CardContent = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className={`p-6 pt-0 ${className}`}>
+    {children}
+  </div>
+);
+
+const Table = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <div className="relative w-full overflow-auto">
+    <table className={`w-full caption-bottom text-sm ${className}`}>
+      {children}
+    </table>
+  </div>
+);
+
+const TableHeader = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <thead className={`[&_tr]:border-b ${className}`}>
+    {children}
+  </thead>
+);
+
+const TableBody = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <tbody className={`[&_tr:last-child]:border-0 ${className}`}>
+    {children}
+  </tbody>
+);
+
+const TableRow = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <tr className={`border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted ${className}`}>
+    {children}
+  </tr>
+);
+
+const TableHead = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+  <th className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 ${className}`}>
+    {children}
+  </th>
+);
+
+const TableCell = ({ children, className = '', colSpan }: { children: React.ReactNode; className?: string; colSpan?: number }) => (
+  <td className={`p-4 align-middle [&:has([role=checkbox])]:pr-0 ${className}`} colSpan={colSpan}>
+    {children}
+  </td>
+);
+
+// Simplified UserProfileLink component
+const UserProfileLink = ({ user }: { user: any }) => (
+  <div className="flex items-center gap-2">
+    <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs">
+      {user?.name?.[0] || '?'}
+    </div>
+    <span className="font-semibold">{user?.name || 'Unknown'}</span>
+  </div>
+);
 
 interface GameUser {
     name: string;

@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import ItemImage from '@/components/ItemImage';
+import ItemImage from "../../components/ItemImage";
 
 export default function TestWorkingImagesPage() {
   const testItems = [

@@ -1,13 +1,13 @@
 
 'use client';
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Progress } from "@/components/ui/progress";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Progress } from "../../../components/ui/progress";
 // Removed mock data import - now using real API data
 import { CheckCircle, Gem, Star } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { MissionSummaryCard } from "@/components/mission-summary-card";
-import { useAuth } from "@/components/auth-provider";
+import { cn } from "../../../lib/utils";
+import { MissionSummaryCard } from "../../../components/mission-summary-card";
+import { useAuth } from "../../../components/auth-provider";
 import { useState, useEffect } from "react";
 
 interface Mission {

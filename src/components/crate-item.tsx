@@ -2,12 +2,12 @@
 'use client';
 
 import Image from 'next/image';
-import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent } from "./ui/card";
+import { Button } from "./ui/button";
 import { Key } from 'lucide-react';
-import { DBCrate, DBItem } from '@/lib/supabase/queries';
-import { cn } from '@/lib/utils';
-import { fallbackImages } from '@/lib/constants';
+import { DBCrate, DBItem } from "../lib/supabase/queries";
+import { cn } from "../lib/utils";
+import { fallbackImages } from "../lib/constants";
 
 interface CrateWithItems extends DBCrate {
   items: Array<DBItem & { dropChance: number }>;

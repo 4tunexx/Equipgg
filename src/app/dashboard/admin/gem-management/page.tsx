@@ -3,104 +3,32 @@
 // This is a simplified version of the gem-management page without UI component imports
 // to fix the deployment issue. The actual functionality is preserved.
 
-import React, { useState, useEffect } from 'react';
-
-// Type definitions
-interface GemSettings {
-  gemShopEnabled: boolean;
-  cs2SkinsEnabled: boolean;
-  exchangeEnabled: boolean;
-  dailyExchangeLimit: number;
-  withdrawEnabled: boolean;
-  maxGemWithdrawal: number;
-}
-
-interface ExchangeRate {
-  id: string;
-  name: string;
-  rate: number;
-  enabled: boolean;
-}
-
-interface Toast {
-  id: string;
-  title: string;
-  description: string;
-  variant: string;
-}
-
-interface ToastOptions {
-  title: string;
-  description: string;
-  variant?: string;
-}
-
-// Component Props Interfaces
-interface CardProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-interface CardHeaderProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-interface CardTitleProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-interface CardDescriptionProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-interface CardContentProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
+import { useState, useEffect } from 'react';
 
 // Inline UI Components to avoid import issues
-const Card: React.FC<CardProps> = ({ className = '', children, ...props }) => (
+const Card = ({ className = '', children, ...props }) => (
   <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`} {...props}>
     {children}
   </div>
 );
 
-const CardHeader: React.FC<CardHeaderProps> = ({ className = '', children, ...props }) => (
+const CardHeader = ({ className = '', children, ...props }) => (
   <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props}>{children}</div>
 );
 
-const CardTitle: React.FC<CardTitleProps> = ({ className = '', children, ...props }) => (
+const CardTitle = ({ className = '', children, ...props }) => (
   <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`} {...props}>{children}</h3>
 );
 
-const CardDescription: React.FC<CardDescriptionProps> = ({ className = '', children, ...props }) => (
+const CardDescription = ({ className = '', children, ...props }) => (
   <p className={`text-sm text-muted-foreground ${className}`} {...props}>{children}</p>
 );
 
-const CardContent: React.FC<CardContentProps> = ({ className = '', children, ...props }) => (
+const CardContent = ({ className = '', children, ...props }) => (
   <div className={`p-6 pt-0 ${className}`} {...props}>{children}</div>
 );
 
-interface ButtonProps {
-  className?: string;
-  children: React.ReactNode;
-  type?: 'button' | 'submit' | 'reset';
-  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
-  size?: 'default' | 'sm' | 'lg' | 'icon';
-  disabled?: boolean;
-  onClick?: () => void;
-  [key: string]: any;
-}
-
-const Button: React.FC<ButtonProps> = ({ 
+const Button = ({ 
   className = '', 
   children, 
   type = 'button', 
@@ -139,23 +67,14 @@ const Button: React.FC<ButtonProps> = ({
   );
 };
 
-interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
-  className?: string;
-}
-
-const Input: React.FC<InputProps> = ({ className = '', ...props }) => (
+const Input = ({ className = '', ...props }) => (
   <input
     className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     {...props}
   />
 );
 
-interface LabelProps extends React.LabelHTMLAttributes<HTMLLabelElement> {
-  className?: string;
-  children: React.ReactNode;
-}
-
-const Label: React.FC<LabelProps> = ({ className = '', htmlFor, children, ...props }) => (
+const Label = ({ className = '', htmlFor, children, ...props }) => (
   <label
     htmlFor={htmlFor}
     className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}
@@ -165,97 +84,56 @@ const Label: React.FC<LabelProps> = ({ className = '', htmlFor, children, ...pro
   </label>
 );
 
-interface TabsProps {
-  defaultValue: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const Tabs: React.FC<TabsProps> = ({ defaultValue, children, ...props }) => {
-  const [value, setValue] = React.useState(defaultValue);
+const Tabs = ({ defaultValue, children, ...props }) => {
+  const [value, setValue] = useState(defaultValue);
 
   return (
-    <div {...props}>
+    <div {...props} data-value={value}>
       {React.Children.map(children, (child) => {
-        if (!React.isValidElement(child)) {
-          return child;
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child, { value, onChange: setValue });
         }
-        
-        if (child.type === TabsContent || child.type === TabsTrigger) {
-          return React.cloneElement(child as React.ReactElement<any>, { 
-            value, 
-            onChange: setValue,
-            active: value
-          });
-        }
-        
         return child;
       })}
     </div>
   );
 };
 
-interface TabsListProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const TabsList: React.FC<TabsListProps> = ({ className = '', children, ...props }) => (
-  <div
-    className={`inline-flex h-10 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground ${className}`}
+const TabsList = ({ className = '', children, ...props }) => (
+  <div 
+    className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`}
+    role="tablist" 
     {...props}
   >
     {children}
   </div>
 );
 
-interface TabsTriggerProps {
-  className?: string;
-  value: string;
-  children: React.ReactNode;
-  onChange?: (value: string) => void;
-  active?: string;
-  [key: string]: any;
-}
-
-const TabsTrigger: React.FC<TabsTriggerProps> = ({ className = '', value, children, onChange, ...props }) => (
+const TabsTrigger = ({ className = '', value, children, onChange, ...props }) => (
   <button
-    className={`inline-flex items-center justify-center whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${
-      props.active === value ? 'bg-background text-foreground shadow-sm' : 'hover:bg-background/50 hover:text-foreground'
-    } ${className}`}
-    onClick={() => onChange?.(value)}
+    className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm ${className} ${props['data-state'] === 'active' ? 'bg-background text-foreground shadow-sm' : ''}`}
+    role="tab"
+    data-state={value === props.value ? 'active' : 'inactive'}
+    onClick={() => onChange && onChange(props.value)}
     {...props}
   >
     {children}
   </button>
 );
 
-interface TabsContentProps {
-  className?: string;
-  value: string;
-  children: React.ReactNode;
-  active?: string;
-  [key: string]: any;
-}
-
-const TabsContent: React.FC<TabsContentProps> = ({ className = '', value, children, ...props }) => (
+const TabsContent = ({ className = '', value, children, ...props }) => (
   <div
     className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
-    hidden={props.active !== value}
+    role="tabpanel"
+    data-state={props.value === value ? 'active' : 'inactive'}
+    style={{ display: props.value === value ? 'block' : 'none' }}
     {...props}
   >
     {children}
   </div>
 );
 
-interface SwitchProps {
-  checked: boolean;
-  onCheckedChange?: (checked: boolean) => void;
-  [key: string]: any;
-}
-
-const Switch: React.FC<SwitchProps> = ({ checked, onCheckedChange, ...props }) => {
+const Switch = ({ checked, onCheckedChange, ...props }) => {
   const [isChecked, setIsChecked] = useState(checked);
   
   const handleChange = () => {
@@ -280,16 +158,7 @@ const Switch: React.FC<SwitchProps> = ({ checked, onCheckedChange, ...props }) =
   );
 };
 
-type BadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
-
-interface BadgeProps {
-  className?: string;
-  variant?: BadgeVariant;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const Badge: React.FC<BadgeProps> = ({ className = '', variant = 'default', children, ...props }) => {
+const Badge = ({ className = '', variant = 'default', children, ...props }) => {
   const variantStyles = {
     default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
     secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
@@ -299,7 +168,7 @@ const Badge: React.FC<BadgeProps> = ({ className = '', variant = 'default', chil
   
   return (
     <div 
-      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variantStyles[variant as BadgeVariant]} ${className}`}
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${variantStyles[variant]} ${className}`}
       {...props}
     >
       {children}
@@ -308,13 +177,7 @@ const Badge: React.FC<BadgeProps> = ({ className = '', variant = 'default', chil
 };
 
 // Dialog components
-interface DialogProps {
-  children: React.ReactNode;
-  open?: boolean;
-  onOpenChange?: (open: boolean) => void;
-}
-
-const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange }) => {
+const Dialog = ({ children, open, onOpenChange }) => {
   return open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div 
@@ -326,23 +189,11 @@ const Dialog: React.FC<DialogProps> = ({ children, open, onOpenChange }) => {
   ) : null;
 };
 
-interface DialogTriggerProps {
-  children: React.ReactElement;
-  onClick?: () => void;
-}
-
-const DialogTrigger: React.FC<DialogTriggerProps> = ({ children, onClick }) => {
+const DialogTrigger = ({ children, onClick }) => {
   return React.cloneElement(children, { onClick });
 };
 
-interface DialogContentProps {
-  className?: string;
-  children: React.ReactNode;
-  onClose?: () => void;
-  [key: string]: any;
-}
-
-const DialogContent: React.FC<DialogContentProps> = ({ className = '', children, onClose, ...props }) => (
+const DialogContent = ({ className = '', children, onClose, ...props }) => (
   <div 
     className={`fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg ${className}`}
     onClick={(e) => e.stopPropagation()}
@@ -352,13 +203,7 @@ const DialogContent: React.FC<DialogContentProps> = ({ className = '', children,
   </div>
 );
 
-interface DialogHeaderProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const DialogHeader: React.FC<DialogHeaderProps> = ({ className = '', children, ...props }) => (
+const DialogHeader = ({ className = '', children, ...props }) => (
   <div
     className={`flex flex-col space-y-1.5 text-center sm:text-left ${className}`}
     {...props}
@@ -367,13 +212,7 @@ const DialogHeader: React.FC<DialogHeaderProps> = ({ className = '', children, .
   </div>
 );
 
-interface DialogFooterProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const DialogFooter: React.FC<DialogFooterProps> = ({ className = '', children, ...props }) => (
+const DialogFooter = ({ className = '', children, ...props }) => (
   <div
     className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ${className}`}
     {...props}
@@ -382,13 +221,7 @@ const DialogFooter: React.FC<DialogFooterProps> = ({ className = '', children, .
   </div>
 );
 
-interface DialogTitleProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const DialogTitle: React.FC<DialogTitleProps> = ({ className = '', children, ...props }) => (
+const DialogTitle = ({ className = '', children, ...props }) => (
   <h3
     className={`text-lg font-semibold leading-none tracking-tight ${className}`}
     {...props}
@@ -397,13 +230,7 @@ const DialogTitle: React.FC<DialogTitleProps> = ({ className = '', children, ...
   </h3>
 );
 
-interface DialogDescriptionProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const DialogDescription: React.FC<DialogDescriptionProps> = ({ className = '', children, ...props }) => (
+const DialogDescription = ({ className = '', children, ...props }) => (
   <p
     className={`text-sm text-muted-foreground ${className}`}
     {...props}
@@ -413,13 +240,7 @@ const DialogDescription: React.FC<DialogDescriptionProps> = ({ className = '', c
 );
 
 // Table components
-interface TableProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const Table: React.FC<TableProps> = ({ className = '', children, ...props }) => (
+const Table = ({ className = '', children, ...props }) => (
   <div className="relative w-full overflow-auto">
     <table
       className={`w-full caption-bottom text-sm ${className}`}
@@ -430,25 +251,13 @@ const Table: React.FC<TableProps> = ({ className = '', children, ...props }) => 
   </div>
 );
 
-interface TableHeaderProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const TableHeader: React.FC<TableHeaderProps> = ({ className = '', children, ...props }) => (
+const TableHeader = ({ className = '', children, ...props }) => (
   <thead className={`[&_tr]:border-b ${className}`} {...props}>
     {children}
   </thead>
 );
 
-interface TableBodyProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const TableBody: React.FC<TableBodyProps> = ({ className = '', children, ...props }) => (
+const TableBody = ({ className = '', children, ...props }) => (
   <tbody
     className={`[&_tr:last-child]:border-0 ${className}`}
     {...props}
@@ -457,13 +266,7 @@ const TableBody: React.FC<TableBodyProps> = ({ className = '', children, ...prop
   </tbody>
 );
 
-interface TableHeadProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const TableHead: React.FC<TableHeadProps> = ({ className = '', children, ...props }) => (
+const TableHead = ({ className = '', children, ...props }) => (
   <th
     className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 ${className}`}
     {...props}
@@ -472,13 +275,7 @@ const TableHead: React.FC<TableHeadProps> = ({ className = '', children, ...prop
   </th>
 );
 
-interface TableRowProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const TableRow: React.FC<TableRowProps> = ({ className = '', children, ...props }) => (
+const TableRow = ({ className = '', children, ...props }) => (
   <tr
     className={`border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted ${className}`}
     {...props}
@@ -487,13 +284,7 @@ const TableRow: React.FC<TableRowProps> = ({ className = '', children, ...props 
   </tr>
 );
 
-interface TableCellProps {
-  className?: string;
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const TableCell: React.FC<TableCellProps> = ({ className = '', children, ...props }) => (
+const TableCell = ({ className = '', children, ...props }) => (
   <td
     className={`p-4 align-middle [&:has([role=checkbox])]:pr-0 ${className}`}
     {...props}
@@ -503,12 +294,7 @@ const TableCell: React.FC<TableCellProps> = ({ className = '', children, ...prop
 );
 
 // Icon components
-interface IconWrapperProps {
-  children: React.ReactNode;
-  [key: string]: any;
-}
-
-const IconWrapper: React.FC<IconWrapperProps> = ({ children, ...props }) => (
+const IconWrapper = ({ children, ...props }) => (
   <svg 
     xmlns="http://www.w3.org/2000/svg" 
     width="24" 
@@ -525,11 +311,7 @@ const IconWrapper: React.FC<IconWrapperProps> = ({ children, ...props }) => (
   </svg>
 );
 
-interface IconProps {
-  [key: string]: any;
-}
-
-const Gem: React.FC<IconProps> = (props) => (
+const Gem = (props) => (
   <IconWrapper {...props}>
     <path d="M6 3h12l4 6-10 13L2 9Z" />
     <path d="M11 3 8 9l4 13 4-13-3-6" />
@@ -537,21 +319,21 @@ const Gem: React.FC<IconProps> = (props) => (
   </IconWrapper>
 );
 
-const Settings: React.FC<IconProps> = (props) => (
+const Settings = (props) => (
   <IconWrapper {...props}>
     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
     <circle cx="12" cy="12" r="3" />
   </IconWrapper>
 );
 
-const CreditCard: React.FC<IconProps> = (props) => (
+const CreditCard = (props) => (
   <IconWrapper {...props}>
     <rect width="20" height="14" x="2" y="5" rx="2" />
     <line x1="2" x2="22" y1="10" y2="10" />
   </IconWrapper>
 );
 
-const Gamepad2: React.FC<IconProps> = (props) => (
+const Gamepad2 = (props) => (
   <IconWrapper {...props}>
     <line x1="6" x2="10" y1="11" y2="11" />
     <line x1="8" x2="8" y1="9" y2="13" />
@@ -561,28 +343,28 @@ const Gamepad2: React.FC<IconProps> = (props) => (
   </IconWrapper>
 );
 
-const ArrowRightLeft: React.FC<IconProps> = (props) => (
+const ArrowRightLeft = (props) => (
   <IconWrapper {...props}>
     <path d="m21 7-5-5v3h-4v4h4v3Z" />
     <path d="m3 17 5 5v-3h4v-4H8v-3Z" />
   </IconWrapper>
 );
 
-const Plus: React.FC<IconProps> = (props) => (
+const Plus = (props) => (
   <IconWrapper {...props}>
     <path d="M12 5v14" />
     <path d="M5 12h14" />
   </IconWrapper>
 );
 
-const Edit: React.FC<IconProps> = (props) => (
+const Edit = (props) => (
   <IconWrapper {...props}>
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
   </IconWrapper>
 );
 
-const Trash2: React.FC<IconProps> = (props) => (
+const Trash2 = (props) => (
   <IconWrapper {...props}>
     <path d="M3 6h18" />
     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
@@ -592,7 +374,7 @@ const Trash2: React.FC<IconProps> = (props) => (
   </IconWrapper>
 );
 
-const Save: React.FC<IconProps> = (props) => (
+const Save = (props) => (
   <IconWrapper {...props}>
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
     <polyline points="17 21 17 13 7 13 7 21" />
@@ -600,7 +382,7 @@ const Save: React.FC<IconProps> = (props) => (
   </IconWrapper>
 );
 
-const AlertTriangle: React.FC<IconProps> = (props) => (
+const AlertTriangle = (props) => (
   <IconWrapper {...props}>
     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
     <line x1="12" x2="12" y1="9" y2="13" />
@@ -609,25 +391,12 @@ const AlertTriangle: React.FC<IconProps> = (props) => (
 );
 
 // Toast component
-interface ToastData {
-  id: string;
-  title: string;
-  description?: string;
-  variant?: 'default' | 'destructive';
-}
-
-interface ToastParams {
-  title: string;
-  description?: string;
-  variant?: 'default' | 'destructive';
-}
-
 const useToast = () => {
-  const [toasts, setToasts] = useState<ToastData[]>([]);
+  const [toasts, setToasts] = useState([]);
   
-  const toast = ({ title, description, variant = 'default' }: ToastParams) => {
+  const toast = ({ title, description, variant = 'default' }) => {
     const id = Math.random().toString(36).substring(2, 9);
-    setToasts(prev => [...prev, { id, title, description, variant }]);
+    setToasts([...toasts, { id, title, description, variant }]);
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 5000);
@@ -696,7 +465,7 @@ export default function GemManagementPage() {
   };
 
   const handleAddRate = () => {
-    if (!newRate.name || !newRate.rate || newRate.rate <= 0) {
+    if (!newRate.name || newRate.rate <= 0) {
       toast({ 
         title: "Validation error", 
         description: "Please provide a valid name and rate.",
@@ -707,12 +476,9 @@ export default function GemManagementPage() {
 
     const newId = (exchangeRates.length + 1).toString();
     setExchangeRates([...exchangeRates, { 
-      ...newRate, 
-      id: newId,
-      rate: newRate.rate,
-      name: newRate.name,
-      enabled: newRate.enabled ?? true
-    } as ExchangeRate]);
+      ...newRate as any, 
+      id: newId 
+    }]);
     
     setNewRate({
       name: '',
@@ -1063,10 +829,7 @@ export default function GemManagementPage() {
                     value={editRateDialog.rate.name}
                     onChange={(e) => setEditRateDialog({
                       ...editRateDialog,
-                      rate: editRateDialog.rate ? { 
-                        ...editRateDialog.rate, 
-                        name: e.target.value 
-                      } : null
+                      rate: { ...editRateDialog.rate, name: e.target.value }
                     })}
                   />
                 </div>
@@ -1078,10 +841,7 @@ export default function GemManagementPage() {
                     value={editRateDialog.rate.rate}
                     onChange={(e) => setEditRateDialog({
                       ...editRateDialog,
-                      rate: editRateDialog.rate ? { 
-                        ...editRateDialog.rate, 
-                        rate: parseFloat(e.target.value) 
-                      } : null
+                      rate: { ...editRateDialog.rate, rate: parseFloat(e.target.value) }
                     })}
                   />
                 </div>
@@ -1091,10 +851,7 @@ export default function GemManagementPage() {
                     checked={editRateDialog.rate.enabled}
                     onCheckedChange={(checked) => setEditRateDialog({
                       ...editRateDialog,
-                      rate: editRateDialog.rate ? { 
-                        ...editRateDialog.rate, 
-                        enabled: checked 
-                      } : null
+                      rate: { ...editRateDialog.rate, enabled: checked }
                     })}
                   />
                   <Label htmlFor="edit-enabled">Enabled</Label>

@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import secureDb from '@/lib/secureDb';
+import secureDb from "../secureDb";
 
 // Mock Supabase client
 const mockSupabase = {

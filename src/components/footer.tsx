@@ -1,6 +1,6 @@
 import Image from 'next/image';
 import { Gamepad2, Github, Twitter } from 'lucide-react';
-import { useSiteSettings } from '@/hooks/use-site-settings';
+import { useSiteSettings } from "../hooks/use-site-settings";
 import { useEffect, useState } from 'react';
 
 export function Footer() {

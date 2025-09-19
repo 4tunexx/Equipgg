@@ -8,7 +8,7 @@
  * - SuggestLoadoutOutput - The return type for the suggestLoadout function.
  */
 
-import {ai} from '@/ai/genkit';
+import {ai} from '../genkit';
 import {z} from 'genkit';
 
 const SuggestLoadoutInputSchema = z.object({

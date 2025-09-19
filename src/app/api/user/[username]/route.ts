@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from '@/lib/secure-db';
+import { secureDb } from "../../../../lib/secure-db";
 
 export async function GET(
   request: NextRequest,
