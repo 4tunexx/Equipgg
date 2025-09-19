@@ -125,51 +125,39 @@ export function HeroSection() {
         </div>
         <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0">
           {/* Layered Logo Animation */}
-          <div className="relative w-full max-w-sm sm:max-w-md lg:max-w-2xl h-64 sm:h-80 lg:h-96 flex items-center justify-center group cursor-pointer hover:scale-105 transition-transform duration-300 bg-red-500/20 border border-red-500/50">
-            {/* Main Logo (1.png) - Drops from top - Background layer */}
-            <Image
-              src="/1.png"
-              alt="Main Logo"
-              width={600}
-              height={200}
-              className={`absolute w-auto h-auto max-w-full max-h-48 sm:max-h-64 lg:max-h-80 object-contain transition-all duration-300 group-hover:animate-logo-shake group-hover:scale-105 group-active:scale-95 group-hover:brightness-110 ${
-                isVisible ? 'animate-drop-from-top opacity-100' : 'opacity-0'
-              }`}
-              style={{ 
-                width: 'auto', 
-                height: 'auto',
-                zIndex: 1,
-                animationDelay: '0.1s',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)'
-              }}
-              key={`main-logo-${logoKey}`}
-              data-ai-hint="main logo layer"
-            />
-            
-            {/* Overlay Logo (2.png) - Slides from underneath - Top layer */}
-            <Image
-              src="/2.png"
-              alt="Overlay Logo"
-              width={380}
-              height={120}
-              className={`absolute w-auto h-auto max-w-full max-h-40 sm:max-h-48 lg:max-h-52 object-contain transition-all duration-300 group-hover:animate-logo-shake group-hover:scale-105 group-active:scale-95 group-hover:brightness-110 ${
-                isVisible ? 'animate-slide-from-under opacity-100' : 'opacity-0'
-              }`}
-              style={{ 
-                width: 'auto', 
-                height: 'auto',
-                zIndex: 2,
-                animationDelay: '0.3s',
-                top: '50%',
-                left: '50%',
-                transform: 'translate(-50%, -50%)'
-              }}
-              key={`overlay-logo-${logoKey}`}
-              data-ai-hint="overlay logo layer"
-            />
+                  {/* Logo Animation - Mobile Version */}
+        <div className="lg:hidden w-full flex justify-center mb-8 order-1">
+          <div className="relative h-80 w-full max-w-md mx-auto bg-yellow-400 border-4 border-red-600 z-50" style={{position: 'relative', zIndex: 9999}}>
+            {/* DEBUGGING: Simple static logo first */}
+            <div className="absolute inset-0 flex items-center justify-center bg-blue-500/50">
+              <div className="text-white text-2xl font-bold bg-black p-4">LOGO SHOULD BE HERE</div>
+            </div>
+            {/* First logo - drops from top */}
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
+              <Image 
+                src="/1.png" 
+                alt="Equip.gg Logo" 
+                width={400}
+                height={300}
+                className="max-h-60 w-auto object-contain opacity-100"
+                key={`logo1-mobile-${logoKey}`}
+                priority
+              />
+            </div>
+            {/* Second logo - slides from under */}
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+              <Image 
+                src="/2.png" 
+                alt="Equip.gg Logo Layer" 
+                width={400}
+                height={300}
+                className="max-h-48 w-auto object-contain opacity-100"
+                key={`logo2-mobile-${logoKey}`}
+                priority
+              />
+            </div>
           </div>
+        </div>
         </div>
       </div>
     </section>
