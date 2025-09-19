@@ -203,26 +203,50 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOutUser = useCallback(async () => {
     try {
+      console.log('Starting logout process...');
+      
       // Use the logout API route which clears the session cookie
-      await fetch('/api/auth/logout', {
+      const response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'include',
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Logout API error:', errorData);
+        throw new Error(errorData.error || 'Failed to logout from server');
+      }
+
+      console.log('Server logout successful');
+
       // Also sign out from Supabase client
       const { error } = await supabase.auth.signOut();
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase logout error:', error);
+        throw error;
+      }
+
+      console.log('Supabase logout successful');
 
       toast({
         title: 'See you again!',
         description: 'You have been successfully logged out.',
       });
 
-      // Redirect to landing page
-      window.location.replace('/');
+      // Clear local state
+      setUser(null);
+      setSession(null);
+
+      // Force redirect to landing page
+      console.log('Redirecting to home page...');
+      window.location.href = '/';
     } catch (error) {
       console.error('Sign out error:', error);
-      throw error;
+      toast({
+        title: 'Logout Error',
+        description: 'There was an issue logging out. Please try again.',
+        variant: 'destructive'
+      });
     }
   }, [toast]);
 
