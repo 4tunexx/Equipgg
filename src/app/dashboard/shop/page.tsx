@@ -413,21 +413,21 @@ export default function ShopPage() {
             description="Step into the world of equipgg.net and collect an incredible array of items to showcase your CS2 prowess! From affordable common skins to rare legendary treasures, these items are yours to earn, craft, or purchase with virtual coins. Equip them to your profile, trade them up, or apply StatTrak&trade; to make them truly yours. Explore the full collection below and start building your ultimate arsenal!"
           />
           <div className="w-full">
-            <div className='flex justify-between items-center mb-4 flex-wrap gap-4'>
-                <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
+            <div className='flex justify-between items-start md:items-center mb-4 flex-col md:flex-row gap-4'>
+                <div className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto w-full md:w-auto min-w-0">
                     <button 
-                      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === 'all' ? 'bg-background text-foreground shadow-sm' : ''}`}
+                      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === 'all' ? 'bg-background text-foreground shadow-sm' : ''}`}
                        onClick={() => handleSubTabChange('all')}
                     >All</button>
                     {categories.map((category) => (
                       <button 
                         key={category}
-                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === category ? 'bg-background text-foreground shadow-sm' : ''}`}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === category ? 'bg-background text-foreground shadow-sm' : ''}`}
                         onClick={() => handleSubTabChange(category)}
                       >{category}</button>
                     ))}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
                   <div className="relative w-full max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input

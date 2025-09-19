@@ -102,18 +102,17 @@ export async function GET(request: NextRequest) {
       }
       // Use Supabase Admin API to upsert user by steamId (email as steamId@steam.local)
       const email = `${steamUser.steamId}@steam.local`;
-      let user = null;
+      let userId = null;
       // Try to find user by email (Supabase Admin API does not have getUserByEmail, so list and filter)
-      let steamUserRecord = null;
       const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
       if (listError) {
         return NextResponse.redirect(`${BASE_URL}/signin?error=supabase_user_list_failed`);
       }
       const found = userList?.users?.find((u: any) => u.email === email);
       if (found) {
-        steamUserRecord = found;
+        userId = found.id;
         // Optionally update user metadata
-        await supabase.auth.admin.updateUserById(steamUserRecord.id, {
+        await supabase.auth.admin.updateUserById(userId, {
           user_metadata: {
             displayName: steamUser.username,
             avatar: steamUser.avatar,
@@ -136,36 +135,38 @@ export async function GET(request: NextRequest) {
         if (createError || !newUser || !newUser.user) {
           return NextResponse.redirect(`${BASE_URL}/signin?error=supabase_user_create_failed`);
         }
-        steamUserRecord = newUser.user;
+        userId = newUser.user.id;
+        // Create user profile in users table if not exists
+        await supabase.from('users').upsert({
+          id: userId,
+          email: email,
+          display_name: steamUser.username,
+          avatar_url: steamUser.avatar,
+          role: 'user',
+          steam_id: steamUser.steamId,
+          steam_username: steamUser.username,
+          steam_avatar: steamUser.avatar
+        }, { onConflict: 'id' });
       }
-      // Create a new session for the Steam user  
-      const { data: authData, error: sessionError } = await supabase.auth.signInWithPassword({
-        email: steamUserRecord.email || `${steamId}@steam.local`,
-        password: 'temp-password' // In production, use proper session management
+      // Create a magic link session for the user (no password)
+      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
+        type: 'magiclink',
+        email
       });
-      
-      const session = authData?.session;
-
-      if (sessionError || !session) {
+      if (sessionError || !sessionData) {
         return NextResponse.redirect(`${BASE_URL}/signin?error=session_creation_failed`);
       }
-
-      // Set session cookie and redirect to dashboard
-      return NextResponse.redirect(`${BASE_URL}/dashboard`, {
-        headers: {
-          'Set-Cookie': `sb-session=${session?.access_token}; Path=/; HttpOnly; SameSite=Lax`
-        }
-      });
+      // NOTE: You may need to implement a custom session or JWT flow here for production
+      // For now, just redirect to dashboard (user will need to login via magic link)
+      return NextResponse.redirect(`${BASE_URL}/dashboard`);
     } catch (error) {
       console.error('Steam auth callback error:', error);
       return NextResponse.redirect(`${BASE_URL}/signin?error=steam_auth_failed`);
     }
   }
-  
   // Initiate Steam authentication
   const returnUrl = `${BASE_URL}/api/auth/steam`;
   const steamAuthUrl = buildSteamAuthUrl(returnUrl);
-  
   return NextResponse.redirect(steamAuthUrl);
 }
 
@@ -173,30 +174,34 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { steamId } = await request.json();
-    
     if (!steamId) {
       return NextResponse.json({ error: 'Steam ID is required' }, { status: 400 });
     }
-    
     // Get Steam user info
     const steamUser = await getSteamUserInfo(steamId);
-    
     if (!steamUser) {
       return NextResponse.json({ error: 'Steam user not found' }, { status: 404 });
     }
-    
     // Look up or create user in Supabase
     const email = `${steamUser.steamId}@steam.local`;
-    const { data: existingUser } = await supabase
-      .from('users')
-      .select('*')
-      .eq('steam_id', steamUser.steamId)
-      .single();
-    
-    let user;
-    if (!existingUser) {
-      // Create new user in auth
-      const { data: authUser, error: createError } = await supabase.auth.admin.createUser({
+    let userId = null;
+    const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
+    if (listError) {
+      return NextResponse.json({ error: 'Supabase user list failed' }, { status: 500 });
+    }
+    const found = userList?.users?.find((u: any) => u.email === email);
+    if (found) {
+      userId = found.id;
+      await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: {
+          displayName: steamUser.username,
+          avatar: steamUser.avatar,
+          steamId: steamUser.steamId,
+          steamProfile: steamUser.profileUrl
+        }
+      });
+    } else {
+      const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,
         email_confirm: true,
         user_metadata: {
@@ -206,50 +211,32 @@ export async function POST(request: NextRequest) {
           steamProfile: steamUser.profileUrl
         }
       });
-
-      if (createError || !authUser?.user) {
+      if (createError || !newUser || !newUser.user) {
         return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
       }
-
-      // Create user profile in users table
-      const { data: newUser, error: profileError } = await supabase
-        .from('users')
-        .insert({
-          id: authUser.user.id,
-          email: email,
-          display_name: steamUser.username,
-          avatar_url: steamUser.avatar,
-          role: 'user',
-          steam_id: steamUser.steamId,
-          steam_username: steamUser.username,
-          steam_avatar: steamUser.avatar
-        })
-        .select()
-        .single();
-
-      if (profileError || !newUser) {
-        return NextResponse.json({ error: 'Failed to create user profile' }, { status: 500 });
-      }
-
-      user = newUser;
+      userId = newUser.user.id;
+      await supabase.from('users').upsert({
+        id: userId,
+        email: email,
+        display_name: steamUser.username,
+        avatar_url: steamUser.avatar,
+        role: 'user',
+        steam_id: steamUser.steamId,
+        steam_username: steamUser.username,
+        steam_avatar: steamUser.avatar
+      }, { onConflict: 'id' });
     }
-    
-    // Session management handled by Supabase Auth
-    // No need for manual session creation
-    
-    
-    // Redirect to dashboard on successful auth
-    return NextResponse.redirect(`${BASE_URL}/dashboard`);    return NextResponse.json({
+    // Respond with user info
+    return NextResponse.json({
       success: true,
       user: {
-        id: user?.id as string,
-        email: user?.email as string,
-        displayName: user?.displayName as string,
-        avatar_url: user?.avatar_url as string,
-        role: user?.role as string
+        id: userId,
+        email,
+        displayName: steamUser.username,
+        avatar_url: steamUser.avatar,
+        role: 'user'
       }
     });
-    
   } catch (error) {
     console.error('Steam auth POST error:', error);
     return NextResponse.json({ error: 'Steam authentication failed' }, { status: 500 });

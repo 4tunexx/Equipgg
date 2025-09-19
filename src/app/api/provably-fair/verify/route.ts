@@ -24,13 +24,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the result
-    const isValid = verifyGameResult({
-      serverSeed: verificationData.serverSeed,
-      clientSeed: verificationData.clientSeed,
-      nonce: verificationData.nonce,
-      gameType: verificationData.gameType,
-      result: verificationData.result
-    });
+    const isValid = await verifyGameResult(gameId, verificationData.serverSeed);
 
     return NextResponse.json({
       success: true,

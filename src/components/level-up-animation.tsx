@@ -66,7 +66,7 @@ export function LevelUpAnimation({
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2, duration: 0.5 }}
-              className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 p-8 rounded-2xl shadow-2xl text-white text-center min-w-[400px]"
+              className="bg-gradient-to-br from-yellow-400 via-orange-500 to-red-500 p-4 md:p-8 rounded-2xl shadow-2xl text-white text-center min-w-[280px] md:min-w-[400px] max-w-[90vw]"
             >
               {/* Animated Stars Background */}
               <div className="absolute inset-0 overflow-hidden rounded-2xl">
@@ -199,17 +199,17 @@ export function LevelUpAnimation({
 
             {/* Confetti Effect */}
             <div className="absolute inset-0 pointer-events-none">
-              {[...Array(50)].map((_, i) => (
+              {[...Array(typeof window !== 'undefined' && window.innerWidth < 768 ? 25 : 50)].map((_, i) => (
                 <motion.div
                   key={i}
                   initial={{ 
-                    x: Math.random() * window.innerWidth,
+                    x: typeof window !== 'undefined' ? Math.random() * Math.min(window.innerWidth, 400) : Math.random() * 400,
                     y: -10,
                     rotate: 0,
                     scale: 0
                   }}
                   animate={{ 
-                    y: window.innerHeight + 10,
+                    y: typeof window !== 'undefined' ? Math.min(window.innerHeight, 600) + 10 : 610,
                     rotate: 360,
                     scale: [0, 1, 0]
                   }}

@@ -122,7 +122,7 @@ export async function syncMatchesFromPandaScore(): Promise<any[]> {
           id: match.id,
           status: match.status,
           tournament: match.tournament?.name,
-          teams: match.opponents?.map(o => o.opponent.name).join(' vs ')
+          teams: match.opponents?.map((o: any) => o.opponent.name).join(' vs ')
         });
 
       } catch (error) {
@@ -192,7 +192,12 @@ async function createNewMatch(match: PandaScoreMatch) {
 
 // Update existing match
 async function updateExistingMatch(match: PandaScoreMatch) {
-  const updateData = {
+  const updateData: {
+    status: 'upcoming' | 'live' | 'finished';
+    start_time: string;
+    updated_at: string;
+    winner?: 'team_a' | 'team_b' | null;
+  } = {
     status: convertMatchStatus(match.status),
     start_time: match.begin_at,
     updated_at: new Date().toISOString()

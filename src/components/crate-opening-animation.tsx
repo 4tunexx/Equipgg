@@ -71,15 +71,15 @@ export function CrateOpeningAnimation({ items, wonItem, onAnimationEnd }: CrateO
         {/* Reel container */}
         <div 
           ref={reelRef}
-          className="flex gap-2 overflow-x-hidden scroll-smooth"
+          className="flex gap-1 md:gap-2 overflow-x-hidden scroll-smooth"
           style={{ WebkitOverflowScrolling: 'touch' } as const}
         >
-          <div className="flex gap-2">
+          <div className="flex gap-1 md:gap-2">
             {reelItems.map((item, index) => (
               <Card 
                 key={`${item.id}-${index}`} 
                 className={cn(
-                  "w-40 h-40 shrink-0 flex items-center justify-center overflow-hidden p-2",
+                  "w-24 h-24 md:w-40 md:h-40 shrink-0 flex items-center justify-center overflow-hidden p-1 md:p-2",
                   rarityGlow[item.rarity]
                 )}
               >

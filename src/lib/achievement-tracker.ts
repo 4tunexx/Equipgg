@@ -191,7 +191,76 @@ export async function checkAndUnlockAchievements(update: AchievementUpdate): Pro
 
 export async function trackCollectionAchievement(userId: string, itemType: string) {
   try {
-    // TODO: Implement collection achievement tracking with Supabase
+    // Get user's inventory count for this item type
+    const { data: inventoryItems } = await supabase
+      .from('user_inventory')
+      .select('item_id')
+      .eq('user_id', userId)
+      .eq('item_type', itemType);
+    
+    const itemCount = inventoryItems?.length || 0;
+    
+    // Check for collection-related achievements
+    const { data: achievements } = await supabase
+      .from('achievements')
+      .select('*')
+      .eq('requirement_type', 'collection')
+      .eq('is_active', true);
+    
+    if (!achievements?.length) return { success: true };
+    
+    for (const achievement of achievements) {
+      // Check if user already has this achievement
+      const { data: existing } = await supabase
+        .from('user_achievements')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('achievement_id', achievement.id)
+        .maybeSingle();
+      
+      if (existing) continue;
+      
+      // Check if achievement requirements are met
+      let shouldUnlock = false;
+      const metadata = achievement.metadata || {};
+      
+      if (metadata.item_type === itemType && itemCount >= achievement.requirement_value) {
+        shouldUnlock = true;
+      } else if (metadata.item_rarity && itemCount >= achievement.requirement_value) {
+        // Check for rarity-based achievements
+        const { data: rarityItems } = await supabase
+          .from('user_inventory')
+          .select(`
+            item_id,
+            items!inner(rarity)
+          `)
+          .eq('user_id', userId)
+          .eq('items.rarity', metadata.item_rarity);
+        
+        if ((rarityItems?.length || 0) >= achievement.requirement_value) {
+          shouldUnlock = true;
+        }
+      }
+      
+      if (shouldUnlock) {
+        await supabase.from('user_achievements').insert({
+          user_id: userId,
+          achievement_id: achievement.id,
+          unlocked_at: new Date().toISOString()
+        });
+        
+        // Award achievement rewards
+        if (achievement.reward_type === 'coins' && achievement.reward_value > 0) {
+          await supabase.from('user_transactions').insert({
+            user_id: userId,
+            type: 'achievement_reward',
+            amount: achievement.reward_value,
+            reason: `Achievement unlocked: ${achievement.title}`
+          });
+        }
+      }
+    }
+    
     console.log(`Tracking collection achievement for user ${userId}, item type ${itemType}`);
     return { success: true };
   } catch (error) {

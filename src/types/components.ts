@@ -1,8 +1,8 @@
 // Component Props Types
-import type { ShopItem } from '/database';
+import type { DBShopItem } from '../lib/supabase/queries';
 
 export interface ShopItemCardProps {
-  item: ShopItem;
+  item: DBShopItem;
 }
 
 export interface ItemImageProps {
@@ -14,13 +14,13 @@ export interface ItemImageProps {
 }
 
 export interface InventoryCardProps {
-  item: ShopItem;
-  onSelect?: (item: ShopItem) => void;
+  item: DBShopItem;
+  onSelect?: (item: DBShopItem) => void;
   isSelected?: boolean;
 }
 
 export interface CrateItemCardProps {
-  item: ShopItem;
+  item: DBShopItem;
   onClick?: () => void;
   isSelected?: boolean;
 }

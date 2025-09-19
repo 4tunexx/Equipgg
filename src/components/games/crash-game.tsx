@@ -360,18 +360,18 @@ export function CrashGame() {
         profit: game.profit
     }));
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
             <div className="lg:col-span-2">
-                <Card className="h-[450px] flex flex-col">
+                <Card className="h-[350px] md:h-[450px] flex flex-col">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2"><Rocket className="text-primary"/> Crash</CardTitle>
                         <CardDescription>Place a bet and cash out before the rocket crashes. The higher it goes, the bigger the multiplier!</CardDescription>
                     </CardHeader>
                     <CardContent className="flex-1 flex items-center justify-center bg-secondary/30 relative">
                         {/* Game Status Display */}
-                        <div className="absolute top-4 left-4 z-10">
-                            <div className="bg-background/80 backdrop-blur-sm rounded-lg px-3 py-2 border">
-                                <div className="text-sm font-medium">
+                        <div className="absolute top-2 left-2 md:top-4 md:left-4 z-10">
+                            <div className="bg-background/80 backdrop-blur-sm rounded-lg px-2 py-1 md:px-3 md:py-2 border">
+                                <div className="text-xs md:text-sm font-medium">
                                     {gameState === 'waiting' && `Next round in ${countdownTimer}s`}
                                     {gameState === 'betting' && `Betting closes in ${countdownTimer}s`}
                                     {gameState === 'playing' && 'Game in progress'}
@@ -382,11 +382,11 @@ export function CrashGame() {
 
                         {/* Cash Out Button */}
                         {hasBetThisRound && gameState === 'playing' && !cashedOut && (
-                            <div className="absolute top-4 right-4 z-10">
+                            <div className="absolute top-2 right-2 md:top-4 md:right-4 z-10">
                                 <Button 
                                     onClick={handleCashOut}
-                                    className="bg-green-600 hover:bg-green-700 text-white font-bold"
-                                    size="lg"
+                                    className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs md:text-sm"
+                                    size="sm"
                                 >
                                     Cash Out {currentMultiplier.toFixed(2)}x
                                 </Button>
@@ -397,32 +397,32 @@ export function CrashGame() {
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center z-10">
                             {gameState === 'waiting' && (
                                 <div>
-                                    <p className="text-3xl font-bold font-mono text-muted-foreground">Waiting...</p>
-                                    <p className="text-muted-foreground">Next round starts in {countdownTimer}s</p>
+                                    <p className="text-xl md:text-3xl font-bold font-mono text-muted-foreground">Waiting...</p>
+                                    <p className="text-sm md:text-base text-muted-foreground">Next round starts in {countdownTimer}s</p>
                                 </div>
                             )}
                             {gameState === 'betting' && (
                                 <div>
-                                    <p className="text-3xl font-bold font-mono text-blue-500">Place Your Bets!</p>
-                                    <p className="text-muted-foreground">Betting closes in {countdownTimer}s</p>
+                                    <p className="text-xl md:text-3xl font-bold font-mono text-blue-500">Place Your Bets!</p>
+                                    <p className="text-sm md:text-base text-muted-foreground">Betting closes in {countdownTimer}s</p>
                                 </div>
                             )}
                             {gameState === 'playing' && (
                                 <div>
-                                    <p className={`text-6xl font-bold font-mono ${
+                                    <p className={`text-3xl md:text-6xl font-bold font-mono ${
                                         cashedOut ? 'text-green-500' : 'text-primary'
                                     } animate-pulse`}>
                                         {currentMultiplier.toFixed(2)}x
                                     </p>
-                                    {cashedOut && <p className="text-green-500 font-medium">CASHED OUT!</p>}
-                                    {hasBetThisRound && !cashedOut && <p className="text-muted-foreground">Click Cash Out to secure winnings</p>}
+                                    {cashedOut && <p className="text-green-500 font-medium text-sm md:text-base">CASHED OUT!</p>}
+                                    {hasBetThisRound && !cashedOut && <p className="text-muted-foreground text-xs md:text-base">Click Cash Out to secure winnings</p>}
                                 </div>
                             )}
                             {gameState === 'crashed' && (
                                 <div>
-                                    <p className="text-5xl font-bold font-mono text-red-500 animate-pulse">{crashPoint?.toFixed(2)}x</p>
-                                    <p className="text-red-500 font-medium">CRASHED!</p>
-                                    <p className="text-muted-foreground">Next round in {countdownTimer}s</p>
+                                    <p className="text-2xl md:text-5xl font-bold font-mono text-red-500 animate-pulse">{crashPoint?.toFixed(2)}x</p>
+                                    <p className="text-red-500 font-medium text-sm md:text-base">CRASHED!</p>
+                                    <p className="text-muted-foreground text-xs md:text-base">Next round in {countdownTimer}s</p>
                                 </div>
                             )}
                         </div>
@@ -563,16 +563,17 @@ export function CrashGame() {
                         <CardTitle>Current Round</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Player</TableHead>
-                                    <TableHead>Bet</TableHead>
-                                    <TableHead>Cashed Out</TableHead>
-                                    <TableHead className="text-right">Profit</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
+                        <div className="overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Player</TableHead>
+                                        <TableHead>Bet</TableHead>
+                                        <TableHead>Cashed Out</TableHead>
+                                        <TableHead className="text-right">Profit</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
                                 {isLoading ? (
                                     <TableRow>
                                         <TableCell colSpan={4} className="text-center py-8">
@@ -599,9 +600,9 @@ export function CrashGame() {
                                                     role: p.user.role || 'user'
                                                 }} />
                                             </TableCell>
-                                            <TableCell className="font-mono text-yellow-400">{p.bet.toLocaleString()}</TableCell>
-                                            <TableCell className="font-mono text-primary">{p.cashedOut ? `${p.cashedOut.toFixed(2)}x` : '-'}</TableCell>
-                                            <TableCell className={`text-right font-mono ${p.profit > 0 ? 'text-green-400' : 'text-red-500'}`}>
+                                            <TableCell className="font-mono text-yellow-400 text-sm">{p.bet.toLocaleString()}</TableCell>
+                                            <TableCell className="font-mono text-primary text-sm">{p.cashedOut ? `${p.cashedOut.toFixed(2)}x` : '-'}</TableCell>
+                                            <TableCell className={`text-right font-mono text-sm ${p.profit > 0 ? 'text-green-400' : 'text-red-500'}`}>
                                                 {p.profit > 0 ? `+${p.profit.toLocaleString()}` : p.profit.toLocaleString()}
                                             </TableCell>
                                         </TableRow>
@@ -609,6 +610,7 @@ export function CrashGame() {
                                 )}
                             </TableBody>
                         </Table>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
