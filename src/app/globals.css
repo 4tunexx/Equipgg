@@ -219,6 +219,18 @@
     opacity: 0;
   }
   100% {
+    transform: translate(-50%, -50%) translateY(60px) scale(1);
+    opacity: 1;
+  }
+}
+
+/* Desktop version with more spacing */
+@keyframes slideFromUnderDesktop {
+  0% {
+    transform: translate(-50%, -50%) translateY(50px) scale(0.9);
+    opacity: 0;
+  }
+  100% {
     transform: translate(-50%, -50%) translateY(190px) scale(1);
     opacity: 1;
   }
@@ -243,6 +255,13 @@
 
 .animate-slide-from-under {
   animation: slideFromUnder 1.5s ease-out forwards;
+}
+
+/* Desktop version with more offset */
+@media (min-width: 1024px) {
+  .animate-slide-from-under {
+    animation: slideFromUnderDesktop 1.5s ease-out forwards;
+  }
 }
 
 .animate-logo-shake {
