@@ -73,36 +73,38 @@ export function HeroSection() {
         priority
       />
       <div className="relative z-10 p-4 flex flex-col lg:flex-row items-center w-full max-w-6xl mx-auto gap-8">
-        <div className='flex-1 text-center lg:text-left order-2 lg:order-1'>
-          {/* Logo Animation - Mobile Version - Above text */}
-          <div className="lg:hidden w-full flex justify-center mb-8">
-            <div className="relative h-44 w-80 mx-auto">
-              {/* First logo - drops from top */}
-              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
-                <Image 
-                  src="/1.png" 
-                  alt="Equip.gg Logo" 
-                  width={300}
-                  height={200}
-                  className="max-h-36 w-auto object-contain"
-                  key={`logo1-mobile-${logoKey}`}
-                  priority
-                />
-              </div>
-              {/* Second logo - slides from under */}
-              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
-                <Image 
-                  src="/2.png" 
-                  alt="Equip.gg Logo Layer" 
-                  width={300}
-                  height={200}
-                  className="max-h-28 w-auto object-contain"
-                  key={`logo2-mobile-${logoKey}`}
-                  priority
-                />
-              </div>
+        {/* Mobile Logo - Outside the flex layout, only shows on mobile */}
+        <div className="lg:hidden w-full flex justify-center mb-8 order-1">
+          <div className="relative h-44 w-80 mx-auto">
+            {/* First logo - drops from top */}
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
+              <Image 
+                src="/1.png" 
+                alt="Equip.gg Logo" 
+                width={300}
+                height={200}
+                className="max-h-36 w-auto object-contain"
+                key={`logo1-mobile-${logoKey}`}
+                priority
+              />
+            </div>
+            {/* Second logo - slides from under */}
+            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+              <Image 
+                src="/2.png" 
+                alt="Equip.gg Logo Layer" 
+                width={300}
+                height={200}
+                className="max-h-28 w-auto object-contain"
+                key={`logo2-mobile-${logoKey}`}
+                priority
+              />
             </div>
           </div>
+        </div>
+
+        {/* Text Content Section */}
+        <div className='flex-1 text-center lg:text-left order-2 lg:order-1'>
           <h1 
             className={`text-2xl sm:text-4xl lg:text-6xl xl:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
               isVisible 
