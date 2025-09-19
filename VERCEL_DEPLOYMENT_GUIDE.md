@@ -123,11 +123,16 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
 ```
 
-#### Optional Variables:
+#### External API Variables:
 ```env
 STEAM_API_KEY=your-steam-api-key
+PANDASCORE_API_KEY=your-pandascore-api-key
 STRIPE_PUBLIC_KEY=pk_live_your_stripe_public_key
 STRIPE_SECRET_KEY=sk_live_your_stripe_secret_key
+```
+
+#### Optional Variables:
+```env
 NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
 NEXT_PUBLIC_API_URL=https://your-app.vercel.app/api
 ```
