@@ -226,8 +226,9 @@ export async function POST(request: NextRequest) {
         steam_avatar: steamUser.avatar
       }, { onConflict: 'id' });
     }
-    // Respond with user info
-    return NextResponse.json({
+    
+    // Create session and set cookie
+    const response = NextResponse.json({
       success: true,
       user: {
         id: userId,
@@ -237,6 +238,17 @@ export async function POST(request: NextRequest) {
         role: 'user'
       }
     });
+
+    // Set session cookie for middleware authentication
+    response.cookies.set('equipgg_session', userId, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/'
+    });
+
+    return response;
   } catch (error) {
     console.error('Steam auth POST error:', error);
     return NextResponse.json({ error: 'Steam authentication failed' }, { status: 500 });
