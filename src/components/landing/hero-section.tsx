@@ -72,18 +72,18 @@ export function HeroSection() {
         data-ai-hint="CS2 abstract background"
         priority
       />
-      <div className="relative z-10 p-4 flex flex-col lg:flex-row items-center w-full max-w-6xl mx-auto gap-8">
-        {/* Mobile Logo - Outside the flex layout, only shows on mobile */}
-        <div className="lg:hidden w-full flex justify-center mb-8 order-1">
-          <div className="relative h-44 w-80 mx-auto">
+      <div className="relative z-10 p-4 w-full max-w-6xl mx-auto">
+        {/* Mobile Logo - Simple centered positioning */}
+        <div className="lg:hidden w-full text-center mb-12">
+          <div className="relative h-48 w-full max-w-md mx-auto">
             {/* First logo - drops from top */}
             <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
               <Image 
                 src="/1.png" 
                 alt="Equip.gg Logo" 
-                width={300}
-                height={200}
-                className="max-h-36 w-auto object-contain"
+                width={320}
+                height={240}
+                className="max-h-40 w-auto object-contain"
                 key={`logo1-mobile-${logoKey}`}
                 priority
               />
@@ -93,9 +93,9 @@ export function HeroSection() {
               <Image 
                 src="/2.png" 
                 alt="Equip.gg Logo Layer" 
-                width={300}
-                height={200}
-                className="max-h-28 w-auto object-contain"
+                width={320}
+                height={240}
+                className="max-h-32 w-auto object-contain"
                 key={`logo2-mobile-${logoKey}`}
                 priority
               />
@@ -103,7 +103,8 @@ export function HeroSection() {
           </div>
         </div>
 
-        {/* Text Content Section */}
+        {/* Main content with proper flex layout */}
+        <div className="flex flex-col lg:flex-row items-center gap-8">
         <div className='flex-1 text-center lg:text-left order-2 lg:order-1'>
           <h1 
             className={`text-2xl sm:text-4xl lg:text-6xl xl:text-7xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
@@ -182,6 +183,7 @@ export function HeroSection() {
               />
             </div>
           </div>
+        </div>
         </div>
       </div>
     </section>
