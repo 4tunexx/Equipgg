@@ -8,7 +8,7 @@ import { Label } from "../../../components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { Badge } from "../../../components/ui/badge";
 import { Progress } from "../../../components/ui/progress";
-import { Gem, Coins, ArrowRightLeft, CreditCard, Gamepad2, History } from 'lucide-react';
+import { Gem, Coins, ArrowRightLeft, CreditCard, Gamepad2, History, Settings } from 'lucide-react';
 import { useToast } from "../../../hooks/use-toast";
 import { useBalance } from "../../../contexts/balance-context";
 
@@ -36,6 +36,7 @@ export default function GemsPage() {
   const { balance: userBalance } = useBalance();
   const [exchangeRates, setExchangeRates] = useState<ExchangeRates | null>(null);
   const [gemPackages, setGemPackages] = useState<GemPackages | null>(null);
+  const [cs2Skins, setCs2Skins] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [exchanging, setExchanging] = useState(false);
   const [purchasing, setPurchasing] = useState(false);
@@ -50,6 +51,9 @@ export default function GemsPage() {
   const [steamId, setSteamId] = useState('');
   const [steamTradeUrl, setSteamTradeUrl] = useState('');
   
+  // CS2 Skins state
+  const [selectedSkin, setSelectedSkin] = useState<string | null>(null);
+  
   const { toast } = useToast();
 
   useEffect(() => {
@@ -58,13 +62,21 @@ export default function GemsPage() {
 
   const loadData = async () => {
     try {
-      // Only fetch packages data, balance is handled by context
-      const packagesResponse = await fetch('/api/economy/purchase-gems');
+      // Fetch packages data and CS2 skins
+      const [packagesResponse, skinsResponse] = await Promise.all([
+        fetch('/api/economy/purchase-gems'),
+        fetch('/api/shop/cs2-skins')
+      ]);
 
       if (packagesResponse.ok) {
         const packagesData = await packagesResponse.json();
         setExchangeRates(packagesData.exchangeRates);
         setGemPackages(packagesData.packages);
+      }
+
+      if (skinsResponse.ok) {
+        const skinsData = await skinsResponse.json();
+        setCs2Skins(skinsData.skins);
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -179,6 +191,66 @@ export default function GemsPage() {
       toast({
         title: "Error",
         description: "Failed to process purchase",
+        variant: "destructive"
+      });
+    } finally {
+      setPurchasing(false);
+    }
+  };
+
+  const handleBuySkin = async (skin: any) => {
+    if (!steamId || !steamTradeUrl) {
+      toast({
+        title: "Missing Steam Information",
+        description: "Please enter your Steam ID and Trade URL",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if ((userBalance?.gems || 0) < skin.gems) {
+      toast({
+        title: "Insufficient Gems",
+        description: `You need ${skin.gems} gems but only have ${userBalance?.gems || 0}`,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setPurchasing(true);
+    try {
+      const response = await fetch('/api/shop/cs2-skins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          skinId: skin.id,
+          steamId,
+          steamTradeUrl
+        })
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        toast({
+          title: "Skin Purchase Successful!",
+          description: `${skin.name} will be delivered to your Steam inventory within 24-48 hours`
+        });
+        // Balance updates handled by context
+        window.dispatchEvent(new CustomEvent('balanceUpdated', {
+          detail: { gems: data.newBalance.gems }
+        }));
+        setSelectedSkin(null);
+      } else {
+        toast({
+          title: "Purchase Failed",
+          description: data.error,
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to purchase skin",
         variant: "destructive"
       });
     } finally {
@@ -434,17 +506,116 @@ export default function GemsPage() {
                 Buy real CS2 skins with gems. Skins will be delivered to your Steam inventory.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="text-center py-8">
-                <Gamepad2 className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">CS2 Skin Shop Coming Soon!</h3>
-                <p className="text-muted-foreground">
-                  The CS2 skin marketplace is being prepared. You'll be able to buy real skins with gems soon!
-                </p>
-                <Button className="mt-4" disabled>
-                  Browse Skins (Coming Soon)
-                </Button>
-              </div>
+            <CardContent className="space-y-6">
+              {cs2Skins ? (
+                <div className="space-y-6">
+                  {/* Steam Information for Delivery */}
+                  <div className="p-4 bg-muted/50 rounded-lg">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <Settings className="h-4 w-4" />
+                      Steam Information Required
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="skinSteamId">Steam ID</Label>
+                        <Input
+                          id="skinSteamId"
+                          placeholder="Your Steam ID for skin delivery"
+                          value={steamId}
+                          onChange={(e) => setSteamId(e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="skinSteamTradeUrl">Steam Trade URL</Label>
+                        <Input
+                          id="skinSteamTradeUrl"
+                          placeholder="Your Steam Trade URL"
+                          value={steamTradeUrl}
+                          onChange={(e) => setSteamTradeUrl(e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Skin Categories */}
+                  <Tabs defaultValue="knives" className="space-y-4">
+                    <TabsList className="grid w-full grid-cols-3">
+                      <TabsTrigger value="knives">Knives</TabsTrigger>
+                      <TabsTrigger value="gloves">Gloves</TabsTrigger>
+                      <TabsTrigger value="weapons">Weapons</TabsTrigger>
+                    </TabsList>
+
+                    {Object.entries(cs2Skins || {}).map(([category, skins]) => (
+                      <TabsContent key={category} value={category} className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {Array.isArray(skins) && skins.map((skin: any) => (
+                            <Card 
+                              key={skin.id}
+                              className={`cursor-pointer transition-all hover:shadow-md ${
+                                selectedSkin === skin.id ? 'ring-2 ring-primary' : ''
+                              }`}
+                              onClick={() => setSelectedSkin(selectedSkin === skin.id ? null : skin.id)}
+                            >
+                              <CardHeader className="pb-2">
+                                <div className="flex items-center justify-between">
+                                  <Badge variant={
+                                    skin.rarity === 'Legendary' ? 'destructive' : 
+                                    skin.rarity === 'Rare' ? 'default' : 'secondary'
+                                  }>
+                                    {skin.rarity}
+                                  </Badge>
+                                  <div className="flex items-center gap-1 text-yellow-400">
+                                    <Gem className="h-4 w-4" />
+                                    <span className="font-bold">{skin.gem_price || skin.gems}</span>
+                                  </div>
+                                </div>
+                                <CardTitle className="text-lg">{skin.name}</CardTitle>
+                              </CardHeader>
+                              <CardContent className="pt-0">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Market Price</span>
+                                    <span className="font-medium">${skin.market_price || skin.steamMarketPrice}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Wear</span>
+                                    <span className="text-green-400">{skin.wear || 'Factory New'}</span>
+                                  </div>
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="text-muted-foreground">Delivery</span>
+                                    <span className="text-green-400">5-10 minutes</span>
+                                  </div>
+                                  {selectedSkin === skin.id && (
+                                    <Button 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleBuySkin(skin);
+                                      }}
+                                      disabled={purchasing || !steamId || !steamTradeUrl || (userBalance?.gems || 0) < (skin.gem_price || skin.gems)}
+                                      className="w-full mt-3"
+                                      size="sm"
+                                    >
+                                      {purchasing ? 'Purchasing...' : 
+                                       (userBalance?.gems || 0) < (skin.gem_price || skin.gems) ? 'Insufficient Gems' :
+                                       !steamId || !steamTradeUrl ? 'Enter Steam Info' :
+                                       `Buy for ${skin.gem_price || skin.gems} Gems`}
+                                    </Button>
+                                  )}
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                  <p>Loading CS2 skins...</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

@@ -35,15 +35,22 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
     setLoading(true);
     setError(null);
     try {
-      await signIn(loginEmail, loginPassword);
+      console.log('Starting login process...');
+      const result = await signIn(loginEmail, loginPassword);
+      console.log('Login successful:', result);
+      
       setOpen(false);
-      // Add a small delay to ensure auth state is updated before navigation
-      setTimeout(() => {
-        router.replace('/dashboard');
-      }, 100);
+      
+      // Wait a bit longer to ensure the session cookie is set
+      console.log('Waiting for session to be established...');
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Use router navigation instead of window.location for better state management
+      console.log('Redirecting to dashboard...');
+      router.push('/dashboard');
     } catch (err: unknown) {
+      console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in');
-    } finally {
       setLoading(false);
     }
   };

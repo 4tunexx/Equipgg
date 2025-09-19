@@ -3,36 +3,36 @@ import { getAuthSession } from "../../../../lib/auth-utils";
 import { supabase } from "../../../../lib/supabase";
 import { v4 as uuidv4 } from 'uuid';
 
-// CS2 Skin inventory with gem prices
-const CS2_SKINS = {
-  knives: [
-    { id: 'karambit_fade', name: 'Karambit | Fade', rarity: 'Legendary', gems: 5000, steamMarketPrice: 1200 },
-    { id: 'butterfly_fade', name: 'Butterfly Knife | Fade', rarity: 'Legendary', gems: 4500, steamMarketPrice: 1100 },
-    { id: 'm9_bayonet_doppler', name: 'M9 Bayonet | Doppler', rarity: 'Legendary', gems: 4000, steamMarketPrice: 900 },
-    { id: 'bayonet_tiger', name: 'Bayonet | Tiger Tooth', rarity: 'Legendary', gems: 3500, steamMarketPrice: 800 },
-    { id: 'flip_marble', name: 'Flip Knife | Marble Fade', rarity: 'Legendary', gems: 3000, steamMarketPrice: 700 }
-  ],
-  gloves: [
-    { id: 'sport_gloves_pandora', name: 'Sport Gloves | Pandora\'s Box', rarity: 'Legendary', gems: 4000, steamMarketPrice: 1000 },
-    { id: 'hand_wraps_slaughter', name: 'Hand Wraps | Slaughter', rarity: 'Legendary', gems: 3500, steamMarketPrice: 800 },
-    { id: 'driver_gloves_king', name: 'Driver Gloves | King Snake', rarity: 'Legendary', gems: 3000, steamMarketPrice: 600 },
-    { id: 'moto_gloves_spearmint', name: 'Moto Gloves | Spearmint', rarity: 'Legendary', gems: 2500, steamMarketPrice: 500 }
-  ],
-  weapons: [
-    { id: 'ak47_vulcan', name: 'AK-47 | Vulcan', rarity: 'Rare', gems: 800, steamMarketPrice: 200 },
-    { id: 'awp_dragon_lore', name: 'AWP | Dragon Lore', rarity: 'Legendary', gems: 6000, steamMarketPrice: 1500 },
-    { id: 'm4a4_howl', name: 'M4A4 | Howl', rarity: 'Legendary', gems: 5000, steamMarketPrice: 1200 },
-    { id: 'ak47_redline', name: 'AK-47 | Redline', rarity: 'Rare', gems: 600, steamMarketPrice: 150 },
-    { id: 'awp_asiimov', name: 'AWP | Asiimov', rarity: 'Rare', gems: 700, steamMarketPrice: 180 }
-  ]
-};
-
 export async function GET(request: NextRequest) {
   try {
+    // Get available skins from Steam bot inventory
+    const { data: inventory } = await supabase
+      .from('steam_bot_inventory')
+      .select('*')
+      .eq('status', 'available')
+      .order('category', { ascending: true })
+      .order('gem_price', { ascending: false });
+
+    if (!inventory) {
+      return NextResponse.json({
+        success: true,
+        skins: { knives: [], gloves: [], weapons: [] },
+        categories: ['knives', 'gloves', 'weapons']
+      });
+    }
+
+    // Group skins by category
+    const groupedSkins = {
+      knives: inventory.filter(skin => skin.category === 'knives'),
+      gloves: inventory.filter(skin => skin.category === 'gloves'),
+      weapons: inventory.filter(skin => skin.category === 'weapons')
+    };
+
     return NextResponse.json({
       success: true,
-      skins: CS2_SKINS,
-      categories: Object.keys(CS2_SKINS)
+      skins: groupedSkins,
+      categories: Object.keys(groupedSkins),
+      total_items: inventory.length
     });
   } catch (error) {
     console.error('Get CS2 skins error:', error);
@@ -53,20 +53,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-  // No local DB
-
-    // Find the skin
-    let selectedSkin = null;
-    for (const category of Object.values(CS2_SKINS)) {
-      const skin = category.find(s => s.id === skinId);
-      if (skin) {
-        selectedSkin = skin;
-        break;
-      }
-    }
+    // Find the skin in bot inventory
+    const { data: selectedSkin } = await supabase
+      .from('steam_bot_inventory')
+      .select('*')
+      .eq('id', skinId)
+      .eq('status', 'available')
+      .single();
 
     if (!selectedSkin) {
-      return NextResponse.json({ error: 'Skin not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Skin not found or not available' }, { status: 404 });
     }
 
     // Get user's current gems
@@ -80,22 +76,50 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    if (user.gems < selectedSkin.gems) {
+    if (user.gems < selectedSkin.gem_price) {
       return NextResponse.json({ 
         error: 'Insufficient gems',
-        required: selectedSkin.gems,
+        required: selectedSkin.gem_price,
         current: user.gems 
       }, { status: 400 });
     }
 
     // Deduct gems
-    const newGems = user.gems - selectedSkin.gems;
+    const newGems = user.gems - selectedSkin.gem_price;
     const { error: updateError } = await supabase
       .from('users')
       .update({ gems: newGems })
       .eq('id', user.id);
+    
     if (updateError) {
       return NextResponse.json({ error: 'Failed to update gems' }, { status: 500 });
+    }
+
+    // Create trade offer via Steam bot API
+    const tradeOfferResponse = await fetch(`${request.url.replace('/shop/cs2-skins', '/steam-bot/trade-offers')}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'create_trade_offer',
+        data: {
+          item_id: skinId,
+          user_steam_id: steamId,
+          user_trade_url: steamTradeUrl,
+          gems_paid: selectedSkin.gem_price
+        }
+      })
+    });
+
+    const tradeOfferData = await tradeOfferResponse.json();
+
+    if (!tradeOfferData.success) {
+      // Refund gems if trade offer creation failed
+      await supabase
+        .from('users')
+        .update({ gems: user.gems })
+        .eq('id', user.id);
+      
+      return NextResponse.json({ error: 'Failed to create trade offer' }, { status: 500 });
     }
 
     // Record transaction
@@ -104,23 +128,9 @@ export async function POST(request: NextRequest) {
       id: transactionId,
       user_id: user.id,
       type: 'cs2_skin_purchase',
-      amount: -selectedSkin.gems,
+      amount: -selectedSkin.gem_price,
       currency: 'gems',
-      description: `Purchased CS2 skin: ${selectedSkin.name} for ${selectedSkin.gems} gems`,
-      created_at: new Date().toISOString()
-    });
-
-    // Create skin delivery record
-    const deliveryId = uuidv4();
-    await supabase.from('cs2_skin_deliveries').insert({
-      id: deliveryId,
-      user_id: user.id,
-      skin_id: skinId,
-      skin_name: selectedSkin.name,
-      gems_paid: selectedSkin.gems,
-      steam_id: steamId,
-      steam_trade_url: steamTradeUrl,
-      status: 'pending',
+      description: `Purchased CS2 skin: ${selectedSkin.name} for ${selectedSkin.gem_price} gems`,
       created_at: new Date().toISOString()
     });
 
@@ -129,17 +139,17 @@ export async function POST(request: NextRequest) {
       message: `Successfully purchased ${selectedSkin.name}`,
       purchase: {
         skin: selectedSkin,
-        gemsPaid: selectedSkin.gems,
+        gemsPaid: selectedSkin.gem_price,
         steamId,
-        deliveryId
+        tradeOfferId: tradeOfferData.trade_offer_id
       },
       newBalance: {
         gems: newGems
       },
       delivery: {
         status: 'pending',
-        estimatedDelivery: '24-48 hours',
-        instructions: 'Our team will send you a trade offer within 24-48 hours. Please accept the trade to receive your skin.'
+        estimatedDelivery: tradeOfferData.estimated_delivery,
+        instructions: 'A trade offer will be sent to your Steam account within 5-10 minutes. Please accept the trade to receive your skin.'
       }
     });
 

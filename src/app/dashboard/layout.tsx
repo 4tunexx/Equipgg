@@ -39,7 +39,9 @@ import {
   BadgeCheck,
   Percent,
   History,
-
+  ArrowLeftRight,
+  MessageCircle,
+  CreditCard,
 } from 'lucide-react';
 import { Button } from "../../components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
@@ -63,11 +65,14 @@ const navLinks = [
   { href: '/dashboard/betting', label: 'Betting', icon: Swords },
   { href: '/dashboard/arcade', label: 'Arcade', icon: Puzzle },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Shield },
+  { href: '/dashboard/trading', label: 'Trading', icon: ArrowLeftRight },
   { href: '/dashboard/crates', label: 'Crates', icon: Box },
   { href: '/dashboard/missions', label: 'Missions', icon: Crown },
   { href: '/dashboard/shop', label: 'Shop', icon: ShoppingBag },
+  { href: '/dashboard/payments', label: 'Payments', icon: CreditCard },
   { href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Users },
   { href: '/dashboard/community', label: 'Community', icon: MessagesSquare },
+  { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle },
   { href: '/dashboard/profile', label: 'Profile', icon: UserIcon },
   { href: '/dashboard/support', label: 'Support', icon: LifeBuoy },
 ];

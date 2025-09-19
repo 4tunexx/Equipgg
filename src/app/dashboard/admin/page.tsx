@@ -348,6 +348,8 @@ const Coins = ({ className, ...props }: { className?: string }) => <span classNa
 const AlertTriangle = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>⚠️</span>;
 const UserPlus = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>👤➕</span>;
 const ShoppingBag = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>🛍️</span>;
+const Bot = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>🤖</span>;
+const Gem = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>💎</span>;
 const Archive = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>📦</span>;
 const Search = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>🔍</span>;
 const ShieldAlert = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>🛡️</span>;
@@ -358,8 +360,8 @@ const Puzzle = ({ className, ...props }: { className?: string }) => <span classN
 const MessagesSquare = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>💬</span>;
 const ShieldCheck = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>✅🛡️</span>;
 const Upload = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>⬆️</span>;
-const Gem = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>💎</span>;
 const Bell = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>🔔</span>;
+const Settings = ({ className, ...props }: { className?: string }) => <span className={className} {...props}>⚙️</span>;
 
 // cn utility function replacement - handle boolean values properly
 const cn = (...classes: (string | undefined | false | null)[]) => {
@@ -2062,7 +2064,7 @@ export default function AdminDashboardPage() {
 
                 {activeNav === 'siteControl' && (
                     <Tabs defaultValue="siteSettings">
-                        <TabsList className="grid w-full grid-cols-9">
+                        <TabsList className="grid w-full grid-cols-11">
                             <TabsTrigger value="siteSettings"><Cog className="mr-2" />Site Settings</TabsTrigger>
                             <TabsTrigger value="flashSales"><Percent className="mr-2" />Flash Sales</TabsTrigger>
                             <TabsTrigger value="userRewards"><Star className="mr-2" />User Rewards</TabsTrigger>
@@ -2070,6 +2072,8 @@ export default function AdminDashboardPage() {
                             <TabsTrigger value="connections"><Key className="mr-2" />Connections</TabsTrigger>
                             <TabsTrigger value="matchManagement"><Swords className="mr-2" />Match Management</TabsTrigger>
                             <TabsTrigger value="landingManagement"><Upload className="mr-2" />Landing Page Settings</TabsTrigger>
+                            <TabsTrigger value="gemManagement"><Gem className="mr-2" />Gem Management</TabsTrigger>
+                            <TabsTrigger value="steamBot"><Bot className="mr-2" />Steam Bot</TabsTrigger>
                             <TabsTrigger value="dataManagement"><Archive className="mr-2" />Data Management</TabsTrigger>
                             <TabsTrigger value="moderator"><ShieldAlert className="mr-2" />Moderator Panel</TabsTrigger>
                         </TabsList>
@@ -4393,6 +4397,81 @@ export default function AdminDashboardPage() {
                                     </div>
                                     
                                     <Button>Save Payment Settings</Button>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="steamBot" className="mt-6 space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Steam Bot Management</CardTitle>
+                                    <CardDescription>Configure and manage Steam trading bot for automated CS2 skin trading.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="text-center">
+                                        <p className="text-sm text-muted-foreground mb-4">
+                                            Access the full Steam Bot management interface for complete control over automated trading.
+                                        </p>
+                                        <Button 
+                                            onClick={() => window.open('/dashboard/admin/steam-bot', '_blank')}
+                                            className="w-full max-w-sm"
+                                        >
+                                            <Bot className="h-4 w-4 mr-2" />
+                                            Open Steam Bot Console
+                                        </Button>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </TabsContent>
+
+                        <TabsContent value="gemManagement" className="mt-6 space-y-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle>Gem Management</CardTitle>
+                                    <CardDescription>Manage CS2 skin marketplace, gem pricing, and inventory.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <Card>
+                                            <CardHeader className="pb-3">
+                                                <CardTitle className="text-lg flex items-center gap-2">
+                                                    <Gem className="h-5 w-5" />
+                                                    CS2 Skin Market
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    View and manage the CS2 skin marketplace with Steam bot integration.
+                                                </p>
+                                                <Button 
+                                                    onClick={() => window.open('/gems', '_blank')}
+                                                    className="w-full"
+                                                >
+                                                    View Marketplace
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+
+                                        <Card>
+                                            <CardHeader className="pb-3">
+                                                <CardTitle className="text-lg flex items-center gap-2">
+                                                    <Settings className="h-5 w-5" />
+                                                    Gem Settings
+                                                </CardTitle>
+                                            </CardHeader>
+                                            <CardContent>
+                                                <p className="text-sm text-muted-foreground mb-4">
+                                                    Configure gem conversion rates and trading parameters.
+                                                </p>
+                                                <Button 
+                                                    onClick={() => window.open('/dashboard/admin/steam-bot', '_blank')}
+                                                    className="w-full"
+                                                >
+                                                    Configure Settings
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    </div>
                                 </CardContent>
                             </Card>
                         </TabsContent>

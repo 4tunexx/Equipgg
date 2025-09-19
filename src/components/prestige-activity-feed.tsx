@@ -71,25 +71,61 @@ export function PrestigeActivityFeed() {
   };
 
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+    let carouselTimeout: NodeJS.Timeout;
+    let currentIndex = 0;
+
     const fetchActivities = async () => {
       try {
         // Add cache-busting parameter to ensure fresh data
         const response = await fetch(`/api/activity?t=${Date.now()}`);
         if (response.ok) {
           const data = await response.json();
-          setActivities(data);
+          if (Array.isArray(data)) {
+            setActivities(data);
+            
+            // If we have 5+ activities, start carousel rotation instead of frequent polling
+            if (data.length >= 5) {
+              console.log(`Found ${data.length} activities - switching to carousel mode`);
+              // Clear any existing interval
+              if (interval) clearInterval(interval);
+              
+              // Start carousel rotation every 3 seconds instead of API polling
+              carouselTimeout = setInterval(() => {
+                setActivities(prevActivities => {
+                  // Rotate the activities array to create carousel effect
+                  const rotated = [...prevActivities.slice(1), prevActivities[0]];
+                  return rotated;
+                });
+              }, 3000);
+              
+              // Still poll for new activities, but much less frequently (every 30 seconds)
+              interval = setInterval(fetchActivities, 30000);
+            } else {
+              console.log(`Found ${data.length} activities - using frequent polling mode`);
+              // Clear carousel if we have fewer than 5 activities
+              if (carouselTimeout) clearTimeout(carouselTimeout);
+              // Use frequent polling when we have few activities
+              interval = setInterval(fetchActivities, 5000);
+            }
+          } else {
+            console.warn('Activity API returned non-array data:', data);
+            setActivities([]);
+          }
+        } else {
+          console.warn('Activity API returned error status:', response.status, response.statusText);
+          setActivities([]);
         }
       } catch (error) {
         console.error('Error fetching activities:', error);
+        setActivities([]);
       } finally {
         setLoading(false);
       }
     };
 
+    // Initial fetch
     fetchActivities();
-
-    // Refresh activities every 5 seconds to show new activity
-    const interval = setInterval(fetchActivities, 5000);
 
     // Listen for game completion events to refresh immediately
     const handleGameCompleted = () => {
@@ -102,7 +138,8 @@ export function PrestigeActivityFeed() {
     window.addEventListener('gameCompleted', handleGameCompleted);
 
     return () => {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
+      if (carouselTimeout) clearTimeout(carouselTimeout);
       window.removeEventListener('gameCompleted', handleGameCompleted);
     };
   }, []);

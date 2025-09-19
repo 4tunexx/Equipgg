@@ -6,7 +6,7 @@ export async function GET() {
     // Get top players by XP from Supabase
     const { data, error } = await supabase
       .from('users')
-      .select('id, display_name, xp, level, avatar_url, role')
+      .select('id, displayname, xp, level, avatar_url, role')
       .order('xp', { ascending: false })
       .order('level', { ascending: false })
       .limit(50);
@@ -16,7 +16,7 @@ export async function GET() {
     // Add rank field
     const players = (data || []).map((p, i) => ({
       id: p.id,
-      name: p.display_name,
+      name: p.displayname,
       xp: p.xp,
       level: p.level,
       avatar: p.avatar_url,

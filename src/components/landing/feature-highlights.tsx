@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
-import { Target, Gift, Trophy } from "lucide-react";
+import { Target, Gift, Trophy, Zap } from "lucide-react";
 
 // Temporary feature highlights data - TODO: move to database
 const featureHighlightsData = [
@@ -17,6 +17,11 @@ const featureHighlightsData = [
     icon: Trophy,
     title: "Competitive Gaming",
     description: "Climb the leaderboards and earn rewards"
+  },
+  {
+    icon: Zap,
+    title: "Level Up & Equip",
+    description: "Level up your profile, equip items, and unlock exclusive rewards"
   }
 ];
 

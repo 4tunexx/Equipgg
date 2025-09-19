@@ -1,0 +1,500 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Badge } from "../../../components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { ScrollArea } from "../../../components/ui/scroll-area";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../../components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
+import { useAuth } from "../../../hooks/use-auth";
+import { useToast } from "../../../hooks/use-toast";
+import { 
+  Send, 
+  Search, 
+  Settings,
+  Users,
+  Hash,
+  Plus,
+  Smile,
+  Paperclip,
+  Phone,
+  Video,
+  MoreVertical,
+  Volume2,
+  VolumeX,
+  UserPlus,
+  MessageSquare,
+  Globe,
+  Lock,
+  Crown,
+  Star,
+  Shield
+} from 'lucide-react';
+import { cn } from "../../../lib/utils";
+import { formatDistanceToNow } from 'date-fns';
+
+interface ChatMessage {
+  id: string;
+  content: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  senderRole: string;
+  timestamp: string;
+  channelId: string;
+  type: 'text' | 'image' | 'system';
+  editedAt?: string;
+  replyTo?: string;
+}
+
+interface ChatChannel {
+  id: string;
+  name: string;
+  description: string;
+  type: 'public' | 'private' | 'direct';
+  memberCount: number;
+  isActive: boolean;
+  lastMessage?: ChatMessage;
+  unreadCount: number;
+}
+
+interface ChatUser {
+  id: string;
+  displayName: string;
+  avatar?: string;
+  role: string;
+  status: 'online' | 'away' | 'busy' | 'offline';
+  lastSeen?: string;
+}
+
+const defaultChannels: ChatChannel[] = [
+  {
+    id: 'general',
+    name: 'General',
+    description: 'General discussion for all members',
+    type: 'public',
+    memberCount: 1247,
+    isActive: true,
+    unreadCount: 3
+  },
+  {
+    id: 'trading',
+    name: 'Trading',
+    description: 'Buy, sell, and trade items',
+    type: 'public',
+    memberCount: 892,
+    isActive: true,
+    unreadCount: 12
+  },
+  {
+    id: 'games',
+    name: 'Games',
+    description: 'Discuss CS2 matches and strategies',
+    type: 'public',
+    memberCount: 654,
+    isActive: true,
+    unreadCount: 0
+  },
+  {
+    id: 'support',
+    name: 'Support',
+    description: 'Get help from moderators',
+    type: 'public',
+    memberCount: 89,
+    isActive: true,
+    unreadCount: 0
+  }
+];
+
+export default function ChatPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const [activeChannel, setActiveChannel] = useState('general');
+  const [channels, setChannels] = useState<ChatChannel[]>(defaultChannels);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<ChatUser[]>([]);
+  const [messageInput, setMessageInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isMuted, setIsMuted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      fetchMessages();
+      fetchOnlineUsers();
+      // Set up real-time updates (mock for now)
+      const interval = setInterval(() => {
+        // In real implementation, this would be WebSocket updates
+        fetchMessages();
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [activeChannel, user]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const fetchMessages = async () => {
+    try {
+      // Mock messages for now
+      const mockMessages: ChatMessage[] = [
+        {
+          id: '1',
+          content: 'Welcome to EquipGG chat! 🎮',
+          senderId: 'system',
+          senderName: 'System',
+          senderRole: 'system',
+          timestamp: new Date(Date.now() - 3600000).toISOString(),
+          channelId: activeChannel,
+          type: 'system'
+        },
+        {
+          id: '2',
+          content: 'Anyone want to trade some skins?',
+          senderId: 'user1',
+          senderName: 'TraderPro',
+          senderRole: 'user',
+          timestamp: new Date(Date.now() - 1800000).toISOString(),
+          channelId: activeChannel,
+          type: 'text'
+        },
+        {
+          id: '3',
+          content: 'Just got a knife from a crate! So hyped! 🔥',
+          senderId: 'user2',
+          senderName: 'LuckyPlayer',
+          senderRole: 'vip',
+          timestamp: new Date(Date.now() - 900000).toISOString(),
+          channelId: activeChannel,
+          type: 'text'
+        }
+      ];
+      setMessages(mockMessages);
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  };
+
+  const fetchOnlineUsers = async () => {
+    try {
+      // Mock online users
+      const mockUsers: ChatUser[] = [
+        {
+          id: 'user1',
+          displayName: 'TraderPro',
+          role: 'user',
+          status: 'online'
+        },
+        {
+          id: 'user2',
+          displayName: 'LuckyPlayer',
+          role: 'vip',
+          status: 'online'
+        },
+        {
+          id: 'user3',
+          displayName: 'ModeratorMax',
+          role: 'moderator',
+          status: 'online'
+        },
+        {
+          id: 'user4',
+          displayName: 'AdminAlice',
+          role: 'admin',
+          status: 'away'
+        }
+      ];
+      setOnlineUsers(mockUsers);
+    } catch (error) {
+      console.error('Error fetching online users:', error);
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !user) return;
+
+    const newMessage: ChatMessage = {
+      id: Date.now().toString(),
+      content: messageInput.trim(),
+      senderId: user.id,
+      senderName: user.displayName || 'Anonymous',
+      senderRole: user.role || 'user',
+      timestamp: new Date().toISOString(),
+      channelId: activeChannel,
+      type: 'text'
+    };
+
+    try {
+      setMessages(prev => [...prev, newMessage]);
+      setMessageInput('');
+      
+      // In real implementation, send to server
+      toast({
+        title: "Info",
+        description: "Chat API is not yet implemented. This is a preview of the chat interface.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send message",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendMessage();
+    }
+  };
+
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case 'admin': return <Crown className="w-3 h-3 text-yellow-500" />;
+      case 'moderator': return <Shield className="w-3 h-3 text-blue-500" />;
+      case 'vip': return <Star className="w-3 h-3 text-purple-500" />;
+      default: return null;
+    }
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'text-yellow-500';
+      case 'moderator': return 'text-blue-500';
+      case 'vip': return 'text-purple-500';
+      case 'system': return 'text-gray-400';
+      default: return 'text-foreground';
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'online': return 'bg-green-500';
+      case 'away': return 'bg-yellow-500';
+      case 'busy': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const filteredChannels = channels.filter(channel =>
+    channel.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const currentChannel = channels.find(c => c.id === activeChannel);
+
+  return (
+    <div className="h-[calc(100vh-4rem)] flex">
+      {/* Sidebar */}
+      <div className="w-80 border-r bg-card flex flex-col">
+        {/* Header */}
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Chat</h2>
+            <div className="flex gap-2">
+              <Button size="icon" variant="ghost" onClick={() => setIsMuted(!isMuted)}>
+                {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
+              </Button>
+              <Button size="icon" variant="ghost">
+                <Settings className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search channels..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </div>
+
+        {/* Channels */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-2">
+              <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                CHANNELS
+              </div>
+              {filteredChannels.map((channel) => (
+                <Button
+                  key={channel.id}
+                  variant={activeChannel === channel.id ? "secondary" : "ghost"}
+                  className="w-full justify-start mb-1 h-auto py-2"
+                  onClick={() => setActiveChannel(channel.id)}
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    <Hash className="w-4 h-4" />
+                    <div className="flex-1 text-left">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{channel.name}</span>
+                        {channel.unreadCount > 0 && (
+                          <Badge variant="destructive" className="h-5 min-w-5 text-xs">
+                            {channel.unreadCount}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {channel.memberCount} members
+                      </div>
+                    </div>
+                  </div>
+                </Button>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Online Users */}
+        <div className="border-t p-2">
+          <div className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+            ONLINE — {onlineUsers.filter(u => u.status === 'online').length}
+          </div>
+          <ScrollArea className="h-32">
+            {onlineUsers.map((user) => (
+              <div key={user.id} className="flex items-center gap-2 px-2 py-1 hover:bg-muted/50 rounded cursor-pointer">
+                <div className="relative">
+                  <Avatar className="w-6 h-6">
+                    <AvatarImage src={user.avatar} />
+                    <AvatarFallback className="text-xs">{user.displayName.charAt(0)}</AvatarFallback>
+                  </Avatar>
+                  <div className={cn(
+                    "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-background",
+                    getStatusColor(user.status)
+                  )} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1">
+                    {getRoleIcon(user.role)}
+                    <span className={cn("text-sm font-medium truncate", getRoleColor(user.role))}>
+                      {user.displayName}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </ScrollArea>
+        </div>
+      </div>
+
+      {/* Main Chat Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Chat Header */}
+        <div className="h-16 border-b bg-card flex items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <Hash className="w-5 h-5" />
+            <div>
+              <h3 className="font-semibold">{currentChannel?.name}</h3>
+              <p className="text-sm text-muted-foreground">{currentChannel?.description}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="ghost">
+              <Phone className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost">
+              <Video className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost">
+              <UserPlus className="w-4 h-4" />
+            </Button>
+            <Button size="icon" variant="ghost">
+              <MoreVertical className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              {messages.length === 0 ? (
+                <div className="text-center py-8">
+                  <MessageSquare className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                  <p className="text-muted-foreground">No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((message) => (
+                  <div key={message.id} className="flex gap-3 group hover:bg-muted/30 -mx-4 px-4 py-1 rounded">
+                    <Avatar className="w-8 h-8 mt-0.5">
+                      <AvatarImage src={message.senderAvatar} />
+                      <AvatarFallback className="text-xs">{message.senderName.charAt(0)}</AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-1">
+                          {getRoleIcon(message.senderRole)}
+                          <span className={cn("font-semibold text-sm", getRoleColor(message.senderRole))}>
+                            {message.senderName}
+                          </span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDistanceToNow(new Date(message.timestamp), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <div className="text-sm leading-relaxed">
+                        {message.type === 'system' ? (
+                          <span className="italic text-muted-foreground">{message.content}</span>
+                        ) : (
+                          <span>{message.content}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+              <div ref={messagesEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
+
+        {/* Message Input */}
+        <div className="border-t bg-card p-4">
+          <div className="flex items-end gap-2">
+            <div className="flex-1 relative">
+              <Input
+                ref={inputRef}
+                placeholder={`Message #${currentChannel?.name}`}
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyPress={handleKeyPress}
+                className="pr-20"
+                disabled={loading}
+              />
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                <Button size="icon" variant="ghost" className="h-8 w-8">
+                  <Smile className="w-4 h-4" />
+                </Button>
+                <Button size="icon" variant="ghost" className="h-8 w-8">
+                  <Paperclip className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+            <Button 
+              onClick={handleSendMessage} 
+              disabled={!messageInput.trim() || loading}
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="text-xs text-muted-foreground mt-2">
+            Press Enter to send, Shift+Enter for new line
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

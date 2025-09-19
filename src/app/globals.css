@@ -224,14 +224,14 @@
   }
 }
 
-/* Desktop version with more spacing */
+/* Desktop version with more spacing and right alignment */
 @keyframes slideFromUnderDesktop {
   0% {
     transform: translate(-50%, -50%) translateY(50px) scale(0.9);
     opacity: 0;
   }
   100% {
-    transform: translate(-50%, -50%) translateY(190px) scale(1);
+    transform: translate(-50%, -50%) translateY(160px) scale(1);
     opacity: 1;
   }
 }

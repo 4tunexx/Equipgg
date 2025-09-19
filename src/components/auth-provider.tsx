@@ -127,6 +127,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (email: string, password: string) => {
     try {
+      console.log('Auth provider: Starting sign in...');
+      
       // Use the API route which sets the proper session cookie
       const response = await fetch('/api/auth/login', {
         method: 'POST',
@@ -137,24 +139,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
 
       const data = await response.json();
+      console.log('Auth provider: Login API response:', { ok: response.ok, status: response.status });
       
       if (!response.ok) {
         throw new Error(data.error || 'Login failed');
       }
 
-      // The cookie is set by the API route, now we need to update the auth state
-      // Trigger a session refresh
-      const { data: sessionData, error } = await supabase.auth.getSession();
-      if (!error && sessionData.session) {
-        // The auth state change listener will handle updating the user state
-        return sessionData;
-      } else {
-        // Manually set the session if needed
+      if (data.session && data.user) {
+        console.log('Auth provider: Setting session and user...');
+        
+        // Set the session in Supabase client
         await supabase.auth.setSession(data.session);
+        
+        // Update local state immediately
+        setSession(data.session);
+        setUser(data.user);
+        setLoading(false);
+        
+        console.log('Auth provider: Sign in complete');
         return data;
+      } else {
+        throw new Error('No session returned from login');
       }
     } catch (error) {
-      console.error('Sign in error:', error);
+      console.error('Auth provider sign in error:', error);
+      setLoading(false);
       throw error;
     }
   }, []);

@@ -29,16 +29,20 @@ export function middleware(request: NextRequest) {
     // This ensures consistency with protected API endpoints
     const sessionToken = request.cookies.get('equipgg_session')?.value
     
-    console.log('Middleware check for:', pathname);
-    console.log('Session token:', sessionToken ? 'present' : 'missing');
-    console.log('All cookies:', request.cookies.getAll().map(c => c.name));
+    console.log('=== MIDDLEWARE AUTH CHECK ===');
+    console.log('Checking path:', pathname);
+    console.log('Session token:', sessionToken ? `present (${sessionToken.slice(0, 20)}...)` : 'MISSING');
+    console.log('All cookies:', request.cookies.getAll().map(c => `${c.name}=${c.value.slice(0, 10)}...`));
+    console.log('================================');
     
     // If no session token found, redirect to signin
     if (!sessionToken) {
-      console.log('No session token, redirecting to signin');
+      console.log('❌ No session token, redirecting to signin');
       const signInUrl = new URL('/sign-in', request.url)
       signInUrl.searchParams.set('redirect', pathname)
       return NextResponse.redirect(signInUrl)
+    } else {
+      console.log('✅ Session token found, allowing access');
     }
   }
  

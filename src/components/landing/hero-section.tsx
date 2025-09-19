@@ -35,7 +35,7 @@ export function HeroSection() {
   }, []);
 
   return (
-    <section className="relative h-[60vh] md:h-[80vh] flex items-center justify-center text-center text-white overflow-hidden">
+    <section className="relative min-h-[100vh] md:h-[80vh] flex items-center justify-center text-center text-white overflow-hidden">
       <div className={`absolute top-0 left-0 container flex h-14 items-center z-30 transition-all duration-1000 ease-out transform ${
         isVisible 
           ? 'translate-y-0 opacity-100' 
@@ -72,43 +72,43 @@ export function HeroSection() {
         data-ai-hint="CS2 abstract background"
         priority
       />
-      <div className="relative z-10 p-4 w-full max-w-6xl mx-auto">
-        {/* Mobile Logo - Simple centered positioning */}
-        <div className="lg:hidden w-full text-center mb-12">
-          <div className="relative h-48 w-full max-w-md mx-auto">
-            {/* First logo - drops from top */}
-            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
-              <Image 
-                src="/1.png" 
-                alt="Equip.gg Logo" 
-                width={320}
-                height={240}
-                className="max-h-40 w-auto object-contain"
-                key={`logo1-mobile-${logoKey}`}
-                priority
-              />
-            </div>
-            {/* Second logo - slides from under */}
-            <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
-              <Image 
-                src="/2.png" 
-                alt="Equip.gg Logo Layer" 
-                width={320}
-                height={240}
-                className="max-h-32 w-auto object-contain"
-                key={`logo2-mobile-${logoKey}`}
-                priority
-              />
-            </div>
-          </div>
-        </div>
-
+      <div className="relative z-10 p-4 w-full max-w-6xl mx-auto pt-20 lg:pt-4">
         {/* Main content with proper flex layout */}
         <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-full">
-          {/* Text content */}
-          <div className='flex-1 text-center lg:text-left order-2 lg:order-1 min-w-0'>
+          {/* Text content - centered on mobile with logo above */}
+          <div className='flex-1 text-center lg:text-left order-1 lg:order-1 min-w-0'>
+            {/* Mobile Logo - Positioned exactly above the text with same centering */}
+            <div className="lg:hidden w-full flex justify-center mb-4">
+              <div className="relative h-36 w-80">
+                {/* Character logo (1.png) - Main logo, bigger */}
+                <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 group cursor-pointer ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
+                  <Image 
+                    src="/1.png" 
+                    alt="Equip.gg Character Logo" 
+                    width={280}
+                    height={210}
+                    className="max-h-36 w-auto object-contain transition-all duration-300 hover:scale-110 active:scale-95 active:animate-[logoShake_0.5s_ease-in-out]"
+                    key={`logo1-mobile-${logoKey}`}
+                    priority
+                  />
+                </div>
+                {/* Text logo layer (2.png) - Smaller overlay */}
+                <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+                  <Image 
+                    src="/2.png" 
+                    alt="Equip.gg Text Layer" 
+                    width={200}
+                    height={150}
+                    className="max-h-20 w-auto object-contain transition-all duration-300 hover:scale-110 active:scale-95 active:animate-[logoShake_0.5s_ease-in-out]"
+                    key={`logo2-mobile-${logoKey}`}
+                    priority
+                  />
+                </div>
+              </div>
+            </div>
+            
             <h1 
-              className={`text-2xl sm:text-4xl lg:text-5xl xl:text-6xl font-headline font-bold tracking-tighter mb-4 text-shadow-lg transition-all duration-1000 ease-out transform ${
+              className={`text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-headline font-bold tracking-tighter mb-6 text-shadow-lg transition-all duration-1000 ease-out transform ${
                 isVisible 
                   ? 'translate-x-0 opacity-100' 
                   : '-translate-x-full opacity-0'
@@ -118,7 +118,7 @@ export function HeroSection() {
               Level Up Your Game
             </h1>
             <p 
-              className={`max-w-lg mx-auto lg:mx-0 text-sm sm:text-lg lg:text-xl text-foreground/80 mb-6 lg:mb-8 transition-all duration-1000 ease-out transform ${
+              className={`max-w-lg mx-auto lg:mx-0 text-base sm:text-lg lg:text-xl text-foreground/80 mb-8 lg:mb-8 transition-all duration-1000 ease-out transform ${
                 isVisible 
                   ? 'translate-x-0 opacity-100' 
                   : '-translate-x-full opacity-0'
@@ -157,30 +157,30 @@ export function HeroSection() {
             </div>
           </div>
           
-          {/* Logo container */}
-          <div className="flex-1 flex justify-center items-center relative order-1 lg:order-2 mb-8 lg:mb-0 w-full max-w-lg lg:max-w-none">
+          {/* Logo container - desktop only, positioned to the right */}
+          <div className="hidden lg:flex flex-1 justify-end items-center relative order-2 mb-8 lg:mb-0 w-full max-w-lg lg:max-w-none lg:pr-8">
             {/* Layered Logo Animation - Desktop Only */}
-            <div className="hidden lg:flex relative h-96 w-full max-w-lg mx-auto">
-              {/* First logo - drops from top */}
-              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
+            <div className="relative h-80 w-full max-w-sm mx-auto lg:mx-0 lg:ml-auto">
+              {/* First logo - drops from top with hover effects */}
+              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 group cursor-pointer ${isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'}`}>
                 <Image 
                   src="/1.png" 
                   alt="Equip.gg Logo" 
-                  width={500}
-                  height={400}
-                  className="max-h-80 w-auto object-contain"
+                  width={400}
+                  height={300}
+                  className="max-h-56 w-auto object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
                   key={`logo1-desktop-${logoKey}`}
                   priority
                 />
               </div>
-              {/* Second logo - slides from under */}
-              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 ${isVisible ? 'animate-[slideFromUnderDesktop_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
+              {/* Second logo - slides from under with hover effects */}
+              <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${isVisible ? 'animate-[slideFromUnderDesktop_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'}`}>
                 <Image 
                   src="/2.png" 
                   alt="Equip.gg Logo Layer" 
-                  width={500}
-                  height={400}
-                  className="max-h-64 w-auto object-contain"
+                  width={400}
+                  height={300}
+                  className="max-h-44 w-auto object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
                   key={`logo2-desktop-${logoKey}`}
                   priority
                 />
