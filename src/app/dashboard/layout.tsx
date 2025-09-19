@@ -127,8 +127,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   React.useEffect(() => {
     if (user) {
       fetchNotifications();
-      // Poll for new notifications every 30 seconds
-      const interval = setInterval(fetchNotifications, 30000);
+      // Poll for new notifications every 2 minutes (reduced from 30s for better performance)
+      const interval = setInterval(fetchNotifications, 120000);
       return () => clearInterval(interval);
     }
   }, [user]);
@@ -171,51 +171,67 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     if (!user) return;
 
     try {
-      // Fetch user data first
+      // Only fetch essential user data immediately for faster dashboard load
       const userResponse = await fetch('/api/me', { credentials: 'include' });
       if (userResponse.ok) {
         const userData = await userResponse.json();
         
-        // Fetch other data in parallel, but handle 401s gracefully
-        const [missionResponse, notificationsResponse, messagesResponse] = await Promise.allSettled([
-          fetch('/api/missions/summary', { credentials: 'include' }),
-          fetch('/api/notifications', { credentials: 'include' }),
-          fetch('/api/messages', { credentials: 'include' })
-        ]);
-
-        const missionData = missionResponse.status === 'fulfilled' && missionResponse.value.ok 
-          ? await missionResponse.value.json() : null;
-        const notificationsData = notificationsResponse.status === 'fulfilled' && notificationsResponse.value.ok 
-          ? await notificationsResponse.value.json() : null;
-        const messagesData = messagesResponse.status === 'fulfilled' && messagesResponse.value.ok 
-          ? await messagesResponse.value.json() : null;
-        
+        // Set basic user data immediately for faster dashboard rendering
         setSummary({
           xp: userData.user?.xp || 0,
           level: userData.user?.level || 1,
           coins: userData.user?.coins || 0,
           gems: userData.user?.gems || 0,
-          dailyCompleted: missionData?.dailyCompleted || 0,
-          totalDaily: missionData?.totalDaily || 0
+          dailyCompleted: 0, // Will be updated by lazy load
+          totalDaily: 0
         });
-        
-        if (notificationsData) {
-          const notifications = notificationsData.notifications || [];
-          const unreadCount = notifications.filter((n: any) => !n.read).length;
-          setNotifications({
-            unreadCount,
-            notifications: notifications
-          });
-        }
-        
-        if (messagesData) {
-          const messages = messagesData.messages || [];
-          const unreadMessages = messages.filter((m: any) => !m.read).length;
-          setMessages({
-            unreadCount: unreadMessages,
-            messages: messages
-          });
-        }
+
+        // Lazy load non-critical data in the background after dashboard renders
+        setTimeout(async () => {
+          try {
+            const [missionResponse, notificationsResponse, messagesResponse] = await Promise.allSettled([
+              fetch('/api/missions/summary', { credentials: 'include' }),
+              fetch('/api/notifications', { credentials: 'include' }),
+              fetch('/api/messages', { credentials: 'include' })
+            ]);
+
+            const missionData = missionResponse.status === 'fulfilled' && missionResponse.value.ok 
+              ? await missionResponse.value.json() : null;
+            const notificationsData = notificationsResponse.status === 'fulfilled' && notificationsResponse.value.ok 
+              ? await notificationsResponse.value.json() : null;
+            const messagesData = messagesResponse.status === 'fulfilled' && messagesResponse.value.ok 
+              ? await messagesResponse.value.json() : null;
+            
+            // Update with mission data
+            if (missionData) {
+              setSummary(prev => prev ? {
+                ...prev,
+                dailyCompleted: missionData?.dailyCompleted || 0,
+                totalDaily: missionData?.totalDaily || 0
+              } : null);
+            }
+            
+            if (notificationsData) {
+              const notifications = notificationsData.notifications || [];
+              const unreadCount = notifications.filter((n: any) => !n.read).length;
+              setNotifications({
+                unreadCount,
+                notifications: notifications
+              });
+            }
+            
+            if (messagesData) {
+              const messages = messagesData.messages || [];
+              const unreadMessages = messages.filter((m: any) => !m.read).length;
+              setMessages({
+                unreadCount: unreadMessages,
+                messages: messages
+              });
+            }
+          } catch (lazyError) {
+            console.error('Error loading secondary data:', lazyError);
+          }
+        }, 50); // Load after 50ms to let dashboard render first
       } else if (userResponse.status === 401) {
         console.log('Session expired during user data refresh');
       }
