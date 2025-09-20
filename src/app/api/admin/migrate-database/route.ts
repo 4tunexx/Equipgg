@@ -16,6 +16,8 @@ export async function POST(request: NextRequest) {
       return await addSteamColumns();
     } else if (action === 'complete_database_setup') {
       return await completeDatabaseSetup();
+    } else if (action === 'analyze_database') {
+      return await analyzeDatabaseSchema();
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -256,5 +258,176 @@ async function completeDatabaseSetup() {
   
   results.push('💡 Pro tip: After setup, test authentication at /updatesql to verify everything works!');
   
+  return NextResponse.json({ message: results.join('\n') });
+}
+
+async function analyzeDatabaseSchema() {
+  const results: string[] = [];
+  results.push('🔍 COMPREHENSIVE DATABASE ANALYSIS\n');
+  
+  // Define all expected tables from the complete database setup
+  const expectedTables = [
+    // Core authentication tables
+    'users',
+    
+    // Game content tables
+    'achievements',
+    'badges', 
+    'crates',
+    'items',
+    'missions',
+    'perks',
+    'ranks',
+    
+    // User relationship tables
+    'user_achievements',
+    'user_badges',
+    'user_inventory',
+    'user_missions', 
+    'user_perks',
+    
+    // Activity tables
+    'crate_openings',
+    'trade_up_contracts',
+    
+    // Additional platform tables (if they exist)
+    'matches',
+    'bets',
+    'chat_messages',
+    'forum_posts',
+    'leaderboards',
+    'notifications',
+    'site_settings'
+  ];
+
+  results.push('📋 Expected Tables for Full EquipGG Platform:');
+  expectedTables.forEach(table => {
+    results.push(`   • ${table}`);
+  });
+  results.push('');
+
+  // Check which tables actually exist
+  const existingTables: string[] = [];
+  const missingTables: string[] = [];
+  
+  results.push('🔎 Checking existing tables...\n');
+  
+  for (const tableName of expectedTables) {
+    try {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('count', { count: 'exact', head: true });
+
+      if (error) {
+        if (error.message.includes('does not exist') || 
+            error.message.includes('relation') && error.message.includes('does not exist')) {
+          missingTables.push(tableName);
+          results.push(`❌ Missing: ${tableName}`);
+        } else {
+          results.push(`⚠️  Error checking ${tableName}: ${error.message}`);
+        }
+      } else {
+        existingTables.push(tableName);
+        const count = data || 0;
+        results.push(`✅ Found: ${tableName} (${count} rows)`);
+      }
+    } catch (error) {
+      results.push(`⚠️  Exception checking ${tableName}: ${(error as Error).message}`);
+    }
+  }
+
+  // Summary
+  results.push(`\n📊 DATABASE ANALYSIS SUMMARY:`);
+  results.push(`✅ Existing tables: ${existingTables.length}/${expectedTables.length}`);
+  results.push(`❌ Missing tables: ${missingTables.length}`);
+  results.push('');
+
+  if (existingTables.length > 0) {
+    results.push(`🟢 EXISTING TABLES (${existingTables.length}):`);
+    existingTables.forEach(table => {
+      results.push(`   ✅ ${table}`);
+    });
+    results.push('');
+  }
+
+  if (missingTables.length > 0) {
+    results.push(`🔴 MISSING TABLES (${missingTables.length}):`);
+    missingTables.forEach(table => {
+      results.push(`   ❌ ${table}`);
+    });
+    results.push('');
+
+    // Provide setup guidance
+    results.push('🚀 TO CREATE MISSING TABLES:');
+    results.push('1. Go to Supabase Dashboard > SQL Editor');
+    results.push('2. Run these SQL files in order:');
+    results.push('   📄 complete-database-setup.sql (creates tables)');
+    results.push('   📄 database-population-part1.sql (achievements, badges)');
+    results.push('   📄 database-population-part2.sql (items, skins)');  
+    results.push('   📄 database-population-part3.sql (missions, perks, ranks)');
+    results.push('');
+  }
+
+  // Check users table columns specifically (most critical for auth)
+  if (existingTables.includes('users')) {
+    results.push('👤 USERS TABLE COLUMN ANALYSIS:');
+    
+    const requiredUserColumns = [
+      'id', 'email', 'steam_id', 'steam_verified', 'account_status',
+      'username', 'avatar', 'coins', 'xp', 'level', 'wins', 'matches_played'
+    ];
+
+    const existingUserColumns: string[] = [];
+    const missingUserColumns: string[] = [];
+
+    for (const column of requiredUserColumns) {
+      try {
+        const { error } = await supabase
+          .from('users')
+          .select(column)
+          .limit(1);
+
+        if (error && (
+          error.message.includes(`column "${column}" does not exist`) ||
+          error.message.includes(`column users.${column} does not exist`)
+        )) {
+          missingUserColumns.push(column);
+          results.push(`   ❌ Missing column: ${column}`);
+        } else if (error) {
+          results.push(`   ⚠️  Error checking ${column}: ${error.message}`);
+        } else {
+          existingUserColumns.push(column);
+          results.push(`   ✅ Found column: ${column}`);
+        }
+      } catch (error) {
+        results.push(`   ⚠️  Exception checking ${column}: ${(error as Error).message}`);
+      }
+    }
+
+    if (missingUserColumns.length > 0) {
+      results.push(`\n⚠️  Users table missing ${missingUserColumns.length} required columns!`);
+      results.push('💡 Run the "Quick Fix" migration to add missing user columns.');
+    } else {
+      results.push('\n✅ Users table has all required columns for authentication!');
+    }
+  }
+
+  // Final recommendations
+  results.push('\n🎯 RECOMMENDATIONS:');
+  
+  if (missingTables.length === 0 && existingTables.includes('users')) {
+    results.push('✅ Your database appears to be complete!');
+    results.push('✅ All core tables exist for full platform functionality.');
+    results.push('💡 Try logging in to test authentication.');
+  } else if (existingTables.includes('users') && missingTables.length > 0) {
+    results.push('⚡ You have basic authentication, but missing game features.');
+    results.push('🚀 Run the "Complete Database Setup" to add all missing tables.');
+    results.push('📈 This will unlock achievements, items, missions, and more!');
+  } else if (!existingTables.includes('users')) {
+    results.push('🚨 Critical: Users table is missing!');
+    results.push('⚡ Run "Quick Fix" first to enable authentication.');
+    results.push('🚀 Then run "Complete Database Setup" for full platform.');
+  }
+
   return NextResponse.json({ message: results.join('\n') });
 }

@@ -91,6 +91,34 @@ export default function UpdateSQLPage() {
     }
   };
 
+  const analyzeDatabase = async () => {
+    setIsRunning(true);
+    setResult('');
+    setError('');
+
+    try {
+      const response = await fetch('/api/admin/migrate-database', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'analyze_database' }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setResult(data.message || 'Database analysis completed!');
+      } else {
+        setError(data.error || 'Database analysis failed');
+      }
+    } catch (err) {
+      setError('Network error: ' + (err as Error).message);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-900 text-white p-8">
       <div className="max-w-4xl mx-auto">
@@ -112,6 +140,14 @@ export default function UpdateSQLPage() {
               className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 px-6 py-3 rounded-lg font-medium transition-colors"
             >
               {isRunning ? '🔍 Testing...' : '🔍 Test Database Schema'}
+            </button>
+            
+            <button
+              onClick={analyzeDatabase}
+              disabled={isRunning}
+              className="w-full bg-cyan-600 hover:bg-cyan-700 disabled:bg-gray-600 px-6 py-3 rounded-lg font-medium transition-colors"
+            >
+              {isRunning ? '📊 Analyzing...' : '📊 Analyze Complete Database - Check All Tables'}
             </button>
             
             <button
@@ -159,6 +195,18 @@ export default function UpdateSQLPage() {
           
           <div className="space-y-4">
             <div>
+              <h4 className="text-md font-medium text-cyan-400 mb-2">📊 Database Analysis:</h4>
+              <ul className="text-gray-300 space-y-1 ml-4">
+                <li>• Checks ALL tables required for the complete EquipGG platform</li>
+                <li>• Shows which tables exist and which are missing</li>
+                <li>• Counts rows in each existing table</li>
+                <li>• Analyzes user table columns for authentication</li>
+                <li>• Provides recommendations for next steps</li>
+                <li>• Perfect for understanding your current database state!</li>
+              </ul>
+            </div>
+            
+            <div>
               <h4 className="text-md font-medium text-green-400 mb-2">⚡ Quick Fix (Run Migration):</h4>
               <ul className="text-gray-300 space-y-1 ml-4">
                 <li>• Adds missing <code className="bg-gray-700 px-2 py-1 rounded">steam_id</code> column to users table</li>
@@ -185,8 +233,8 @@ export default function UpdateSQLPage() {
           
           <div className="mt-4 p-4 bg-yellow-900/50 border border-yellow-500 rounded-lg">
             <p className="text-yellow-200">
-              <strong>⚠️ Important:</strong> Run the test first to see what's missing. If you just need login to work, use "Run Migration". 
-              If you want the complete CS2 gambling platform with all features, use "Complete Database Setup"!
+              <strong>⚠️ Important:</strong> Start with "Analyze Complete Database" to see exactly what you have! 
+              Then use "Run Migration" for login fixes, or "Complete Database Setup" for the full CS2 gambling platform.
             </p>
           </div>
         </div>
