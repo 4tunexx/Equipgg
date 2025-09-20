@@ -5,7 +5,7 @@ import { createServerSupabaseClient } from "../../../lib/supabase";
 interface User {
   id: string;
   email: string;
-  display_name: string;
+  displayname: string;
   avatar_url: string | null;
   xp: number;
   level: number;
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
     const supabase = createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, display_name, avatar_url, xp, level, role, coins')
+      .select('id, email, displayname, avatar_url, xp, level, role, coins, gems')
       .eq('id', session.user_id)
       .single();
     
@@ -40,13 +40,13 @@ export async function GET(req: NextRequest) {
         user: {
           id: user.id,
           email: user.email,
-          displayName: user.display_name,
+          displayName: user.displayname,
           avatarUrl: user.avatar_url,
           xp: user.xp || 0,
           level: user.level || 1,
           role: user.role || 'user',
           coins: user.coins || 0,
-          gems: 0, // TODO: Add gems field to database if needed
+          gems: user.gems || 0,
         }
       });
     }

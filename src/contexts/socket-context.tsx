@@ -62,6 +62,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Disable Socket.IO in production if no server is available
+    if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SOCKET_URL) {
+      console.log('🔌 Socket.IO disabled in production (no server configured)');
+      setIsConnected(false);
+      return;
+    }
+
     // Get Socket.IO URL from environment or use default
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
                      (process.env.NODE_ENV === 'production' ? 'https://www.equipgg.net' : 'http://localhost:3001');
@@ -70,30 +77,42 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     // Initialize socket connection
     const newSocket = io(socketUrl, {
-      transports: ['websocket', 'polling'],
-      timeout: 5000,
+      transports: ['polling', 'websocket'], // Try polling first, then websocket
+      timeout: 10000,
       autoConnect: false,
       reconnection: true,
-      reconnectionDelay: 1000,
-      reconnectionAttempts: 5
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 3, // Reduce attempts to prevent spam
+      forceNew: true
     });
 
-    // Set a timeout for connection
+    // Set a timeout for connection attempt
     const connectTimeout = setTimeout(() => {
       if (!newSocket.connected) {
-        console.log('Socket connection timeout, using fallback mode');
+        console.log('⏰ Socket connection timeout, using fallback mode');
         newSocket.disconnect();
         setSocket(null);
         setIsConnected(false);
         socketFallback.setConnected(false);
       }
-    }, 6000);
+    }, 8000); // Increased timeout
 
     newSocket.on('connect', () => {
       console.log('✅ Connected to Socket.io server');
       setIsConnected(true);
       socketFallback.setConnected(true);
       clearTimeout(connectTimeout);
+    });
+
+    newSocket.on('connect_error', (error) => {
+      console.log('❌ Socket connection error:', error.message);
+      setIsConnected(false);
+      socketFallback.setConnected(false);
+      // Don't spam reconnect attempts
+      if (process.env.NODE_ENV === 'production') {
+        newSocket.disconnect();
+        clearTimeout(connectTimeout);
+      }
     });
 
     newSocket.on('disconnect', (reason) => {

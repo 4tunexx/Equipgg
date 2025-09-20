@@ -17,15 +17,15 @@ export async function GET(
     // Get user data by username (display_name) or email
     let { data: user, error } = await supabase
       .from('users')
-      .select('id, display_name, avatar_url, xp, level, role, coins, created_at')
-      .eq('display_name', username)
+      .select('id, displayname, avatar_url, xp, level, role, coins, created_at')
+      .eq('displayname', username)
       .single();
     
     if (error && !user) {
       // Try by email
       const { data: userByEmail, error: emailError } = await supabase
         .from('users')
-        .select('id, display_name, avatar_url, xp, level, role, coins, created_at')
+        .select('id, displayname, avatar_url, xp, level, role, coins, created_at')
         .eq('email', username)
         .single();
       
@@ -43,9 +43,9 @@ export async function GET(
       success: true,
       user: {
         id: user.id,
-        name: user.display_name,
-        displayName: user.display_name,
-        username: user.display_name,
+        name: user.displayname,
+        displayName: user.displayname,
+        username: user.displayname,
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,

@@ -118,9 +118,9 @@ export async function GET(request: NextRequest) {
         await supabase.auth.admin.updateUserById(userId, {
           user_metadata: {
             displayName: steamUser.username,
-            avatar: steamUser.avatar,
-            steamId: steamUser.steamId,
-            steamProfile: steamUser.profileUrl
+            avatar_url: steamUser.avatar,
+            steam_id: steamUser.steamId,
+            profileUrl: steamUser.profileUrl
           }
         });
       } else {
@@ -130,9 +130,9 @@ export async function GET(request: NextRequest) {
           email_confirm: true,
           user_metadata: {
             displayName: steamUser.username,
-            avatar: steamUser.avatar,
-            steamId: steamUser.steamId,
-            steamProfile: steamUser.profileUrl
+            avatar_url: steamUser.avatar,
+            steam_id: steamUser.steamId,
+            profileUrl: steamUser.profileUrl
           }
         });
         if (createError || !newUser || !newUser.user) {
@@ -143,25 +143,28 @@ export async function GET(request: NextRequest) {
         await supabase.from('users').upsert({
           id: userId,
           email: email,
-          display_name: steamUser.username,
+          displayname: steamUser.username,
           avatar_url: steamUser.avatar,
           role: 'user',
-          steam_id: steamUser.steamId,
-          steam_username: steamUser.username,
-          steam_avatar: steamUser.avatar
+          coins: 1000,
+          gems: 50,
+          xp: 0,
+          level: 1
         }, { onConflict: 'id' });
       }
-      // Create a magic link session for the user (no password)
-      const { data: sessionData, error: sessionError } = await supabase.auth.admin.generateLink({
+      // Sign in the user using Supabase auth
+      const { data: signInData, error: signInError } = await supabase.auth.admin.generateLink({
         type: 'magiclink',
         email
       });
-      if (sessionError || !sessionData) {
+      
+      if (signInError || !signInData) {
+        console.error('Failed to generate sign in link:', signInError);
         return NextResponse.redirect(`${BASE_URL}/sign-in?error=session_creation_failed`);
       }
-      // NOTE: You may need to implement a custom session or JWT flow here for production
-      // For now, just redirect to dashboard (user will need to login via magic link)
-      return NextResponse.redirect(`${BASE_URL}/dashboard`);
+      
+      // Redirect to the magic link to complete authentication
+      return NextResponse.redirect(signInData.properties.action_link);
     } catch (error) {
       console.error('Steam auth callback error:', error);
       return NextResponse.redirect(`${BASE_URL}/sign-in?error=steam_auth_failed`);
