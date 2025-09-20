@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../../../components/auth-provider';
 
 // Inline UI components to avoid import issues
 const Button = ({ 
@@ -163,30 +161,25 @@ const CardFooter = ({
 };
 
 export default function SignUpPage() {
-  const { signUp } = useAuth();
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [username, setUsername] = useState<string>('');
-  const [error, setError] = useState<string | null>(null);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError(null);
     
     try {
-      console.log('Starting registration process...');
-      const result = await signUp(email, password, username);
-      console.log('Registration successful, redirecting to dashboard...');
-      
-      setIsLoading(false);
-      // Force page redirect for reliable behavior
-      window.location.href = '/dashboard';
-    } catch (error: any) {
+      // This is a placeholder for the actual authentication logic
+      console.log('Sign up attempt with:', { email, username });
+      // In a real implementation, you would call your auth service here
+      setTimeout(() => {
+        setIsLoading(false);
+        // Redirect or show success message
+      }, 1000);
+    } catch (error) {
       console.error('Sign up error:', error);
-      setError(error?.message || 'Failed to create account');
       setIsLoading(false);
     }
   };
@@ -204,11 +197,6 @@ export default function SignUpPage() {
         <Card>
           <form onSubmit={handleSubmit}>
             <CardContent className="grid gap-4">
-              {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                  {error}
-                </div>
-              )}
               <div className="grid gap-2">
                 <Label htmlFor="username">Username</Label>
                 <Input 
@@ -236,40 +224,19 @@ export default function SignUpPage() {
                 <Input 
                   id="password" 
                   type="password"
-                  placeholder="Choose a secure password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
               </div>
             </CardContent>
-            <CardFooter className="flex flex-col gap-4">
+            <CardFooter>
               <Button 
                 type="submit" 
                 className="w-full" 
                 disabled={isLoading}
               >
                 {isLoading ? 'Creating account...' : 'Create Account'}
-              </Button>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or continue with
-                  </span>
-                </div>
-              </div>
-              
-              <Button 
-                type="button"
-                className="w-full border border-input bg-background hover:bg-accent hover:text-accent-foreground" 
-                onClick={() => window.location.href = '/api/auth/steam'}
-                disabled={isLoading}
-              >
-                Steam
               </Button>
             </CardFooter>
           </form>

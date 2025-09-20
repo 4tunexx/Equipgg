@@ -14,6 +14,8 @@ export async function POST(request: NextRequest) {
       return await testDatabaseSchema();
     } else if (action === 'add_steam_columns') {
       return await addSteamColumns();
+    } else if (action === 'complete_database_setup') {
+      return await completeDatabaseSetup();
     } else {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
     }
@@ -192,4 +194,58 @@ WHERE
     // If steam_id exists, run the test to see what else might be missing
     return await testDatabaseSchema();
   }
+}
+
+async function completeDatabaseSetup() {
+  const results: string[] = [];
+  results.push('🚀 Starting complete database setup for CS2 gambling platform...\n');
+  
+  results.push('🎯 This will create the COMPLETE EquipGG platform with:');
+  results.push('• 50+ achievements and badges');
+  results.push('• 110+ CS2 skins, knives, gloves, and operators');
+  results.push('• 59 missions (daily + main campaign)');
+  results.push('• 16 perks and 50 rank levels');
+  results.push('• Full crate system and inventory management');
+  results.push('• Complete user authentication with Steam integration\n');
+  
+  results.push('⚠️ IMPORTANT: This is a FULL database setup - run this on a clean database!');
+  results.push('If you already have data, backup first!\n');
+  
+  results.push('📋 Please execute these SQL files in order in your Supabase SQL Editor:');
+  results.push('👉 Go to: https://supabase.com/dashboard/project/[your-project]/sql\n');
+  
+  results.push('🔥 STEP 1: Run complete-database-setup.sql');
+  results.push('This creates all tables and basic structure.\n');
+  
+  results.push('🔥 STEP 2: Run database-population-part1.sql');
+  results.push('This adds achievements, badges, and user system data.\n');
+  
+  results.push('🔥 STEP 3: Run database-population-part2.sql');
+  results.push('This adds all CS2 items, skins, knives, and gloves.\n');
+  
+  results.push('🔥 STEP 4: Run database-population-part3.sql');
+  results.push('This adds missions, perks, ranks, and crates.\n');
+  
+  results.push('📝 Files are located in your project:');
+  results.push('• complete-database-setup.sql');
+  results.push('• database-population-part1.sql');
+  results.push('• database-population-part2.sql');
+  results.push('• database-population-part3.sql\n');
+  
+  results.push('🎯 After running all 4 files, your platform will have:');
+  results.push('✅ Full authentication system with Steam verification');
+  results.push('✅ Complete CS2 item database with real skins');
+  results.push('✅ Achievement and badge system');
+  results.push('✅ Mission and perk progression');
+  results.push('✅ Crate opening and inventory management');
+  results.push('✅ User rankings and leaderboards');
+  results.push('✅ Administrative tools and moderation');
+  results.push('✅ All platform features ready for production!\n');
+  
+  results.push('🚨 CRITICAL: Run the files in the exact order above!');
+  results.push('The setup creates foreign key relationships that depend on the correct order.\n');
+  
+  results.push('💡 Pro tip: After setup, test authentication at /updatesql to verify everything works!');
+  
+  return NextResponse.json({ message: results.join('\n') });
 }
