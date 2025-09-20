@@ -225,7 +225,25 @@ async function completeDatabaseSetup() {
   results.push('📋 Please execute these SQL files in order in your Supabase SQL Editor:');
   results.push('👉 Go to: https://supabase.com/dashboard/project/[your-project]/sql\n');
   
-  results.push('🔥 STEP 1: Run complete-database-setup.sql');
+  results.push('� STEP 0: Check if you already have tables');
+  results.push('Run "Analyze Complete Database" first to see what you have!\n');
+  
+  results.push('📊 IF YOU HAVE ALL TABLES (analysis shows most tables exist):');
+  results.push('Skip complete-database-setup.sql and run ONLY the data files:\n');
+  
+  results.push('🎯 STEP 1: Run database-population-part1.sql');
+  results.push('This adds achievements, badges, and user system data.\n');
+  
+  results.push('🎯 STEP 2: Run database-population-part2.sql');
+  results.push('This adds all CS2 items, skins, knives, and gloves.\n');
+  
+  results.push('🎯 STEP 3: Run database-population-part3.sql');
+  results.push('This adds missions, perks, ranks, and crates.\n');
+  
+  results.push('🏗️ IF YOU HAVE NO TABLES (fresh database):');
+  results.push('Run all 4 files in this order:\n');
+  
+  results.push('�🔥 STEP 1: Run complete-database-setup.sql');
   results.push('This creates all tables and basic structure.\n');
   
   results.push('🔥 STEP 2: Run database-population-part1.sql');
@@ -416,9 +434,14 @@ async function analyzeDatabaseSchema() {
   results.push('\n🎯 RECOMMENDATIONS:');
   
   if (missingTables.length === 0 && existingTables.includes('users')) {
-    results.push('✅ Your database appears to be complete!');
-    results.push('✅ All core tables exist for full platform functionality.');
-    results.push('💡 Try logging in to test authentication.');
+    results.push('✅ ALL TABLES EXIST! Your database structure is complete!');
+    results.push('🎯 NEXT STEP: Check if tables have data (achievements, items, etc.)');
+    results.push('📊 If tables are empty, run ONLY the data population files:');
+    results.push('   • database-population-part1.sql (achievements, badges)');
+    results.push('   • database-population-part2.sql (CS2 items, skins)');
+    results.push('   • database-population-part3.sql (missions, perks, ranks)');
+    results.push('🚨 SKIP complete-database-setup.sql since your tables already exist!');
+    results.push('💡 Then try logging in to test authentication.');
   } else if (existingTables.includes('users') && missingTables.length > 0) {
     results.push('⚡ You have basic authentication, but missing game features.');
     results.push('🚀 Run the "Complete Database Setup" to add all missing tables.');
