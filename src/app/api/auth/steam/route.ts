@@ -93,12 +93,12 @@ export async function GET(request: NextRequest) {
     try {
       const steamId = await verifySteamResponse(searchParams);
       if (!steamId) {
-        return NextResponse.redirect(`${BASE_URL}/signin?error=steam_verification_failed`);
+        return NextResponse.redirect(`${BASE_URL}/sign-in?error=steam_verification_failed`);
       }
       // Get Steam user info
       const steamUser = await getSteamUserInfo(steamId);
       if (!steamUser) {
-        return NextResponse.redirect(`${BASE_URL}/signin?error=steam_api_failed`);
+        return NextResponse.redirect(`${BASE_URL}/sign-in?error=steam_api_failed`);
       }
       // Use Supabase Admin API to upsert user by steamId (email as steamId@steam.local)
       const email = `${steamUser.steamId}@steam.local`;
@@ -106,7 +106,7 @@ export async function GET(request: NextRequest) {
       // Try to find user by email (Supabase Admin API does not have getUserByEmail, so list and filter)
       const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
       if (listError) {
-        return NextResponse.redirect(`${BASE_URL}/signin?error=supabase_user_list_failed`);
+        return NextResponse.redirect(`${BASE_URL}/sign-in?error=supabase_user_list_failed`);
       }
       const found = userList?.users?.find((u: any) => u.email === email);
       if (found) {
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
           }
         });
         if (createError || !newUser || !newUser.user) {
-          return NextResponse.redirect(`${BASE_URL}/signin?error=supabase_user_create_failed`);
+          return NextResponse.redirect(`${BASE_URL}/sign-in?error=supabase_user_create_failed`);
         }
         userId = newUser.user.id;
         // Create user profile in users table if not exists
@@ -154,14 +154,14 @@ export async function GET(request: NextRequest) {
         email
       });
       if (sessionError || !sessionData) {
-        return NextResponse.redirect(`${BASE_URL}/signin?error=session_creation_failed`);
+        return NextResponse.redirect(`${BASE_URL}/sign-in?error=session_creation_failed`);
       }
       // NOTE: You may need to implement a custom session or JWT flow here for production
       // For now, just redirect to dashboard (user will need to login via magic link)
       return NextResponse.redirect(`${BASE_URL}/dashboard`);
     } catch (error) {
       console.error('Steam auth callback error:', error);
-      return NextResponse.redirect(`${BASE_URL}/signin?error=steam_auth_failed`);
+      return NextResponse.redirect(`${BASE_URL}/sign-in?error=steam_auth_failed`);
     }
   }
   // Initiate Steam authentication
