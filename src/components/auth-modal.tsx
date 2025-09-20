@@ -43,12 +43,9 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
       setLoading(false);
       setOpen(false);
       
-      // Small delay to ensure state updates are processed
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Use router.replace for better navigation behavior after login
+      // Force page redirect instead of router navigation for more reliable behavior
       console.log('Redirecting to dashboard...');
-      router.replace('/dashboard');
+      window.location.href = '/dashboard';
     } catch (err: unknown) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in');
@@ -62,14 +59,12 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
     setError(null);
     try {
       await signUp(registerEmail, registerPassword, registerUsername);
+      setLoading(false);
       setOpen(false);
-      // Add a small delay to ensure auth state is updated before navigation
-      setTimeout(() => {
-        router.replace('/dashboard');
-      }, 100);
+      // Force page redirect for more reliable behavior
+      window.location.href = '/dashboard';
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to sign up');
-    } finally {
       setLoading(false);
     }
   };

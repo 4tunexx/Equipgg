@@ -62,16 +62,16 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
-    // Disable Socket.IO in production if no server is available
-    if (process.env.NODE_ENV === 'production' && !process.env.NEXT_PUBLIC_SOCKET_URL) {
-      console.log('🔌 Socket.IO disabled in production (no server configured)');
+    // For now, disable Socket.IO in production to avoid errors
+    // TODO: Set up Socket.IO server for production
+    if (process.env.NODE_ENV === 'production') {
+      console.log('🔌 Socket.IO disabled in production (server not configured yet)');
       setIsConnected(false);
       return;
     }
 
-    // Get Socket.IO URL from environment or use default
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
-                     (process.env.NODE_ENV === 'production' ? 'https://www.equipgg.net' : 'http://localhost:3001');
+    // Get Socket.IO URL from environment or use default for development
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
     
     console.log('🚀 Initializing Socket.io connection to:', socketUrl);
 
