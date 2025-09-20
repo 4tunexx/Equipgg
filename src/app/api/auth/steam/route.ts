@@ -3,7 +3,10 @@ import { supabase } from "../../../../lib/supabase";
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
-const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:9002';
+// Use localhost for development, production URL for production
+const BASE_URL = process.env.NODE_ENV === 'production' 
+  ? (process.env.NEXTAUTH_URL || 'https://www.equipgg.net')
+  : 'http://localhost:3000';
 
 // Steam OpenID parameters
 function buildSteamAuthUrl(returnUrl: string) {
