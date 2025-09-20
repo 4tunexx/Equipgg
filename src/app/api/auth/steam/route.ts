@@ -176,8 +176,6 @@ export async function GET(request: NextRequest) {
             .from('users')
             .update({
               steam_id: steamUser.steamId,
-              steam_username: steamUser.username,
-              steam_avatar: steamUser.avatar,
               steam_verified: true,
               account_status: 'active',
               displayname: steamUser.username, // Update display name to Steam username
@@ -214,8 +212,6 @@ export async function GET(request: NextRequest) {
               xp: 0,
               level: 1,
               steam_id: steamUser.steamId,
-              steam_username: steamUser.username,
-              steam_avatar: steamUser.avatar,
               steam_verified: true,
               account_status: 'active' // Steam-only accounts are immediately active
             })
@@ -336,8 +332,7 @@ export async function POST(request: NextRequest) {
         avatar_url: steamUser.avatar,
         role: 'user',
         steam_id: steamUser.steamId,
-        steam_username: steamUser.username,
-        steam_avatar: steamUser.avatar
+        steam_verified: true
       }, { onConflict: 'id' });
     }
     

@@ -1,9 +1,81 @@
 -- EquipGG Database Population Part 3
 -- Final part: AK-47 skins, M4 skins, missions, perks, and ranks
+-- 
+-- ⚠️ WARNING: This script will DROP and RECREATE these tables:
+--   • missions table (and all data)
+--   • perks table (and all data)
+--   • ranks table (and all data)
+--   • This will also CASCADE to dependent tables
+-- If you want to preserve existing data, back it up first!
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ===============================
+-- MISSIONS TABLE
+-- ===============================
+-- Drop and recreate missions table to ensure correct schema
+DROP TABLE IF EXISTS missions CASCADE;
+
+CREATE TABLE missions (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT NOT NULL,
+  mission_type VARCHAR(20) NOT NULL, -- 'daily', 'main'
+  tier INTEGER DEFAULT 1, -- For main missions: 1-4
+  order_index INTEGER DEFAULT 0,
+  xp_reward INTEGER DEFAULT 50,
+  coin_reward INTEGER DEFAULT 0,
+  requirement_type VARCHAR(50), -- 'login', 'bet_place', 'bet_win', 'level_reach', etc.
+  requirement_value INTEGER DEFAULT 1,
+  is_repeatable BOOLEAN DEFAULT false, -- Daily missions are repeatable
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ===============================
+-- PERKS TABLE
+-- ===============================
+-- Drop and recreate perks table to ensure correct schema
+DROP TABLE IF EXISTS perks CASCADE;
+
+CREATE TABLE perks (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT NOT NULL,
+  category VARCHAR(50) NOT NULL, -- 'xp_boost', 'cosmetic', 'utility', 'betting'
+  perk_type VARCHAR(50) NOT NULL, -- 'xp_multiplier', 'nickname_glow', 'inventory_slot', etc.
+  effect_value DECIMAL(10,2), -- Multiplier value, slot count, etc.
+  duration_hours INTEGER DEFAULT 0, -- 0 = permanent
+  coin_price INTEGER DEFAULT 100,
+  gem_price INTEGER DEFAULT 0,
+  is_consumable BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ===============================
+-- RANKS TABLE
+-- ===============================
+-- Drop and recreate ranks table to ensure correct schema
+DROP TABLE IF EXISTS ranks CASCADE;
+
+CREATE TABLE ranks (
+  id SERIAL PRIMARY KEY,
+  rank_number INTEGER NOT NULL,
+  name VARCHAR(100) NOT NULL,
+  tier VARCHAR(50) NOT NULL, -- 'silver', 'gold_nova', 'master_guardian', 'legendary', 'global_elite'
+  min_level INTEGER NOT NULL,
+  max_level INTEGER NOT NULL,
+  icon_url VARCHAR(255),
+  prestige_icon_url VARCHAR(255), -- Special icon for prestige players
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
 -- ===============================
 -- POPULATE REMAINING ITEMS
 -- ===============================
+-- Note: Items table was created in part 2, so just INSERT here
 
 -- AK-47 Skins (20)
 INSERT INTO items (name, description, category, weapon_type, rarity, coin_price, gem_price, sell_price) VALUES

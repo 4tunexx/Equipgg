@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS ranks (
 -- ===============================
 CREATE TABLE IF NOT EXISTS user_achievements (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   achievement_id INTEGER REFERENCES achievements(id) ON DELETE CASCADE,
   unlocked_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(user_id, achievement_id)
@@ -143,7 +143,7 @@ CREATE TABLE IF NOT EXISTS user_achievements (
 -- ===============================
 CREATE TABLE IF NOT EXISTS user_badges (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   badge_id INTEGER REFERENCES badges(id) ON DELETE CASCADE,
   earned_at TIMESTAMP DEFAULT NOW(),
   UNIQUE(user_id, badge_id)
@@ -154,7 +154,7 @@ CREATE TABLE IF NOT EXISTS user_badges (
 -- ===============================
 CREATE TABLE IF NOT EXISTS user_inventory (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   item_id INTEGER REFERENCES items(id) ON DELETE CASCADE,
   quantity INTEGER DEFAULT 1,
   is_equipped BOOLEAN DEFAULT false,
@@ -169,7 +169,7 @@ CREATE TABLE IF NOT EXISTS user_inventory (
 -- ===============================
 CREATE TABLE IF NOT EXISTS user_missions (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   mission_id INTEGER REFERENCES missions(id) ON DELETE CASCADE,
   progress INTEGER DEFAULT 0,
   is_completed BOOLEAN DEFAULT false,
@@ -183,7 +183,7 @@ CREATE TABLE IF NOT EXISTS user_missions (
 -- ===============================
 CREATE TABLE IF NOT EXISTS user_perks (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   perk_id INTEGER REFERENCES perks(id) ON DELETE CASCADE,
   is_active BOOLEAN DEFAULT true,
   expires_at TIMESTAMP,
@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS user_perks (
 -- ===============================
 CREATE TABLE IF NOT EXISTS crate_openings (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   crate_id INTEGER REFERENCES crates(id) ON DELETE CASCADE,
   item_received_id INTEGER REFERENCES items(id) ON DELETE CASCADE,
   opened_at TIMESTAMP DEFAULT NOW()
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS crate_openings (
 -- ===============================
 CREATE TABLE IF NOT EXISTS trade_up_contracts (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+  user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
   input_items JSONB NOT NULL, -- Array of item IDs used
   output_item_id INTEGER REFERENCES items(id) ON DELETE CASCADE,
   contract_cost INTEGER DEFAULT 100,

@@ -1,5 +1,61 @@
 -- EquipGG Database Population Part 2
 -- Continuing with remaining badges, crates, items, missions, perks, and ranks
+-- 
+-- ⚠️ WARNING: This script will DROP and RECREATE these tables:
+--   • crates table (and all data)
+--   • items table (and all data)
+--   • This will also CASCADE to dependent tables
+-- If you want to preserve existing data, back it up first!
+
+-- Enable UUID extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ===============================
+-- CRATES TABLE
+-- ===============================
+-- Drop and recreate crates table to ensure correct schema
+DROP TABLE IF EXISTS crates CASCADE;
+
+CREATE TABLE crates (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  description TEXT NOT NULL,
+  coin_price INTEGER DEFAULT 0,
+  gem_price INTEGER DEFAULT 0,
+  image_url VARCHAR(255),
+  is_purchasable BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true,
+  rarity_common DECIMAL(5,2) DEFAULT 0.00,
+  rarity_uncommon DECIMAL(5,2) DEFAULT 0.00,
+  rarity_rare DECIMAL(5,2) DEFAULT 0.00,
+  rarity_epic DECIMAL(5,2) DEFAULT 0.00,
+  rarity_legendary DECIMAL(5,2) DEFAULT 0.00,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- ===============================
+-- ITEMS TABLE
+-- ===============================
+-- Drop and recreate items table to ensure correct schema
+DROP TABLE IF EXISTS items CASCADE;
+
+CREATE TABLE items (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  description TEXT,
+  category VARCHAR(50) NOT NULL, -- 'skin', 'knife', 'gloves', 'operator', 'sticker'
+  weapon_type VARCHAR(50), -- 'awp', 'ak47', 'm4a1', 'm4a4', 'karambit', etc.
+  rarity VARCHAR(20) NOT NULL, -- 'common', 'uncommon', 'rare', 'epic', 'legendary'
+  coin_price INTEGER DEFAULT 0,
+  gem_price INTEGER DEFAULT 0,
+  image_url VARCHAR(255),
+  is_tradeable BOOLEAN DEFAULT true,
+  is_sellable BOOLEAN DEFAULT true,
+  is_equipable BOOLEAN DEFAULT true,
+  sell_price INTEGER DEFAULT 0, -- 25% of purchase price typically
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP DEFAULT NOW()
+);
 
 -- ===============================
 -- POPULATE REMAINING BADGES
