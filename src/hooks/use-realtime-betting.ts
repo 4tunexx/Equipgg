@@ -53,8 +53,8 @@ export function useRealtimeBetting() {
 
     const handleBetPlaced = (data: BetPlacedEvent) => {
       // Only show notifications for other users' bets
-      if (data.userId !== user?.id) {
-        toast.info(`${data.username} placed a ${data.amount.toLocaleString()} coin bet on ${data.team}`, {
+      if (data.userId !== user?.id && data.amount && data.username && data.team) {
+        toast.info(`${data.username} placed a ${(data.amount || 0).toLocaleString()} coin bet on ${data.team}`, {
           duration: 3000,
         });
       }
@@ -72,12 +72,12 @@ export function useRealtimeBetting() {
     if (!socket || !isConnected || !user) return;
 
     const handleBetResult = (data: BetResultEvent) => {
-      if (data.won) {
-        toast.success(`🎉 You won ${data.winnings.toLocaleString()} coins!`, {
+      if (data.won && data.winnings !== undefined) {
+        toast.success(`🎉 You won ${(data.winnings || 0).toLocaleString()} coins!`, {
           duration: 5000,
         });
-      } else {
-        toast.error(`💸 Lost ${data.amount.toLocaleString()} coins`, {
+      } else if (data.amount !== undefined) {
+        toast.error(`💸 Lost ${(data.amount || 0).toLocaleString()} coins`, {
           duration: 3000,
         });
       }
