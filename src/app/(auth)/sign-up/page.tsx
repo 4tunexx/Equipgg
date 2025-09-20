@@ -171,15 +171,36 @@ export default function SignUpPage() {
     setIsLoading(true);
     
     try {
-      // This is a placeholder for the actual authentication logic
-      console.log('Sign up attempt with:', { email, username });
-      // In a real implementation, you would call your auth service here
-      setTimeout(() => {
+      console.log('Starting registration...');
+      
+      // Call the registration API
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          displayName: username 
+        }),
+        credentials: 'include'
+      });
+
+      const data = await response.json();
+      
+      if (response.ok) {
+        console.log('Registration successful, redirecting...');
+        // Force page redirect to dashboard after successful registration
+        window.location.href = '/dashboard';
+      } else {
+        console.error('Registration failed:', data.error || data.message);
+        alert(`Registration failed: ${data.error || data.message || 'Unknown error'}`);
         setIsLoading(false);
-        // Redirect or show success message
-      }, 1000);
+      }
     } catch (error) {
       console.error('Sign up error:', error);
+      alert(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsLoading(false);
     }
   };

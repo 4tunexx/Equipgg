@@ -6,6 +6,9 @@ import { MiniProfileCard } from "./mini-profile-card";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
+import { useState } from "react";
+import { useIsMobile } from "../hooks/use-mobile";
+import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
 
 // Local type definition for LeaderboardPlayer
 type LeaderboardPlayer = {
@@ -46,6 +49,8 @@ interface UserProfileLinkProps {
 
 export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }: UserProfileLinkProps) {
     const avatarSizeClass = avatarOnly ? "w-10 h-10" : "w-6 h-6";
+    const isMobile = useIsMobile();
+    const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
     
     // Handle both 'name' and 'username' properties safely
     const displayName = user.name || (user as any).username || 'Anonymous';
@@ -72,6 +77,38 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
         </div>
     );
 
+    const profileCardContent = (
+        <MiniProfileCard user={{
+            ...user,
+            name: user.name || user.username || 'Unknown User',
+            dataAiHint: user.dataAiHint || user.name || user.username || 'User',
+            role: user.role || 'player',
+            avatar: user.avatar || undefined,
+            xp: user.xp || 0,
+            equippedItem: user.equippedItem ? {
+                ...user.equippedItem,
+                type: 'skins'
+            } : undefined
+        }} />
+    );
+
+    // On mobile, use Dialog instead of Tooltip
+    if (isMobile) {
+        return (
+            <Dialog open={mobileDialogOpen} onOpenChange={setMobileDialogOpen}>
+                <DialogTrigger asChild>
+                    <div className="cursor-pointer inline-block touch-manipulation">
+                        {triggerContent}
+                    </div>
+                </DialogTrigger>
+                <DialogContent className="p-0 bg-transparent border-none shadow-none max-w-[90vw] w-fit">
+                    {profileCardContent}
+                </DialogContent>
+            </Dialog>
+        );
+    }
+
+    // On desktop, use Tooltip
     return (
         <TooltipProvider delayDuration={100}>
             <Tooltip>
@@ -80,18 +117,7 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
                 </TooltipTrigger>
                 <TooltipPrimitive.Portal>
                     <TooltipContent side="bottom" align="start" className="p-0 bg-transparent border-none shadow-none z-50">
-                        <MiniProfileCard user={{
-                            ...user,
-                            name: user.name || user.username || 'Unknown User',
-                            dataAiHint: user.dataAiHint || user.name || user.username || 'User',
-                            role: user.role || 'player',
-                            avatar: user.avatar || undefined,
-                            xp: user.xp || 0,
-                            equippedItem: user.equippedItem ? {
-                                ...user.equippedItem,
-                                type: 'skins'
-                            } : undefined
-                        }} />
+                        {profileCardContent}
                     </TooltipContent>
                 </TooltipPrimitive.Portal>
             </Tooltip>

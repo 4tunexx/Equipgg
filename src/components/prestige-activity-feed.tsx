@@ -73,9 +73,12 @@ export function PrestigeActivityFeed() {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     let carouselTimeout: NodeJS.Timeout;
-    let currentIndex = 0;
+    let isVisible = true;
 
     const fetchActivities = async () => {
+      // Only fetch if the page is visible to reduce unnecessary API calls
+      if (!isVisible) return;
+      
       try {
         // Add cache-busting parameter to ensure fresh data
         const response = await fetch(`/api/activity?t=${Date.now()}`);
@@ -86,27 +89,25 @@ export function PrestigeActivityFeed() {
             
             // If we have 5+ activities, start carousel rotation instead of frequent polling
             if (data.length >= 5) {
-              console.log(`Found ${data.length} activities - switching to carousel mode`);
               // Clear any existing interval
               if (interval) clearInterval(interval);
               
-              // Start carousel rotation every 3 seconds instead of API polling
+              // Start carousel rotation every 4 seconds instead of API polling
               carouselTimeout = setInterval(() => {
                 setActivities(prevActivities => {
                   // Rotate the activities array to create carousel effect
                   const rotated = [...prevActivities.slice(1), prevActivities[0]];
                   return rotated;
                 });
-              }, 3000);
+              }, 4000);
               
-              // Still poll for new activities, but much less frequently (every 30 seconds)
-              interval = setInterval(fetchActivities, 30000);
+              // Still poll for new activities, but much less frequently (every 60 seconds)
+              interval = setInterval(fetchActivities, 60000);
             } else {
-              console.log(`Found ${data.length} activities - using frequent polling mode`);
               // Clear carousel if we have fewer than 5 activities
               if (carouselTimeout) clearTimeout(carouselTimeout);
-              // Use frequent polling when we have few activities
-              interval = setInterval(fetchActivities, 5000);
+              // Use moderate polling when we have few activities (every 15 seconds instead of 5)
+              interval = setInterval(fetchActivities, 15000);
             }
           } else {
             console.warn('Activity API returned non-array data:', data);
@@ -124,15 +125,35 @@ export function PrestigeActivityFeed() {
       }
     };
 
+    // Handle page visibility changes to pause/resume polling
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      
+      if (isVisible) {
+        // Page became visible, resume polling
+        fetchActivities();
+      } else {
+        // Page became hidden, clear intervals to save resources
+        if (interval) clearInterval(interval);
+        if (carouselTimeout) clearTimeout(carouselTimeout);
+      }
+    };
+
     // Initial fetch
     fetchActivities();
 
+    // Listen for page visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     // Listen for game completion events to refresh immediately
     const handleGameCompleted = () => {
-      // Add a small delay to ensure the activity is logged
-      setTimeout(() => {
-        fetchActivities();
-      }, 1000);
+      // Only refresh if page is visible
+      if (isVisible) {
+        // Add a small delay to ensure the activity is logged
+        setTimeout(() => {
+          fetchActivities();
+        }, 1000);
+      }
     };
 
     window.addEventListener('gameCompleted', handleGameCompleted);
@@ -140,6 +161,7 @@ export function PrestigeActivityFeed() {
     return () => {
       if (interval) clearInterval(interval);
       if (carouselTimeout) clearTimeout(carouselTimeout);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('gameCompleted', handleGameCompleted);
     };
   }, []);

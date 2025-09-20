@@ -235,6 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log('Auth provider: Login API response:', { ok: response.ok, status: response.status });
       
       if (!response.ok) {
+        setLoading(false);
         throw new Error(data.error || 'Login failed');
       }
 
@@ -256,6 +257,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('Auth provider: Sign in complete');
         return data;
       } else {
+        setLoading(false);
         throw new Error('No session returned from login');
       }
     } catch (error) {
@@ -267,42 +269,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signUp = useCallback(async (email: string, password: string, displayName?: string) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            displayName
-          }
-        }
+      setLoading(true);
+      
+      // Use the API route for consistent session handling
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password, displayName }),
       });
-      if (error) throw error;
 
-        // Create user profile
-        if (data.user) {
-          const { error: profileError } = await supabase.from('users').insert({
-            id: data.user.id,
-            email: data.user.email,
-            displayname: displayName,  // Use correct column name
-            role: 'user',
-            level: 1,
-            xp: 0,
-            steam_verified: false, // Require Steam verification
-            account_status: 'pending_steam_verification' // Lock account until Steam verified
-          });        if (profileError) throw profileError;
-
-        // Award signup bonus
-        await supabase.from('user_transactions').insert({
-          user_id: data.user.id,
-          type: 'daily_bonus',
-          amount: 100,
-          reason: 'Welcome bonus for new user'
-        });
+      const data = await response.json();
+      console.log('Auth provider: Register API response:', { ok: response.ok, status: response.status });
+      
+      if (!response.ok) {
+        setLoading(false);
+        throw new Error(data.error || 'Registration failed');
       }
 
-      return data;
+      // If registration was successful and returned a session, set it
+      if (data.session && data.user) {
+        console.log('Auth provider: Setting session and user after registration...');
+        
+        // Set the session in Supabase client
+        await supabase.auth.setSession(data.session);
+        
+        // Update local state immediately
+        setSession(data.session);
+        setUser({
+          ...data.user,
+          steam_verified: data.user.steam_verified || false,
+          account_status: data.user.account_status || 'active'
+        });
+        setLoading(false);
+        
+        console.log('Auth provider: Sign up complete');
+        return data;
+      } else if (data.emailVerificationRequired) {
+        // Email verification required case
+        setLoading(false);
+        return data;
+      } else {
+        setLoading(false);
+        throw new Error('Registration failed - no session returned');
+      }
     } catch (error) {
-      console.error('Sign up error:', error);
+      console.error('Auth provider sign up error:', error);
+      setLoading(false);
       throw error;
     }
   }, []);

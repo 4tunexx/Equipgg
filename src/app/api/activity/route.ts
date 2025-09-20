@@ -22,8 +22,17 @@ interface ActivityItem {
   };
 }
 
+// Simple in-memory cache to reduce database hits
+let activitiesCache: { data: any; timestamp: number } | null = null;
+const CACHE_TTL = 10000; // 10 seconds cache
+
 export async function GET() {
   try {
+    // Check cache first
+    if (activitiesCache && (Date.now() - activitiesCache.timestamp) < CACHE_TTL) {
+      return NextResponse.json(activitiesCache.data);
+    }
+
     let activities: any[] = [];
     try {
       // First try to get the table structure
@@ -55,7 +64,10 @@ export async function GET() {
       }
 
       activities = activityData || [];
-      console.log(`Found ${activities.length} activities in database`);
+      // Only log activity count in development to reduce production log spam
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Found ${activities.length} activities in database`);
+      }
     } catch (dbError) {
       console.log('Database error fetching activities:', dbError);
       activities = [];
@@ -63,8 +75,20 @@ export async function GET() {
 
     // If no real activities, return sample activities to avoid empty state
     if (activities.length === 0) {
-      console.log('No real activities found, returning sample activities');
-      return NextResponse.json(generateSampleActivities());
+      // Only log this message in development to avoid spam in production
+      if (process.env.NODE_ENV === 'development') {
+        console.log('No real activities found, returning sample activities');
+      }
+      
+      const sampleActivities = generateSampleActivities();
+      
+      // Cache the sample activities too
+      activitiesCache = {
+        data: sampleActivities,
+        timestamp: Date.now()
+      };
+      
+      return NextResponse.json(sampleActivities);
     }
 
     // Transform to expected format with minimal data
@@ -87,11 +111,28 @@ export async function GET() {
       }
     }));
 
-    console.log(`Returning ${formattedActivities.length} activities`);
+    // Cache the result
+    activitiesCache = {
+      data: formattedActivities,
+      timestamp: Date.now()
+    };
+
+    // Only log in development to reduce production log spam
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Returning ${formattedActivities.length} activities`);
+    }
     return NextResponse.json(formattedActivities);
   } catch (error) {
     console.error('Error fetching activity:', error);
-    return NextResponse.json(generateSampleActivities());
+    
+    // Return cached sample activities if available
+    const sampleActivities = generateSampleActivities();
+    activitiesCache = {
+      data: sampleActivities,
+      timestamp: Date.now()
+    };
+    
+    return NextResponse.json(sampleActivities);
   }
 }
 

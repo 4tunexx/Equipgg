@@ -56,8 +56,12 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
     // Fetch real-time user stats for the specific user
     useEffect(() => {
         const fetchUserStats = async () => {
-            // If user already has xp and level data, don't fetch
-            if (displayUser.xp !== undefined && displayUser.level !== undefined) {
+            // If user already has xp and level data, don't fetch to avoid race conditions
+            if (displayUser.xp !== undefined && displayUser.level !== undefined && displayUser.xp > 0) {
+                setUserStats({
+                    xp: displayUser.xp,
+                    level: displayUser.level
+                });
                 setIsLoading(false);
                 return;
             }
@@ -86,13 +90,22 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                 }
             } catch (error) {
                 console.error('Failed to fetch user stats for mini profile:', error);
+                // Use provided data as fallback
+                if (displayUser.xp !== undefined && displayUser.level !== undefined) {
+                    setUserStats({
+                        xp: displayUser.xp,
+                        level: displayUser.level
+                    });
+                }
             } finally {
                 setIsLoading(false);
             }
         };
 
         fetchUserStats();
-    }, [displayUser.name, (displayUser as any).username, displayUser.xp, displayUser.level]);
+    }, [displayUser.name, (displayUser as any).username]);
+    
+    // Prefer userStats over displayUser data, but ensure we never show 0 if we have valid data
     const level = userStats?.level || displayUser.level || 1;
     const xp = userStats?.xp || displayUser.xp || 0;
 
@@ -123,7 +136,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                         xp={xp} 
                         level={level}
                         userId={displayUser.id || displayUser.name}
-                        autoFetch={true}
+                        autoFetch={false}
                         className=""
                     />
                 </div>
