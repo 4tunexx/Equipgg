@@ -128,6 +128,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = useCallback(async (email: string, password: string) => {
     try {
       console.log('Auth provider: Starting sign in...');
+      setLoading(true);
       
       // Use the API route which sets the proper session cookie
       const response = await fetch('/api/auth/login', {
