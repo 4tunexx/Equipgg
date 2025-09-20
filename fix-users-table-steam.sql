@@ -13,7 +13,16 @@ CREATE INDEX IF NOT EXISTS idx_users_steam_verified ON users(steam_verified) WHE
 CREATE INDEX IF NOT EXISTS idx_users_account_status ON users(account_status);
 
 -- Add constraints to ensure data integrity
-ALTER TABLE users ADD CONSTRAINT IF NOT EXISTS unique_steam_id UNIQUE(steam_id);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint 
+        WHERE conname = 'unique_steam_id' 
+        AND conrelid = 'users'::regclass
+    ) THEN
+        ALTER TABLE users ADD CONSTRAINT unique_steam_id UNIQUE(steam_id);
+    END IF;
+END $$;
 
 -- Update existing users with default values if needed
 UPDATE users 
