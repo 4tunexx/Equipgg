@@ -161,7 +161,7 @@ export function LevelUpAnimation({
                           className="flex items-center justify-center gap-2"
                         >
                           <span className="text-yellow-300">💰</span>
-                          <span className="font-semibold">+{rewards.coins.toLocaleString()} Coins</span>
+                          <span className="font-semibold">+{(rewards.coins || 0).toLocaleString?.() || '0'} Coins</span>
                         </motion.div>
                       )}
                       

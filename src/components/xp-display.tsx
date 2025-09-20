@@ -124,7 +124,7 @@ export function XpDisplay({
         <div className="flex justify-between text-xs font-semibold mb-1">
           <span>Level {currentLevel}</span>
           <span className="text-primary">
-            {levelInfo.xpToNext.toLocaleString()} / {levelInfo.currentLevelXP.toLocaleString()} XP
+            {(levelInfo.xpToNext || 0).toLocaleString?.() || '0'} / {(levelInfo.currentLevelXP || 0).toLocaleString?.() || '0'} XP
           </span>
         </div>
       )}

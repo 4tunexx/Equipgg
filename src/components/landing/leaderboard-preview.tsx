@@ -58,7 +58,7 @@ export function LeaderboardPreview() {
               <UserProfileLink user={{...player, avatar: player.avatar || 'https://picsum.photos/40/40?random=99', dataAiHint: player.dataAiHint || 'leaderboard player avatar'}} />
               <div className="flex items-center gap-2 text-muted-foreground">
                   <Trophy className="w-4 h-4 text-primary"/>
-                  <span>{player.xp.toLocaleString()}</span>
+                  <span>{(player.xp || 0).toLocaleString?.() || '0'}</span>
               </div>
             </div>
           ))

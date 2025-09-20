@@ -30,7 +30,7 @@ export function MissionSummaryCard({ mainMissionProgress, totalXpEarned, totalCo
                     <Star className="w-8 h-8 text-sky-400" />
                     <div>
                         <p className="text-muted-foreground">Total XP Earned</p>
-                        <p className="text-2xl font-bold">{totalXpEarned.toLocaleString()}</p>
+                        <p className="text-2xl font-bold">{(totalXpEarned || 0).toLocaleString?.() || '0'}</p>
                     </div>
                 </div>
             </Card>
@@ -39,7 +39,7 @@ export function MissionSummaryCard({ mainMissionProgress, totalXpEarned, totalCo
                     <Gem className="w-8 h-8 text-yellow-400" />
                     <div>
                         <p className="text-muted-foreground">Total Coins Awarded</p>
-                        <p className="text-2xl font-bold">{totalCoinsEarned.toLocaleString()}</p>
+                        <p className="text-2xl font-bold">{(totalCoinsEarned || 0).toLocaleString?.() || '0'}</p>
                     </div>
                 </div>
             </Card>
