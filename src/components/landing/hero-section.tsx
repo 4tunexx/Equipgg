@@ -72,37 +72,39 @@ export function HeroSection() {
           {/* Main content with mobile logo + text */}
           <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left order-1 lg:order-1 min-w-0">
             
-            {/* Mobile Logo ABOVE headline */}
-            <div className="lg:hidden w-full flex justify-center mb-6">
-              <div className="relative h-28 w-full max-w-[200px]">
-                {/* Character Logo */}
-                <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
-                  isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'
-                }`}>
-                  <Image 
-                    src="/1.png" 
-                    alt="Equip.gg Character Logo" 
-                    fill
-                    className="h-full w-auto object-contain"
-                    key={`logo1-mobile-${logoKey}`}
-                    priority
-                  />
-                </div>
-                {/* Text Logo */}
-                <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
-                  isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'
-                }`}>
-                  <Image 
-                    src="/2.png" 
-                    alt="Equip.gg Text Layer" 
-                    fill
-                    className="h-2/3 w-auto object-contain"
-                    key={`logo2-mobile-${logoKey}`}
-                    priority
-                  />
-                </div>
-              </div>
-            </div>
+{/* Mobile Logo ABOVE headline */}
+<div className="lg:hidden flex justify-center mb-6">
+  <div className="relative h-28 w-full max-w-[200px] flex items-center justify-center">
+    {/* Character Logo */}
+    <div className={`absolute flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
+      isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 -translate-y-full'
+    }`}>
+      <Image 
+        src="/1.png" 
+        alt="Equip.gg Character Logo" 
+        width={200}
+        height={150}
+        className="w-auto h-auto object-contain"
+        key={`logo1-mobile-${logoKey}`}
+        priority
+      />
+    </div>
+    {/* Text Logo */}
+    <div className={`absolute flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
+      isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 translate-y-full'
+    }`}>
+      <Image 
+        src="/2.png" 
+        alt="Equip.gg Text Layer" 
+        width={180}
+        height={100}
+        className="w-auto h-auto object-contain"
+        key={`logo2-mobile-${logoKey}`}
+        priority
+      />
+    </div>
+  </div>
+</div>
 
             {/* Headline */}
             <h1 

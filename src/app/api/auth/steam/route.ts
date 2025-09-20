@@ -109,6 +109,7 @@ export async function GET(request: NextRequest) {
       // Try to find user by email (Supabase Admin API does not have getUserByEmail, so list and filter)
       const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
       if (listError) {
+        console.error('Supabase user list failed:', listError);
         return NextResponse.redirect(`${BASE_URL}/sign-in?error=supabase_user_list_failed`);
       }
       const found = userList?.users?.find((u: any) => u.email === email);
@@ -152,19 +153,32 @@ export async function GET(request: NextRequest) {
           level: 1
         }, { onConflict: 'id' });
       }
-      // Sign in the user using Supabase auth
-      const { data: signInData, error: signInError } = await supabase.auth.admin.generateLink({
-        type: 'magiclink',
-        email
+      // Create a proper session for the user instead of using magic links
+      console.log('Creating session for Steam user:', userId);
+      
+      // For Steam users, we'll set a simple session cookie and let the frontend handle the rest
+      const response = NextResponse.redirect(`${BASE_URL}/dashboard`);
+      
+      // Set a simple user session cookie with the user ID
+      response.cookies.set('equipgg_session', userId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/'
       });
       
-      if (signInError || !signInData) {
-        console.error('Failed to generate sign in link:', signInError);
-        return NextResponse.redirect(`${BASE_URL}/sign-in?error=session_creation_failed`);
-      }
+      // Also set a steam-specific identifier
+      response.cookies.set('equipgg_steam_user', email, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/'
+      });
       
-      // Redirect to the magic link to complete authentication
-      return NextResponse.redirect(signInData.properties.action_link);
+      console.log('Steam auth successful, redirecting to dashboard');
+      return response;
     } catch (error) {
       console.error('Steam auth callback error:', error);
       return NextResponse.redirect(`${BASE_URL}/sign-in?error=steam_auth_failed`);
