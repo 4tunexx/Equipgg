@@ -1,5 +1,5 @@
 import { Server, Socket } from 'socket.io';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export default function registerInventoryHandlers(io: Server, socket: Socket) {
   // Crate opened event

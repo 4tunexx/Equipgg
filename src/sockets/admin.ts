@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, AdminBroadcastEvent, ModerationActionEvent } from './types';
 import { emitToAll, emitToAdmins, emitToUser, isAdmin, canModerate } from './utils';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export function setupAdminSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

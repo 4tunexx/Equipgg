@@ -2,7 +2,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, XpGainedEvent, MissionProgressEvent } from './types';
 import { emitToUser, emitToAll, createEventData } from './utils';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export function setupXpSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

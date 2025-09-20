@@ -367,6 +367,6 @@ export function testXPProgression(config: XPConfig = defaultXPConfig): void {
     const nextLevelXP = getXPForLevel(level + 1, config);
     const xpToNext = nextLevelXP - totalXP;
     
-    console.log(`${level.toString().padStart(5)} | ${totalXP.toLocaleString().padStart(8)} | ${levelXP.toLocaleString().padStart(8)} | ${xpToNext.toLocaleString().padStart(8)}`);
+    console.log(`${level.toString().padStart(5)} | ${(totalXP || 0).toLocaleString?.().padStart(8) || '0'.padStart(8)} | ${(levelXP || 0).toLocaleString?.().padStart(8) || '0'.padStart(8)} | ${(xpToNext || 0).toLocaleString?.().padStart(8) || '0'.padStart(8)}`);
   }
 }

@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthenticatedSocket, ChatMessageEvent, UserJoinedEvent, UserLeftEvent } from './types';
 import { emitToChat, emitToUser, createEventData, joinChatRoom, canModerate } from './utils';
-import { supabase } from '../lib/supabaseClient';
+import { supabase } from '../lib/supabase';
 
 export function setupChatSocket(io: Server) {
   return (socket: AuthenticatedSocket) => {

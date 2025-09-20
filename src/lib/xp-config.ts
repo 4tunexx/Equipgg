@@ -126,7 +126,7 @@ export function testXPProgression(config: XPConfig = defaultXPConfig): void {
     const nextLevelXP = getXPForLevel(level + 1, config);
     const xpToNext = nextLevelXP - totalXP;
     
-    console.log(`${level.toString().padStart(5)} | ${totalXP.toLocaleString().padStart(8)} | ${levelXP.toLocaleString().padStart(8)} | ${xpToNext.toLocaleString().padStart(8)}`);
+    console.log(`${level.toString().padStart(5)} | ${(totalXP || 0).toLocaleString?.().padStart(8) || '0'.padStart(8)} | ${(levelXP || 0).toLocaleString?.().padStart(8) || '0'.padStart(8)} | ${(xpToNext || 0).toLocaleString?.().padStart(8) || '0'.padStart(8)}`);
   }
   
   // Test reverse calculation
@@ -136,7 +136,7 @@ export function testXPProgression(config: XPConfig = defaultXPConfig): void {
   for (const xp of testXPValues) {
     const level = getLevelFromXP(xp, config);
     const levelInfo = getLevelInfo(xp, config);
-    console.log(`XP ${xp.toLocaleString().padStart(6)} -> Level ${level} (${levelInfo.progressPercent.toFixed(1)}% to next)`);
+    console.log(`XP ${(xp || 0).toLocaleString?.().padStart(6) || '0'.padStart(6)} -> Level ${level} (${levelInfo.progressPercent.toFixed(1)}% to next)`);
   }
 }
 

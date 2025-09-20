@@ -63,7 +63,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Get Socket.IO URL from environment or use default
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || process.env.SOCKET_IO_URL || 'http://localhost:3001';
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
+                     (process.env.NODE_ENV === 'production' ? 'https://www.equipgg.net' : 'http://localhost:3001');
     
     console.log('🚀 Initializing Socket.io connection to:', socketUrl);
 

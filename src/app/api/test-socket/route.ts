@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { io } from 'socket.io-client';
 
 // Connect to our Socket.IO server
-const socket = io('http://localhost:3001', {
+const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 
+                 (process.env.NODE_ENV === 'production' ? 'https://www.equipgg.net' : 'http://localhost:3001');
+const socket = io(socketUrl, {
   transports: ['websocket', 'polling']
 });
 
@@ -183,7 +185,7 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     message: 'Socket.IO Real-time Features Test Endpoint',
-    socket_server: 'http://localhost:3001',
+    socket_server: socketUrl,
     status: socket.connected ? 'Connected' : 'Disconnected',
     examples
   });

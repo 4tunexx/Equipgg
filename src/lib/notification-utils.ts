@@ -130,7 +130,7 @@ export const GamingNotifications = {
       userId,
       type: 'bet_won',
       title: '🎉 Bet Won!',
-      message: `You won ${(amount || 0).toLocaleString()} coins on ${teamName}!`,
+      message: `You won ${(amount || 0).toLocaleString?.() || '0'} coins on ${teamName}!`,
       data: { amount, matchId, teamName }
     });
   },
@@ -140,7 +140,7 @@ export const GamingNotifications = {
       userId,
       type: 'bet_lost',
       title: '💸 Bet Lost',
-      message: `You lost ${(amount || 0).toLocaleString()} coins on ${teamName}. Better luck next time!`,
+      message: `You lost ${(amount || 0).toLocaleString?.() || '0'} coins on ${teamName}. Better luck next time!`,
       data: { amount, matchId, teamName }
     });
   },
@@ -150,7 +150,7 @@ export const GamingNotifications = {
       userId,
       type: 'game_result',
       title: '🎮 Game Complete',
-      message: `Crash game: You cashed out at ${multiplier}x multiplier! Profit: ${(profit || 0).toLocaleString()} coins`,
+      message: `Crash game: You cashed out at ${multiplier}x multiplier! Profit: ${(profit || 0).toLocaleString?.() || '0'} coins`,
       data: { gameType, multiplier, profit }
     });
   },
@@ -208,7 +208,7 @@ export const EconomyNotifications = {
       userId,
       type: 'coin_transaction',
       title: `${emoji} Coins ${action}`,
-      message: `${action} ${(amount || 0).toLocaleString()} coins - ${reason}`,
+      message: `${action} ${(amount || 0).toLocaleString?.() || '0'} coins - ${reason}`,
       data: { amount, reason, type }
     });
   },
@@ -221,7 +221,7 @@ export const EconomyNotifications = {
       userId,
       type: 'gem_transaction',
       title: `${emoji} Gems ${action}`,
-      message: `${action} ${(amount || 0).toLocaleString()} gems - ${reason}`,
+      message: `${action} ${(amount || 0).toLocaleString?.() || '0'} gems - ${reason}`,
       data: { amount, reason, type }
     });
   },
@@ -231,7 +231,7 @@ export const EconomyNotifications = {
       userId,
       type: 'purchase',
       title: '🛒 Purchase Successful',
-      message: `Purchase successful: ${itemName} for ${(cost || 0).toLocaleString()} ${currency}`,
+      message: `Purchase successful: ${itemName} for ${(cost || 0).toLocaleString?.() || '0'} ${currency}`,
       data: { itemName, cost, currency }
     });
   },
@@ -326,7 +326,7 @@ export const AdminNotifications = {
       roles: ['admin'],
       type: 'revenue_update',
       title: '📊 Revenue Update',
-      message: `${period} revenue: $${(amount || 0).toLocaleString()} (${change > 0 ? '+' : ''}${change}% from last ${period})`,
+      message: `${period} revenue: $${(amount || 0).toLocaleString?.() || '0'} (${change > 0 ? '+' : ''}${change}% from last ${period})`,
       data: { amount, change, period }
     });
   }

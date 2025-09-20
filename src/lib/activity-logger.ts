@@ -51,21 +51,21 @@ export function formatActivityMessage(activity: any): string {
       if (activity.multiplier && activity.multiplier > 1) {
         // Format multiplier to 2 decimal places and remove trailing zeros
         const formattedMultiplier = parseFloat(activity.multiplier.toFixed(2));
-        return `won ${activity.amount?.toLocaleString()} coins with ${formattedMultiplier}x multiplier on ${activity.game_type}`;
+        return `won ${activity.amount?.toLocaleString?.() || '0'} coins with ${formattedMultiplier}x multiplier on ${activity.game_type}`;
       }
-      return `won ${activity.amount?.toLocaleString()} coins on ${activity.game_type}`;
+      return `won ${activity.amount?.toLocaleString?.() || '0'} coins on ${activity.game_type}`;
     
     case 'game_loss':
-      return `lost ${activity.amount?.toLocaleString()} coins on ${activity.game_type}`;
+      return `lost ${activity.amount?.toLocaleString?.() || '0'} coins on ${activity.game_type}`;
     
     case 'crate_open':
       return `opened a crate and received ${activity.item_name} (${activity.item_rarity})`;
     
     case 'bet_placed':
-      return `placed a ${activity.amount?.toLocaleString()} coin bet on ${activity.game_type}`;
+      return `placed a ${activity.amount?.toLocaleString?.() || '0'} coin bet on ${activity.game_type}`;
     
     case 'bet_won':
-      return `won ${activity.amount?.toLocaleString()} coins from bet payout`;
+      return `won ${activity.amount?.toLocaleString?.() || '0'} coins from bet payout`;
     
     case 'trade_up':
       return `traded up to ${activity.item_name} (${activity.item_rarity})`;
