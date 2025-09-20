@@ -64,8 +64,35 @@ export async function POST(req: NextRequest) {
       return jsonError("Authentication failed", 401);
     }
 
-    // success response -> return session & user (server sets cookie)
-    const response = NextResponse.json({ ok: true, user, session });
+    // Get additional user data from our users table
+    let userProfile = null;
+    try {
+      const { data: profile } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      userProfile = profile;
+    } catch (profileError) {
+      console.warn('Could not fetch user profile:', profileError);
+    }
+
+    // Format user data for the frontend
+    const formattedUser = {
+      id: user.id,
+      email: user.email || '',
+      displayName: userProfile?.displayname || user.user_metadata?.displayName || '',
+      photoURL: userProfile?.avatar_url || user.user_metadata?.avatar || '',
+      role: userProfile?.role || 'user',
+      level: userProfile?.level || 1,
+      xp: userProfile?.xp || 0,
+      provider: (user.app_metadata?.provider as 'steam' | 'default') || 'default',
+      steam_verified: userProfile?.steam_verified || false,
+      account_status: userProfile?.account_status || 'active'
+    };
+
+    // success response -> return session & formatted user
+    const response = NextResponse.json({ ok: true, user: formattedUser, session });
 
     // set httpOnly cookie for server auth reading (optional name)
     response.cookies.set("equipgg_session", session.access_token, {
@@ -76,6 +103,7 @@ export async function POST(req: NextRequest) {
       path: "/",
     });
 
+    console.log('Login successful for user:', formattedUser.email);
     return response;
   } catch (err: unknown) {
     console.error("Login route error:", err instanceof Error ? err.message : err);

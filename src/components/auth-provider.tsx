@@ -28,6 +28,8 @@ export type LocalUser = {
   level?: number;
   xp?: number;
   provider?: 'steam' | 'default';
+  steam_verified?: boolean;
+  account_status?: string;
   steamProfile?: {
     steamId?: string;
     avatar?: string;
@@ -74,11 +76,77 @@ async function api<T>(url: string, init?: RequestInit): Promise<T> {
   return res.json();
 }
 
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) return parts.pop()?.split(';').shift() || null;
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<LocalUser | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const loadSteamUser = useCallback(async (userId: string, email: string) => {
+    try {
+      console.log('Loading Steam user:', userId);
+      
+      // Get user data from our database
+      const { data: userData, error } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', userId)
+        .single();
+        
+      if (error || !userData) {
+        console.error('Failed to load Steam user:', error);
+        return;
+      }
+
+      // Create a mock session for Steam users
+      const mockSession = {
+        access_token: `steam-${userId}`,
+        refresh_token: `steam-refresh-${userId}`,
+        expires_in: 60 * 60 * 24 * 7,
+        expires_at: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7),
+        token_type: 'bearer',
+        user: {
+          id: userId,
+          email: email,
+          email_confirmed_at: new Date().toISOString(),
+          app_metadata: { provider: 'steam' },
+          user_metadata: { 
+            displayName: userData.displayname,
+            provider: 'steam'
+          }
+        }
+      } as any;
+
+      const localUser: LocalUser = {
+        id: userData.id,
+        email: userData.email,
+        displayName: userData.displayname,
+        photoURL: userData.avatar_url,
+        role: userData.role,
+        level: userData.level,
+        xp: userData.xp,
+        provider: 'steam',
+        steam_verified: userData.steam_verified || true,
+        account_status: userData.account_status || 'active'
+      };
+
+      setSession(mockSession);
+      setUser(localUser);
+      setLoading(false);
+      
+      console.log('Steam user loaded successfully');
+    } catch (error) {
+      console.error('Error loading Steam user:', error);
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     // Set up auth state change listener
@@ -103,6 +171,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           level: profile?.level || 1,
           xp: profile?.xp || 0,
           provider: (session.user.app_metadata?.provider as 'steam' | 'default') || 'default',
+          steam_verified: profile?.steam_verified || false,
+          account_status: profile?.account_status || 'active',
           steamProfile: session.user.user_metadata?.steamProfile
         });
       } else {
@@ -115,7 +185,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initial session check
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (!session && window.location.pathname.startsWith('/dashboard')) {
+      
+      // If we have a Supabase session, use it (prioritize regular auth over Steam)
+      if (session) {
+        console.log('Found Supabase session, clearing any Steam cookies');
+        // Clear Steam cookies to prevent conflicts
+        document.cookie = 'equipgg_steam_session=; Max-Age=0; path=/';
+        document.cookie = 'equipgg_steam_email=; Max-Age=0; path=/';
+        return;
+      }
+      
+      // If no Supabase session, check for Steam session
+      const steamSession = getCookie('equipgg_steam_session');
+      const steamEmail = getCookie('equipgg_steam_email');
+      
+      if (steamSession && steamEmail) {
+        console.log('Found Steam session, loading user data');
+        // Load user data from the database using the Steam session
+        loadSteamUser(steamSession, steamEmail);
+        return;
+      }
+      
+      // No session at all, redirect if on protected route
+      if (window.location.pathname.startsWith('/dashboard')) {
         window.location.href = `/signin?redirect=${encodeURIComponent(window.location.pathname)}`;
       }
     });
@@ -154,7 +246,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         // Update local state immediately
         setSession(data.session);
-        setUser(data.user);
+        setUser({
+          ...data.user,
+          steam_verified: data.user.steam_verified || false,
+          account_status: data.user.account_status || 'active'
+        });
         setLoading(false);
         
         console.log('Auth provider: Sign in complete');
@@ -182,18 +278,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       if (error) throw error;
 
-      // Create user profile
-      if (data.user) {
-        const { error: profileError } = await supabase.from('users').insert({
-          id: data.user.id,
-          email: data.user.email,
-          displayname: displayName,  // Use correct column name
-          role: 'user',
-          level: 1,
-          xp: 0
-        });
-
-        if (profileError) throw profileError;
+        // Create user profile
+        if (data.user) {
+          const { error: profileError } = await supabase.from('users').insert({
+            id: data.user.id,
+            email: data.user.email,
+            displayname: displayName,  // Use correct column name
+            role: 'user',
+            level: 1,
+            xp: 0,
+            steam_verified: false, // Require Steam verification
+            account_status: 'pending_steam_verification' // Lock account until Steam verified
+          });        if (profileError) throw profileError;
 
         // Award signup bonus
         await supabase.from('user_transactions').insert({
@@ -246,6 +342,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Clear local state
       setUser(null);
       setSession(null);
+
+      // Clear Steam cookies client-side as well (backup)
+      document.cookie = 'equipgg_steam_session=; Max-Age=0; path=/';
+      document.cookie = 'equipgg_steam_email=; Max-Age=0; path=/';
 
       // Force redirect to landing page
       console.log('Redirecting to home page...');

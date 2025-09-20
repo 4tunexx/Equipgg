@@ -59,6 +59,7 @@ import { useSiteSettings } from "../../hooks/use-site-settings";
 import { XpDisplay } from "../../components/xp-display";
 import { XPManager } from "../../components/xp-manager";
 import { BalanceProvider, useBalance } from "../../contexts/balance-context";
+import { SteamVerificationGate } from "../../components/steam-verification-gate";
 
 const navLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
@@ -253,6 +254,9 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Use a ref to track if we've already loaded data for this user
+    const userId = user.id;
+    
     const loadUserData = async () => {
       // Add a small delay to ensure session is properly established
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -260,7 +264,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     };
 
     loadUserData();
-  }, [user?.id, user?.role]); // Also depend on user ID and role to refresh when switching accounts
+  }, [user?.id]); // Only depend on user ID, not role to prevent re-renders during login
 
   
   const currentPage = navLinks.find((link) => pathname.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard'));
@@ -331,8 +335,9 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <div className="">
-      <SidebarProvider>
+    <SteamVerificationGate>
+      <div className="">
+        <SidebarProvider>
         <Sidebar variant="floating" collapsible="icon">
           <SidebarContent>
             <SidebarHeader>
@@ -857,7 +862,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
           </div>
         </SidebarInset>
         </SidebarProvider>
-    </div>
+      </div>
+    </SteamVerificationGate>
   );
 }
 
