@@ -1,36 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from "../../../../lib/supabase";
+import { getAuthSession } from "../../../../lib/auth-utils";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
-    if (!accessToken) {
+    // Use our updated auth session method
+    const session = await getAuthSession(request);
+    
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+
+    const supabase = createServerSupabaseClient();
+    
     // Get recent game history
     const { data: gameHistory } = await supabase
       .from('game_history')
       .select('id, game_type, bet_amount, winnings, result, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user_id)
       .order('created_at', { ascending: false })
       .limit(10);
+    
     // Get recent transactions
     const { data: transactions } = await supabase
       .from('user_transactions')
       .select('id, type, amount, description, created_at')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user_id)
       .order('created_at', { ascending: false })
       .limit(10);
     // Get recent mission progress
     const { data: missionProgress } = await supabase
       .from('user_mission_progress')
       .select('mission_id, progress, completed, last_updated')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user_id)
       .order('last_updated', { ascending: false })
       .limit(5);
     // Aggregate activities

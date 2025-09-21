@@ -11,7 +11,7 @@ export default function TestLoginPage() {
     setResult('Testing login...');
     
     try {
-      const response = await fetch('/api/auth/signin', {
+      const response = await fetch('/api/auth/sign-in', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthSession } from '../../../../lib/auth-utils';
 import { supabase } from "../../../../lib/supabase";
+
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
-    if (!accessToken) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+
     const { data: userData, error: userDataError } = await supabase
       .from('users')
       .select('coins, gems, xp, level')
-      .eq('id', user.id)
+      .eq('id', session.user_id)
       .single();
     if (userDataError || !userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -31,24 +30,22 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
-    if (!accessToken) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+
     const { amount, type, reason } = await request.json();
     if (!amount || !type) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
+
     // Fetch current balance
     const { data: userData, error: userDataError } = await supabase
       .from('users')
       .select('coins')
-      .eq('id', user.id)
+      .eq('id', session.user_id)
       .single();
     if (userDataError || !userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -65,14 +62,14 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('users')
       .update({ coins: newBalance })
-      .eq('id', user.id);
+      .eq('id', session.user_id);
     if (updateError) {
       return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });
     }
     // Optionally, record transaction history
     await supabase.from('user_transactions').insert([
       {
-        user_id: user.id,
+        user_id: session.user_id,
         type,
         amount,
         description: reason || 'Manual adjustment',

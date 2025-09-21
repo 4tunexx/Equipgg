@@ -254,21 +254,8 @@ io.on('connection', (socket) => {
   });
 });
 
-// Health check endpoint
-httpServer.on('request', (req, res) => {
-  if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({
-      status: 'ok',
-      connectedUsers: connectedUsers.size,
-      uptime: process.uptime(),
-      timestamp: Date.now()
-    }));
-  } else {
-    res.writeHead(404);
-    res.end('Not Found');
-  }
-});
+// Note: Health check endpoint removed to avoid HTTP header conflicts with Socket.IO
+// Socket.IO handles all HTTP requests on this server
 
 const PORT = process.env.SOCKET_PORT || 3001;
 

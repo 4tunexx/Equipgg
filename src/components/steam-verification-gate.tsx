@@ -126,29 +126,68 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
               {isVerifying ? 'Redirecting to Steam...' : 'Verify with Steam'}
             </Button>
             
-            {process.env.NODE_ENV === 'development' && (
+            {(process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEV_MODE === 'true') && (
               <button
                 onClick={async () => {
                   try {
+                    console.log('Dev bypass clicked - starting verification...');
+                    console.log('User ID:', user?.id);
+                    
+                    if (!user?.id) {
+                      toast({
+                        title: "Error",
+                        description: "No user ID found. Please refresh and try again.",
+                        variant: "destructive"
+                      });
+                      return;
+                    }
+
                     const response = await fetch('/api/steam-verification', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ userId: user?.id, force: true })
+                      body: JSON.stringify({ userId: user.id, force: true })
                     });
+                    
+                    console.log('Steam verification API response:', response.status);
+                    
                     if (response.ok) {
+                      const result = await response.json();
+                      console.log('Steam verification result:', result);
+                      
                       toast({
-                        title: "Development Bypass",
+                        title: "✅ Development Bypass",
                         description: "Steam verification bypassed for development.",
                       });
-                      refreshUser();
+                      
+                      // Force refresh user data
+                      console.log('Refreshing user data...');
+                      await refreshUser();
+                      
+                      // Small delay then reload the page to ensure state updates
+                      setTimeout(() => {
+                        window.location.reload();
+                      }, 1000);
+                    } else {
+                      const errorData = await response.json();
+                      console.error('Steam verification API error:', errorData);
+                      toast({
+                        title: "Dev Bypass Failed",
+                        description: errorData.error || 'Unknown error occurred',
+                        variant: "destructive"
+                      });
                     }
                   } catch (error) {
                     console.error('Dev bypass error:', error);
+                    toast({
+                      title: "Dev Bypass Error",
+                      description: error instanceof Error ? error.message : 'Unknown error',
+                      variant: "destructive"
+                    });
                   }
                 }}
-                className="w-full px-4 py-2 text-xs border rounded-md hover:bg-gray-50"
+                className="w-full px-4 py-2 text-xs border rounded-md hover:bg-gray-50 bg-yellow-50 border-yellow-300"
               >
-                [DEV] Bypass Verification
+                🚀 [DEV] Bypass Steam Verification
               </button>
             )}
             

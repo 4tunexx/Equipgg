@@ -32,6 +32,8 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return; // Prevent multiple submissions
+    
     setLoading(true);
     setError(null);
     try {
@@ -39,16 +41,20 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
       const result = await signIn(loginEmail, loginPassword);
       console.log('Login successful:', result);
       
-      // Reset loading state and close modal immediately
-      setLoading(false);
+      // Close modal and reset form
       setOpen(false);
+      setLoginEmail('');
+      setLoginPassword('');
+      setError(null);
       
-      // Force page redirect instead of router navigation for more reliable behavior
+      // Add explicit redirect after successful login
       console.log('Redirecting to dashboard...');
-      window.location.href = '/dashboard';
+      router.push('/dashboard');
+      
     } catch (err: unknown) {
       console.error('Login error:', err);
       setError(err instanceof Error ? err.message : 'Failed to sign in');
+    } finally {
       setLoading(false);
     }
   };

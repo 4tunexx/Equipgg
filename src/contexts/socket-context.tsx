@@ -62,6 +62,13 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Temporarily disable Socket.IO to prevent XHR polling errors during authentication
+    // TODO: Re-enable once socket authentication is properly configured
+    console.log('🔌 Socket.IO temporarily disabled to prevent authentication errors');
+    setIsConnected(false);
+    socketFallback.setConnected(false);
+    return;
+    
     // For now, disable Socket.IO in production to avoid errors
     // TODO: Set up Socket.IO server for production
     if (process.env.NODE_ENV === 'production') {

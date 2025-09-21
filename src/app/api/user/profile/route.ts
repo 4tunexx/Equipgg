@@ -1,24 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthSession } from '../../../../lib/auth-utils';
 import { supabase } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get Supabase Auth session from cookie (client should send access_token in header or cookie)
-    const authHeader = request.headers.get('authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
-    if (!accessToken) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    // Get user from Supabase Auth
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+
     // Get user data from users table
     const { data, error } = await supabase
       .from('users')
       .select('id, email, displayname, role, coins, gems, xp, level, created_at')
-      .eq('id', user.id)
+      .eq('id', session.user_id)
       .single();
     if (error || !data) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -27,7 +23,7 @@ export async function GET(request: NextRequest) {
     const { data: inventoryData } = await supabase
       .from('user_inventory')
       .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id);
+      .eq('user_id', session.user_id);
     const itemCount = inventoryData?.length ?? 0;
     // Placeholders for stats, achievements, referrals
     const betsWon = 0;

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 
 // Inline UI components to avoid import issues
 const Button = ({ 
@@ -164,6 +165,8 @@ export default function SignInPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
+  const searchParams = useSearchParams();
+  const redirectTo = searchParams.get('redirect') || '/dashboard';
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -185,9 +188,9 @@ export default function SignInPage() {
       const data = await response.json();
       
       if (response.ok) {
-        console.log('Authentication successful, redirecting...');
-        // Force page redirect to dashboard after successful login
-        window.location.href = '/dashboard';
+        console.log('Authentication successful, redirecting to:', redirectTo);
+        // Use the redirect parameter or default to dashboard
+        window.location.href = redirectTo;
       } else {
         console.error('Authentication failed:', data.error || data.message);
         // Handle error (you might want to show an error message to the user)
@@ -199,6 +202,15 @@ export default function SignInPage() {
       alert(`Network error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       setIsLoading(false);
     }
+  };
+
+  const handleSteamLogin = () => {
+    console.log('Starting Steam authentication...');
+    // Redirect to Steam auth with the current redirect parameter
+    const steamUrl = redirectTo !== '/dashboard' 
+      ? `/api/auth/steam?redirect=${encodeURIComponent(redirectTo)}`
+      : '/api/auth/steam';
+    window.location.href = steamUrl;
   };
   
   return (
@@ -246,6 +258,34 @@ export default function SignInPage() {
               </Button>
             </CardFooter>
           </form>
+        </Card>
+        
+        {/* Steam Login Option */}
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">
+              Or continue with
+            </span>
+          </div>
+        </div>
+        
+        <Card>
+          <CardContent className="pt-6">
+            <Button 
+              type="button"
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={handleSteamLogin}
+              disabled={isLoading}
+            >
+              <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.568 8.16c-.169-.234-.45-.348-.75-.348-.3 0-.581.114-.75.348L12 14.208 7.932 8.16c-.169-.234-.45-.348-.75-.348-.3 0-.581.114-.75.348-.234.328-.167.783.158 1.026L12 15.48l5.41-6.294c.325-.243.392-.698.158-1.026z"/>
+              </svg>
+              Continue with Steam
+            </Button>
+          </CardContent>
         </Card>
         
         <div className="text-center text-sm">

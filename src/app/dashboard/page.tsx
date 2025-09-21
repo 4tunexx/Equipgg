@@ -78,13 +78,20 @@ export default function DashboardPage() {
           console.error('Failed to fetch daily missions:', response.status, response.statusText);
         }
 
-        // Fetch missions from Supabase
+        // Try to fetch missions from Supabase (may fail if tables don't exist)
         if (user) {
-          const queries = createSupabaseQueries(supabase);
-          const missions = await queries.getUserMissions(user.id);
-          // Filter for daily missions for the display
-          const dailyMissionsData = missions.filter(m => m.mission?.type === 'daily').slice(0, 1);
-          setDailyMissions(dailyMissionsData.map(um => um.mission!));
+          try {
+            const queries = createSupabaseQueries(supabase);
+            const missions = await queries.getUserMissions(user.id);
+            // Filter for daily missions for the display
+            const dailyMissionsData = missions.filter(m => m.mission?.type === 'daily').slice(0, 1);
+            setDailyMissions(dailyMissionsData.map(um => um.mission!));
+            console.log('Successfully loaded missions from Supabase');
+          } catch (dbError) {
+            console.log('Missions tables not yet set up in database, using API data only:', dbError);
+            // This is expected if the database tables haven't been created yet
+            // The API endpoint already provides fallback data
+          }
         }
       } catch (error) {
         console.error('Failed to fetch daily missions:', error);
@@ -141,10 +148,13 @@ export default function DashboardPage() {
       }
     };
 
-    fetchDailyMissions();
-    fetchUserStats();
-    fetchUserActivity();
-  }, []);
+    // Only fetch data if user is available
+    if (user) {
+      fetchDailyMissions();
+      fetchUserStats();
+      fetchUserActivity();
+    }
+  }, [user]); // Add user as dependency
 
   return (
     <div className="flex flex-col h-full w-full overflow-x-hidden">

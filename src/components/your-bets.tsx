@@ -61,8 +61,12 @@ export function YourBets({ refreshTrigger }: YourBetsProps) {
         if (response.ok) {
           const data = await response.json();
           setBets(data.bets || []);
+          // Don't log error if it's just the feature being unavailable
+          if (data.message && data.message.includes('not yet available')) {
+            console.log('Betting feature not yet available:', data.message);
+          }
         } else {
-          console.error('Failed to fetch user bets');
+          console.error('Failed to fetch user bets - HTTP', response.status);
           setBets([]);
         }
       } catch (error) {

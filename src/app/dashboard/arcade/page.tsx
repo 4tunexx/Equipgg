@@ -13,18 +13,37 @@ const Tabs = ({ children, defaultValue, className = '' }: { children: React.Reac
   const [activeTab, setActiveTab] = useState(defaultValue);
   return (
     <div className={className} data-active-tab={activeTab}>
-      {React.Children.map(children, child => 
-        React.isValidElement(child) ? React.cloneElement(child as any, { activeTab, setActiveTab }) : child
-      )}
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          // Only pass activeTab/setActiveTab to specific tab-related components
+          const childType = (child.type as any)?.displayName || (child.type as any)?.name || '';
+          if (childType === 'TabsList' || childType === 'TabsTrigger' || childType === 'TabsContent' || 
+              child.type === TabsList || child.type === TabsTrigger || child.type === TabsContent) {
+            return React.cloneElement(child as any, { activeTab, setActiveTab });
+          }
+        }
+        return child;
+      })}
     </div>
   );
 };
+Tabs.displayName = 'Tabs';
 
-const TabsList = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
+const TabsList = ({ children, className = '', activeTab, setActiveTab }: { children: React.ReactNode; className?: string; activeTab?: string; setActiveTab?: (value: string) => void }) => (
   <div className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`}>
-    {children}
+    {React.Children.map(children, child => {
+      if (React.isValidElement(child)) {
+        // Only pass activeTab/setActiveTab to TabsTrigger components
+        const childType = (child.type as any)?.displayName || (child.type as any)?.name || '';
+        if (childType === 'TabsTrigger' || child.type === TabsTrigger) {
+          return React.cloneElement(child as any, { activeTab, setActiveTab });
+        }
+      }
+      return child;
+    })}
   </div>
 );
+TabsList.displayName = 'TabsList';
 
 const TabsTrigger = ({ children, value, activeTab, setActiveTab }: { children: React.ReactNode; value: string; activeTab?: string; setActiveTab?: (value: string) => void }) => (
   <button
@@ -34,9 +53,11 @@ const TabsTrigger = ({ children, value, activeTab, setActiveTab }: { children: R
     {children}
   </button>
 );
+TabsTrigger.displayName = 'TabsTrigger';
 
 const TabsContent = ({ children, value, activeTab }: { children: React.ReactNode; value: string; activeTab?: string }) => 
   activeTab === value ? <div>{children}</div> : null;
+TabsContent.displayName = 'TabsContent';
 
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}>

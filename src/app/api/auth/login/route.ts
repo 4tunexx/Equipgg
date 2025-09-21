@@ -1,15 +1,9 @@
 // src/app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const SUPABASE_SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-// Create a server client if we have service role; otherwise use anon
-const supabase = SUPABASE_SERVICE
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE)
-  : createClient(SUPABASE_URL, SUPABASE_ANON);
+// Use the singleton server client to avoid multiple instances
+const supabase = createServerSupabaseClient();
 
 function jsonError(message: string, status = 500) {
   return NextResponse.json({ ok: false, error: message }, { status });
@@ -17,8 +11,8 @@ function jsonError(message: string, status = 500) {
 
 export async function POST(req: NextRequest) {
   try {
-    // defensive checks
-    if (!SUPABASE_URL || (!SUPABASE_ANON && !SUPABASE_SERVICE)) {
+    // Check environment variables
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error("Missing Supabase env vars");
       return jsonError("Server misconfiguration: missing supabase env keys", 500);
     }
@@ -94,12 +88,20 @@ export async function POST(req: NextRequest) {
     // success response -> return session & formatted user
     const response = NextResponse.json({ ok: true, user: formattedUser, session });
 
-    // set httpOnly cookie for server auth reading (optional name)
-    response.cookies.set("equipgg_session", session.access_token, {
+    // Create a simple session cookie with user ID instead of raw access token
+    const sessionData = JSON.stringify({
+      user_id: user.id,
+      email: user.email,
+      role: formattedUser.role,
+      expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
+    });
+    
+    // Set httpOnly cookie for server auth reading
+    response.cookies.set("equipgg_session", sessionData, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7,
+      maxAge: 60 * 60 * 24 * 7, // 7 days
       path: "/",
     });
 

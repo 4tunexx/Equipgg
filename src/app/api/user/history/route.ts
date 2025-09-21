@@ -1,21 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthSession } from '../../../../lib/auth-utils';
 import { supabase } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
-    const accessToken = authHeader?.replace('Bearer ', '');
-    if (!accessToken) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { data: { user }, error: userError } = await supabase.auth.getUser(accessToken);
-    if (userError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+
     const { data: history, error: historyError } = await supabase
       .from('user_bets')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user_id)
       .order('created_at', { ascending: false })
       .limit(50);
     if (historyError) {

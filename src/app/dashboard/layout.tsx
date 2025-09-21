@@ -324,7 +324,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
           <h2 className="text-2xl font-bold mb-2">Authentication Required</h2>
           <p className="text-muted-foreground mb-4">Please log in to access the dashboard.</p>
           <button 
-            onClick={() => window.location.href = '/signin'}
+            onClick={() => window.location.href = '/sign-in'}
             className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
           >
             Go to Sign In
@@ -363,7 +363,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                 </Link>
                 {enabled ? (
                   user ? null : (
-                    <Link href="/signin" className="ml-auto group-data-[collapsible=icon]:hidden">
+                    <Link href="/sign-in" className="ml-auto group-data-[collapsible=icon]:hidden">
                       <Button size="sm" variant="outline">Sign in</Button>
                     </Link>
                   )
@@ -851,8 +851,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <Link href="/signin"><Button size="sm">Sign in</Button></Link>
-                      <Link href="/signup"><Button size="sm" variant="secondary">Sign up</Button></Link>
+                      <Link href="/sign-in"><Button size="sm">Sign in</Button></Link>
+                      <Link href="/sign-up"><Button size="sm" variant="secondary">Sign up</Button></Link>
                     </div>
                   )
                 ) : null}
