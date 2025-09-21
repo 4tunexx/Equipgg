@@ -13,6 +13,7 @@ import { getRoleColors } from "../lib/role-colors";
 
 type LiveChatProps = {
     title: string;
+    lobby: string;
 };
 
 // Use static timestamps to prevent hydration mismatches
@@ -24,7 +25,7 @@ const fallbackMessages = [
     { id: 'fallback-5', user: { rank: 5, name: 'User5', avatar: 'https://picsum.photos/32/32?random=35', dataAiHint: 'esports fan', xp: 500, role: 'user' }, message: 'This is intense!', timestamp: '2024-01-15T12:04:00Z' },
 ];
 
-export function LiveChat({ title }: LiveChatProps) {
+export function LiveChat({ title, lobby }: LiveChatProps) {
     const { user } = useAuth();
     const [input, setInput] = useState('');
     interface ChatMessage {
@@ -45,7 +46,7 @@ export function LiveChat({ title }: LiveChatProps) {
     useEffect(() => {
         const fetchMessages = async () => {
             try {
-                const response = await fetch('/api/chat?limit=50');
+                const response = await fetch(`/api/chat?limit=50&lobby=${encodeURIComponent(lobby)}`);
                 if (response.ok) {
                     const data = await response.json();
                     // Map API response to expected format
@@ -94,7 +95,7 @@ export function LiveChat({ title }: LiveChatProps) {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ content: messageContent }),
+                body: JSON.stringify({ content: messageContent, lobby }),
             });
             
             if (response.ok) {

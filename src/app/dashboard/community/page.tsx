@@ -212,7 +212,7 @@ export default function CommunityPage() {
 
                 <TabsContent value="chat">
                     <Card className="h-[600px] max-w-4xl mx-auto">
-                       <LiveChat title="Forum Chat" />
+                       <LiveChat title="Forum Chat" lobby="forum" />
                     </Card>
                 </TabsContent>
             </Tabs>

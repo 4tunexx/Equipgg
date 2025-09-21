@@ -20,11 +20,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const before = searchParams.get('before'); // For pagination
-    
-    // Initialize database
-    
-    // Get recent chat messages from Supabase with pagination
-    let query = supabase.from('chat_messages').select('*');
+    const lobby = searchParams.get('lobby') || 'dashboard';
+    // Get recent chat messages from Supabase with pagination and lobby filter
+    let query = supabase.from('chat_messages').select('*').eq('lobby', lobby);
     if (before) {
       query = query.lt('created_at', before);
     }
@@ -172,7 +170,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { content } = await request.json();
+  const { content, lobby } = await request.json();
     
     // SECURITY: Input validation and sanitization
     if (!content || typeof content !== 'string') {
@@ -256,6 +254,7 @@ export async function POST(request: Request) {
       user_id: session.user_id,
       username: user.displayName,
       created_at: new Date().toISOString(),
+      lobby: lobby || 'dashboard',
     });
     // Compose the created message with user info
     const newMessage = {

@@ -206,7 +206,7 @@ export default function BettingPage() {
         </div>
       </main>
       <aside className="lg:col-span-1 border-l bg-card/50 flex flex-col">
-        <LiveChat title="Match Chat" />
+  <LiveChat title="Match Chat" lobby="betting" />
       </aside>
     </div>
   );

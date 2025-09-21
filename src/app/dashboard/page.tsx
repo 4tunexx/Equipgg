@@ -310,7 +310,7 @@ export default function DashboardPage() {
         {/* Right Sidebar */}
         <aside className="w-full lg:w-80 xl:w-96 shrink-0 min-w-0 space-y-6 overflow-y-auto">
           <Card className="h-[400px] flex flex-col">
-            <LiveChat title="Public Chat" />
+            <LiveChat title="Public Chat" lobby="dashboard" />
           </Card>
           <Card>
             <CardHeader>
