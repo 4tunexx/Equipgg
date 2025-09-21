@@ -16,6 +16,10 @@ export function createUnauthorizedResponse() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 }
 
+export function createForbiddenResponse(message: string = 'Forbidden') {
+  return NextResponse.json({ error: message }, { status: 403 });
+}
+
 export async function getAuthSession(request: NextRequest): Promise<AuthSession | null> {
   try {
     console.log('=== AUTH SESSION DEBUG ===');
