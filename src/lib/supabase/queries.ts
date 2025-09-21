@@ -156,6 +156,7 @@ export interface DBShopItem {
   price: number;
   item_id: string;
   stock: number;
+  discount_percentage?: number;
   created_at: string;
   item?: DBItem; // For joins
 }

@@ -2,33 +2,52 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
-import { ShopItemCard } from "../../../components/shop-item-card";
-import { Input } from "../../../components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
-import { Button } from "../../../components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+// Removed mock data imports - now using real API data
+import { ShopItemCard } from "@/components/shop-item-card";
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Search, Gem, Loader2, Coins, Gamepad2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useSupabase } from "../../../lib/supabase/context";
-import { useBalance } from "../../../contexts/balance-context";
-import { DBShopItem, Rarity } from "../../../lib/supabase/queries";
+import { useAuth } from '@/components/auth-provider';
+import { useBalance } from '@/contexts/balance-context';
+import type { ShopItem } from '@/lib/mock-data';
 
-const FEATURE_HIGHLIGHTS = [
-  {
-    icon: Gem,
-    title: "Premium Quality",
-    description: "All items are verified authentic CS2 skins with guaranteed quality."
-  },
-  {
-    icon: Coins,
-    title: "Fair Pricing",
-    description: "Competitive prices with regular discounts and special offers."
-  },
-  {
-    icon: Gamepad2,
-    title: "Instant Delivery",
-    description: "Items are delivered immediately to your inventory upon purchase."
-  }
+interface ApiShopItem {
+  id: string;
+  name: string;
+  image_url?: string;
+  description?: string;
+  category: string;
+  rarity: string;
+  price: number;
+  stock_quantity: number;
+  item_type: string;
+}
+
+export default function ShopPage() {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState('items');
+  const [activeSubTab, setActiveSubTab] = useState('all');
+
+  // Mock data for highlights sections
+  const shopFeatureHighlights = [
+    {
+      icon: Gem,
+      title: "Premium Quality",
+      description: "All items are verified authentic CS2 skins with guaranteed quality."
+    },
+    {
+      icon: Coins,
+      title: "Fair Pricing",
+      description: "Competitive prices with regular discounts and special offers."
+    },
+    {
+      icon: Gamepad2,
+      title: "Instant Delivery",
+      description: "Items are delivered immediately to your inventory upon purchase."
+    }
   ];
 
   const shopPerkHighlights = [
@@ -48,131 +67,46 @@ const FEATURE_HIGHLIGHTS = [
       description: "Access special features and advantages not available to regular users."
     }
   ];
-
-export default function ShopPage() {
   const [sortBy, setSortBy] = useState('default');
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // Show 12 items per page
-  const [shopItems, setShopItems] = useState<DBShopItem[]>([]);
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [categories, setCategories] = useState<string[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [activeSubTab, setActiveSubTab] = useState('all');
-  const [activeTab, setActiveTab] = useState('items');
-  const { user, queries } = useSupabase();
+  const { user } = useAuth();
   const { balance: userBalance, isLoading } = useBalance();
 
-  // Fetch shop items using API endpoint with fallback data
+  // Convert API item to ShopItem format
+  const convertApiItemToShopItem = (apiItem: ApiShopItem): ShopItem => {
+    return {
+      id: apiItem.id,
+      name: apiItem.name,
+      description: apiItem.description || 'No description available',
+      rarity: apiItem.rarity as any, // Cast to Rarity type
+      type: apiItem.item_type,
+      image: apiItem.image_url || '/assets/placeholder.svg',
+      dataAiHint: `${apiItem.item_type} ${apiItem.rarity}`,
+      price: apiItem.price,
+      stock: apiItem.stock_quantity
+    };
+  };
+
+  // Fetch shop items from API
   const fetchShopItems = async () => {
     try {
       setIsLoadingItems(true);
       const response = await fetch('/api/shop');
-      
       if (response.ok) {
         const data = await response.json();
-        const items = data.items || [];
-        setShopItems(items);
+        const convertedItems = (data.items || []).map((item: ApiShopItem) => convertApiItemToShopItem(item));
+        setShopItems(convertedItems);
         
         // Extract unique categories
-        const uniqueCategories = [...new Set(items.map((item: any) => item.item?.type ?? 'Unknown'))] as string[];
+        const uniqueCategories = [...new Set((data.items || []).map((item: ApiShopItem) => item.category))] as string[];
         setCategories(uniqueCategories);
-      } else {
-        throw new Error(`API responded with status: ${response.status}`);
       }
     } catch (error) {
-      console.error('Failed to fetch shop items:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        error: error
-      });
-      // Use fallback mock data when database is not available
-      const mockShopItems: DBShopItem[] = [
-        {
-          id: 'shop-1',
-          item_id: 'item-ak-redline',
-          price: 2500,
-          stock: 10,
-          discount_percentage: 0,
-          is_featured: false,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-ak-redline',
-            name: 'AK-47 | Redline',
-            type: 'weapon',
-            rarity: 'Classified' as Rarity,
-            image: 'https://picsum.photos/seed/ak47-redline/300/200',
-            data_ai_hint: 'A classic AK-47 with red line design',
-            created_at: new Date().toISOString()
-          }
-        },
-        {
-          id: 'shop-2',
-          item_id: 'item-awp-dragon',
-          price: 15000,
-          stock: 2,
-          discount_percentage: 10,
-          is_featured: true,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-awp-dragon',
-            name: 'AWP | Dragon Lore',
-            type: 'weapon',
-            rarity: 'Covert' as Rarity,
-            image: 'https://picsum.photos/seed/awp-dragon/300/200',
-            data_ai_hint: 'Legendary AWP with dragon design',
-            created_at: new Date().toISOString()
-          }
-        },
-        {
-          id: 'shop-3',
-          item_id: 'item-knife-fade',
-          price: 50000,
-          stock: 1,
-          discount_percentage: 0,
-          is_featured: true,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-knife-fade',
-            name: '★ Karambit | Fade',
-            type: 'knife',
-            rarity: 'Covert' as Rarity,
-            image: 'https://picsum.photos/seed/karambit-fade/300/200',
-            data_ai_hint: 'Rare karambit knife with fade pattern',
-            created_at: new Date().toISOString()
-          }
-        },
-        {
-          id: 'shop-4',
-          item_id: 'item-gloves-crimson',
-          price: 8000,
-          stock: 3,
-          discount_percentage: 5,
-          is_featured: false,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-gloves-crimson',
-            name: '★ Specialist Gloves | Crimson Web',
-            type: 'gloves',
-            rarity: 'Covert' as Rarity,
-            image: 'https://picsum.photos/seed/gloves-crimson/300/200',
-            data_ai_hint: 'Specialist gloves with crimson web pattern',
-            created_at: new Date().toISOString()
-          }
-        }
-      ];
-      setShopItems(mockShopItems);
-      
-      // Extract unique categories from mock data
-      const uniqueCategories = [...new Set(mockShopItems.map(item => item.item?.type ?? 'Unknown'))] as string[];
-      setCategories(uniqueCategories);
+      console.error('Failed to fetch shop items:', error);
     } finally {
       setIsLoadingItems(false);
     }
@@ -197,14 +131,13 @@ export default function ShopPage() {
     setCurrentPage(1); // Reset to first page when changing category
   };
 
-  const sortItems = (items: DBShopItem[]) => {
-    const rarityOrder: ('Legendary' | 'Epic' | 'Rare' | 'Uncommon' | 'Common')[] = ['Legendary', 'Epic', 'Rare', 'Uncommon', 'Common'];
-    
+  const sortItems = (items: ShopItem[]) => {
     switch (sortBy) {
       case 'rarity':
+        const rarityOrder = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary', 'Mythic'];
         return [...items].sort((a, b) => {
-          const aIndex = rarityOrder.indexOf(a.item?.rarity || 'Common');
-          const bIndex = rarityOrder.indexOf(b.item?.rarity || 'Common');
+          const aIndex = rarityOrder.indexOf(a.rarity);
+          const bIndex = rarityOrder.indexOf(b.rarity);
           return bIndex - aIndex; // Higher rarity first
         });
       case 'price-low':
@@ -213,9 +146,8 @@ export default function ShopPage() {
         return [...items].sort((a, b) => b.price - a.price);
       case 'new':
         return [...items].sort((a, b) => {
-          const aDate = new Date(a.created_at);
-          const bDate = new Date(b.created_at);
-          return bDate.getTime() - aDate.getTime();
+          // Assuming items have a dateAdded or similar field, or use id as proxy for newness
+          return b.id.localeCompare(a.id);
         });
       case 'name':
         return [...items].sort((a, b) => a.name.localeCompare(b.name));
@@ -224,17 +156,17 @@ export default function ShopPage() {
     }
   };
 
-  const filterItems = (items: DBShopItem[]) => {
+  const filterItems = (items: ShopItem[]) => {
     let filtered = items;
     
     if (searchTerm) {
-      filtered = filtered.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+      filtered = filtered.filter(item => item.name.toLowerCase().includes(searchTerm));
     }
     
     return sortItems(filtered);
   };
   
-  const renderItemGroup = (items: DBShopItem[], title: string) => {
+  const renderItemGroup = (items: ShopItem[], title: string) => {
     const filteredItems = filterItems(items);
     if (filteredItems.length === 0) {
       return null;
@@ -244,33 +176,18 @@ export default function ShopPage() {
       <div key={title}>
         <h2 className="text-2xl font-bold font-headline mb-4 mt-8">{title}</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {filteredItems.map(item => (
-            <ShopItemCard 
-              key={item.id} 
-              item={{
-                ...item,
-                id: item.id,
-                name: item.name,
-                description: item.description || 'No description available',
-                rarity: (item.item?.rarity || 'Common') as any,
-                type: item.item?.type || 'Unknown',
-                image: item.item?.image || '/assets/placeholder.svg',
-                dataAiHint: item.item?.data_ai_hint || '',
-                price: item.price,
-                stock: item.stock
-              }} 
-            />
-          ))}
+            {filteredItems.map(item => <ShopItemCard key={item.id} item={item} />)}
         </div>
       </div>
-    );
-  };
+    )
+  }
 
   const renderPaginatedItems = () => {
+    // Filter items by category (using type as category)
     let filteredItems = shopItems;
     
     if (activeSubTab !== 'all') {
-      filteredItems = shopItems.filter(item => item.item?.type === activeSubTab);
+      filteredItems = shopItems.filter(item => item.type === activeSubTab);
     }
 
     // Apply filtering and sorting to all items
@@ -302,14 +219,7 @@ export default function ShopPage() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {paginatedItems.map(shopItem => <ShopItemCard key={shopItem.id} item={{
-            ...shopItem,
-            description: shopItem.description ?? 'No description available',
-            type: shopItem.item?.type ?? 'Unknown',
-            rarity: (shopItem.item?.rarity ?? 'Common') as any,
-            image: shopItem.item?.image ?? '/assets/placeholder.svg',
-            dataAiHint: shopItem.item?.data_ai_hint ?? ''
-          }} />)}
+          {paginatedItems.map(item => <ShopItemCard key={item.id} item={item} />)}
         </div>
         
         {/* Pagination Controls */}
@@ -356,7 +266,7 @@ export default function ShopPage() {
 
   const renderPaginatedPerks = () => {
     // Filter perks from shop items
-    const allPerks = shopItems.filter(item => item.item?.type === 'perk');
+    const allPerks = shopItems.filter(item => item.type === 'perk');
 
     // Apply filtering and sorting to all perks
     const filteredAndSortedPerks = filterItems(allPerks);
@@ -385,14 +295,7 @@ export default function ShopPage() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {paginatedPerks.map(perk => <ShopItemCard key={perk.id} item={{
-            ...perk,
-            description: perk.description ?? 'No description available',
-            type: perk.item?.type ?? 'Unknown',
-            rarity: (perk.item?.rarity ?? 'Common') as any,
-            image: perk.item?.image ?? '/assets/placeholder.svg',
-            dataAiHint: perk.item?.data_ai_hint ?? ''
-          }} />)}
+          {paginatedPerks.map(perk => <ShopItemCard key={perk.id} item={perk} />)}
         </div>
         
         {/* Pagination Controls */}
@@ -512,21 +415,21 @@ export default function ShopPage() {
             description="Step into the world of equipgg.net and collect an incredible array of items to showcase your CS2 prowess! From affordable common skins to rare legendary treasures, these items are yours to earn, craft, or purchase with virtual coins. Equip them to your profile, trade them up, or apply StatTrak&trade; to make them truly yours. Explore the full collection below and start building your ultimate arsenal!"
           />
           <div className="w-full">
-            <div className='flex justify-between items-start md:items-center mb-4 flex-col md:flex-row gap-4'>
-                <div className="inline-flex h-10 items-center justify-start rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto w-full md:w-auto min-w-0">
+            <div className='flex justify-between items-center mb-4 flex-wrap gap-4'>
+                <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground overflow-x-auto">
                     <button 
-                      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === 'all' ? 'bg-background text-foreground shadow-sm' : ''}`}
+                      className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === 'all' ? 'bg-background text-foreground shadow-sm' : ''}`}
                        onClick={() => handleSubTabChange('all')}
                     >All</button>
                     {categories.map((category) => (
                       <button 
                         key={category}
-                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-2 md:px-3 py-1.5 text-xs md:text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === category ? 'bg-background text-foreground shadow-sm' : ''}`}
+                        className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 ${activeSubTab === category ? 'bg-background text-foreground shadow-sm' : ''}`}
                         onClick={() => handleSubTabChange(category)}
                       >{category}</button>
                     ))}
                 </div>
-                <div className="flex items-center gap-3 w-full md:w-auto justify-between md:justify-end">
+                <div className="flex items-center gap-3">
                   <div className="relative w-full max-w-xs">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -558,7 +461,7 @@ export default function ShopPage() {
             </div>
           </div>
           <HighlightsSection 
-            highlights={FEATURE_HIGHLIGHTS}
+            highlights={shopFeatureHighlights}
             title="Why These Items Are a Must-Have"
             footer="Start collecting your favorite items on equipgg.net today—unbox crates, craft masterpieces, and dominate with style!"
           />

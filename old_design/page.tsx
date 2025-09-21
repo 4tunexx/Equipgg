@@ -7,27 +7,15 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-} from "../../components/ui/card";
+} from '@/components/ui/card';
 import { Gem, Gift } from 'lucide-react';
-import { Progress } from "../../components/ui/progress";
-import { LiveChat } from "../../components/live-chat";
-import { StatCard } from "../../components/stat-card";
-import { useAuth } from "../../hooks/use-auth";
-import { useBalance } from "../../contexts/balance-context";
+import { Progress } from '@/components/ui/progress';
+import { LiveChat } from '@/components/live-chat';
+import { StatCard } from '@/components/stat-card';
+import { useAuth } from '@/components/auth-provider';
+import { useBalance } from '@/contexts/balance-context';
 import { useState, useEffect } from 'react';
-import { createSupabaseQueries } from "../../lib/supabase/queries";
-import { supabase } from "../../lib/supabase/client";
-import type { DBUser, DBMission } from "../../lib/supabase/queries";
-
-// Helper function to get rank by level (temporary until we move to Supabase)
-function getRankByLevel(level: number): string {
-  if (level >= 50) return 'Grandmaster';
-  if (level >= 40) return 'Master';
-  if (level >= 30) return 'Expert';
-  if (level >= 20) return 'Advanced';
-  if (level >= 10) return 'Intermediate';
-  return 'Beginner';
-}
+import { dailyMissions, getRankByLevel } from '@/lib/mock-data';
 
 interface UserStats {
   level: number;
@@ -59,12 +47,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
-  const [dailyMissions, setDailyMissions] = useState<DBMission[]>([]);
 
   useEffect(() => {
     const fetchDailyMissions = async () => {
       try {
-        // Fetch from API for now, TODO: move to Supabase
         const response = await fetch('/api/missions/summary', {
           credentials: 'include',
           headers: {
@@ -77,11 +63,6 @@ export default function DashboardPage() {
         } else {
           console.error('Failed to fetch daily missions:', response.status, response.statusText);
         }
-
-        // Skip direct Supabase queries from client-side for now
-        // The user_missions query requires proper authentication which is handled server-side
-        // The API endpoint already provides fallback data and handles authentication properly
-        console.log('Using API-based mission data (Supabase direct queries disabled due to auth requirements)');
       } catch (error) {
         console.error('Failed to fetch daily missions:', error);
       } finally {
@@ -137,13 +118,10 @@ export default function DashboardPage() {
       }
     };
 
-    // Only fetch data if user is available
-    if (user) {
-      fetchDailyMissions();
-      fetchUserStats();
-      fetchUserActivity();
-    }
-  }, [user]); // Add user as dependency
+    fetchDailyMissions();
+    fetchUserStats();
+    fetchUserActivity();
+  }, []);
 
   return (
     <div className="flex flex-col h-full w-full overflow-x-hidden">
@@ -225,18 +203,18 @@ export default function DashboardPage() {
                     />
                   </div>
                   {dailyMissions.slice(0, 1).map((mission) => (
-                    <Card key={mission.id} className="hover:shadow-md transition-shadow cursor-pointer flex items-center p-4 space-x-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Gift className="w-6 h-6 text-primary"/>
+                    <div key={mission.id} className="flex items-center gap-4">
+                      <div className="p-2 bg-secondary rounded-md">
+                        <mission.icon className="w-6 h-6 text-primary"/>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold truncate">{mission.name}</p>
-                        <p className="text-sm text-muted-foreground truncate">{mission.description}</p>
+                        <p className="font-semibold truncate">{mission.title}</p>
+                        <Progress value={dailyStats.dailyCompleted > 0 ? 100 : 0} className="h-2 mt-1" />
                       </div>
-                      <div className="text-sm font-medium text-primary">
-                        +{mission.xp_reward} XP
-                      </div>
-                    </Card>
+                      <span className="text-sm font-mono text-muted-foreground w-16 text-right shrink-0">
+                        +{mission.xpReward} XP
+                      </span>
+                    </div>
                   ))}
                   <p className="text-sm text-muted-foreground">
                     {dailyStats.dailyCompleted}/{dailyStats.totalDaily} daily missions completed
@@ -299,7 +277,7 @@ export default function DashboardPage() {
         {/* Right Sidebar */}
         <aside className="w-full lg:w-80 xl:w-96 shrink-0 min-w-0 space-y-6 overflow-y-auto">
           <Card className="h-[400px] flex flex-col">
-            <LiveChat title="Public Chat" lobby="dashboard" />
+            <LiveChat title="Public Chat" />
           </Card>
           <Card>
             <CardHeader>

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { supabase } from "../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../lib/supabase";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { formatActivityMessage } from "../../../lib/activity-logger";
 
@@ -33,6 +33,7 @@ export async function GET() {
       return NextResponse.json(activitiesCache.data);
     }
 
+    const supabase = createServerSupabaseClient();
     let activities: any[] = [];
     try {
       // First try to get the table structure

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '../../../../lib/auth-utils';
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,12 +10,28 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { data: userData, error: userDataError } = await supabase
-      .from('users')
-      .select('coins, gems, xp, level')
-      .eq('id', session.user_id)
-      .single();
-    if (userDataError || !userData) {
+    // Get user's current balance
+    const supabase = createServerSupabaseClient();
+    let userData;
+    try {
+      const { data, error } = await supabase
+        .from('users')
+        .select('coins, gems, xp, level')
+        .eq('id', session.user_id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user balance:', error);
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      
+      userData = data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+
+    if (!userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     return NextResponse.json({
@@ -42,6 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch current balance
+    const supabase = createServerSupabaseClient();
     const { data: userData, error: userDataError } = await supabase
       .from('users')
       .select('coins')

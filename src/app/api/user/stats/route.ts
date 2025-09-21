@@ -14,13 +14,26 @@ export async function GET(request: NextRequest) {
     const supabase = createServerSupabaseClient();
     
     // Get user's basic stats
-    const { data: userData, error: userDataError } = await supabase
-      .from('users')
-      .select('xp, level, coins, gems')
-      .eq('id', session.user_id)
-      .single();
+    let userData;
+    try {
+      const { data, error: userDataError } = await supabase
+        .from('users')
+        .select('xp, level, coins, gems')
+        .eq('id', session.user_id)
+        .single();
       
-    if (userDataError || !userData) {
+      if (userDataError) {
+        console.error('Error fetching user data:', userDataError);
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+      
+      userData = data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+      
+    if (!userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
     // Get betting stats

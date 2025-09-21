@@ -80,8 +80,15 @@ export function PrestigeActivityFeed() {
       if (!isVisible) return;
       
       try {
+        console.log('Fetching activities from:', `/api/activity?t=${Date.now()}`);
         // Add cache-busting parameter to ensure fresh data
-        const response = await fetch(`/api/activity?t=${Date.now()}`);
+        const response = await fetch(`/api/activity?t=${Date.now()}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-cache'
+        });
         if (response.ok) {
           const data = await response.json();
           if (Array.isArray(data)) {
@@ -119,6 +126,11 @@ export function PrestigeActivityFeed() {
         }
       } catch (error) {
         console.error('Error fetching activities:', error);
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
         setActivities([]);
       } finally {
         setLoading(false);

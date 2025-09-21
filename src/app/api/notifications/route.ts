@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from "../../../lib/auth-utils";
-import { supabase } from "../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../lib/supabase";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 
 // GET - Fetch user notifications
@@ -12,8 +12,16 @@ export async function GET(request: NextRequest) {
       return createUnauthorizedResponse();
     }
 
+    const supabase = createServerSupabaseClient();
     const queries = createSupabaseQueries(supabase);
-    const user = await queries.getUserById(session.user_id);
+    
+    let user;
+    try {
+      user = await queries.getUserById(session.user_id);
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
     if (!user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
@@ -102,6 +110,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid notification IDs' }, { status: 400 });
     }
 
+    const supabase = createServerSupabaseClient();
     const queries = createSupabaseQueries(supabase);
     const user = await queries.getUserById(session.user_id);
 

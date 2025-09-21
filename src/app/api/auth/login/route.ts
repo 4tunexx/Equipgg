@@ -105,6 +105,15 @@ export async function POST(req: NextRequest) {
       path: "/",
     });
 
+    // Set client-readable cookie for AuthProvider
+    response.cookies.set("equipgg_session_client", sessionData, {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: "/",
+    });
+
     console.log('Login successful for user:', formattedUser.email);
     return response;
   } catch (err: unknown) {

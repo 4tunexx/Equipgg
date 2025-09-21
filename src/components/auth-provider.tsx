@@ -280,8 +280,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Check if session is still valid
           if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
-            console.log('Session is valid, loading user data');
-            loadSteamUser(sessionData.user_id, sessionData.email);
+            console.log('Session is valid, setting user data directly');
+            
+            // Set user directly from session data for regular logins
+            setUser({
+              id: sessionData.user_id,
+              email: sessionData.email,
+              displayName: sessionData.displayName || sessionData.email.split('@')[0],
+              photoURL: null,
+              role: sessionData.role || 'user',
+              provider: 'default',
+              level: 1,
+              xp: 0,
+              steam_verified: false,
+              account_status: 'active'
+            });
+            setLoading(false);
             return;
           } else {
             console.log('Session expired, clearing cookie');
@@ -306,73 +320,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           // Check if session is still valid
           if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
-            console.log('Main session is valid, loading user data');
+            console.log('Main session is valid, setting user data directly');
             
-            // For localhost development, bypass the full loadSteamUser and set user directly
-            if (process.env.NODE_ENV === 'development' && sessionData.user_id && sessionData.email) {
-              console.log('Development mode: Setting user directly from session');
-              setUser({
-                id: sessionData.user_id,
-                email: sessionData.email,
-                displayName: sessionData.user_id.replace('steam-', ''), // Extract Steam ID
-                photoURL: null,
-                role: sessionData.role || 'user',
-                provider: 'steam',
-                steamProfile: {
-                  steamId: sessionData.user_id.replace('steam-', ''),
-                  avatar: null,
-                  profileUrl: null
-                }
-              });
-              setLoading(false);
-              return;
-            }
-            
-            loadSteamUser(sessionData.user_id, sessionData.email);
-            return;
-          } else {
-            console.log('Main session expired');
-          }
-        } catch (parseError) {
-          console.log('Failed to parse main session cookie, falling back to API call:', parseError);
-          
-          // Fallback to API validation if direct parsing fails
-          setLoading(true);
-          
-          fetch('/api/me', {
-            method: 'GET',
-            credentials: 'include',
-            headers: { 'Accept': 'application/json' },
-          })
-          .then(response => {
-            if (response.ok) {
-              return response.json();
-            }
-            throw new Error('Session validation failed');
-          })
-          .then(userData => {
-            console.log('Main session cookie is valid, user data:', userData);
+            // Set user directly from session data for regular logins
             setUser({
-              id: userData.user_id || userData.id,
-              email: userData.email,
-              displayName: userData.displayName || userData.displayname,
-              photoURL: userData.avatarUrl || userData.avatar_url,
-              role: userData.role,
-              provider: 'steam',
-              steamProfile: userData.steamProfile
+              id: sessionData.user_id,
+              email: sessionData.email,
+              displayName: sessionData.displayName || sessionData.email.split('@')[0],
+              photoURL: null,
+              role: sessionData.role || 'user',
+              provider: 'default',
+              level: 1,
+              xp: 0,
+              steam_verified: false,
+              account_status: 'active'
             });
             setLoading(false);
-          })
-          .catch(error => {
-            console.log('Session validation failed:', error);
-            setLoading(false);
-            
-            // Only redirect after the API call fails
-            if (window.location.pathname.startsWith('/dashboard') && !window.location.pathname.includes('/sign-in')) {
-              console.log('No valid session found after API check, redirecting to sign-in');
-              window.location.href = `/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`;
-            }
-          });
+            return;
+          } else {
+            console.log('Main session expired, clearing cookies');
+            document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
+            document.cookie = 'equipgg_session=; Max-Age=0; path=/';
+          }
+        } catch (parseError) {
+          console.log('Failed to parse main session cookie:', parseError);
+          document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
+          document.cookie = 'equipgg_session=; Max-Age=0; path=/';
         }
         
         return;
