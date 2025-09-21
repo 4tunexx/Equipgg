@@ -73,32 +73,32 @@ export function HeroSection() {
           <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left order-1 lg:order-1 min-w-0">
             
 {/* Mobile Logo ABOVE headline */}
-<div className="lg:hidden flex justify-center mb-8">
-  <div className="relative h-32 w-full max-w-[280px] flex items-center justify-center">
+<div className="lg:hidden flex justify-center mb-8 w-full">
+  <div className="relative w-full flex flex-col items-center justify-center" style={{ minHeight: '120px' }}>
     {/* Character Logo */}
-    <div className={`absolute flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
+    <div className={`relative flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
       isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 -translate-y-full'
-    }`}>
+    }`} style={{ zIndex: 2 }}>
       <Image 
         src="/1.png" 
         alt="Equip.gg Character Logo" 
-        width={240}
-        height={180}
-        className="w-auto h-auto max-h-32 object-contain"
+        width={160}
+        height={120}
+        className="w-auto h-auto max-h-24 object-contain mx-auto"
         key={`logo1-mobile-${logoKey}`}
         priority
       />
     </div>
     {/* Text Logo */}
-    <div className={`absolute flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
+    <div className={`relative flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
       isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 translate-y-full'
-    }`}>
+    }`} style={{ zIndex: 1, marginTop: '-16px' }}>
       <Image 
         src="/2.png" 
         alt="Equip.gg Text Layer" 
-        width={200}
-        height={120}
-        className="w-auto h-auto max-h-24 object-contain"
+        width={140}
+        height={60}
+        className="w-auto h-auto max-h-12 object-contain mx-auto"
         key={`logo2-mobile-${logoKey}`}
         priority
       />

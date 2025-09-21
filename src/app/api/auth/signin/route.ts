@@ -46,6 +46,7 @@ export async function POST(request: NextRequest) {
       console.error('Profile fetch error:', profileError);
     }
 
+
     // Create response with session data
     const response = NextResponse.json({
       message: 'Sign in successful',
@@ -76,6 +77,20 @@ export async function POST(request: NextRequest) {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       maxAge: 60 * 60 * 24 * 30 // 30 days
+    });
+
+    // Set equipgg_session cookie for custom session recognition
+    const sessionPayload = {
+      user_id: data.user.id,
+      email: data.user.email,
+      role: profile?.role || 'user',
+      expires_at: data.session.expires_at * 1000 // convert to ms
+    };
+    response.cookies.set('equipgg_session', encodeURIComponent(JSON.stringify(sessionPayload)), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 7 // 1 week
     });
 
     return response;

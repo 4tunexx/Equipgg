@@ -11,22 +11,29 @@ interface SteamVerificationGateProps {
   children: React.ReactNode;
 }
 
+
 export function SteamVerificationGate({ children }: SteamVerificationGateProps) {
   const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(false);
+  const [skip, setSkip] = useState(false);
+
+  // Check for skip flag on mount (client only)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && localStorage.getItem('equipgg_skip_steam_verification') === 'true') {
+      setSkip(true);
+    }
+  }, []);
 
   // Check for verification success from URL params
   useEffect(() => {
+    if (typeof window === 'undefined') return;
     const urlParams = new URLSearchParams(window.location.search);
-    
     if (urlParams.get('steam_verified') === 'success') {
       toast({
         title: "🎉 Steam Verification Successful!",
         description: "Your account is now fully activated and ready to use.",
       });
-      
-      // Clear URL params and refresh user data
       window.history.replaceState({}, '', '/dashboard');
       refreshUser();
     } else if (urlParams.get('error') === 'steam_already_linked') {
@@ -46,8 +53,8 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
     }
   }, [toast, refreshUser]);
 
-  // If user is Steam verified, show the normal dashboard
-  if (user?.steam_verified || user?.provider === 'steam') {
+  // If user is Steam verified, or provider is steam, or skip is set, show dashboard
+  if (user?.steam_verified || user?.provider === 'steam' || skip) {
     return <>{children}</>;
   }
 
@@ -124,6 +131,16 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
               size="lg"
             >
               {isVerifying ? 'Redirecting to Steam...' : 'Verify with Steam'}
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={() => {
+                localStorage.setItem('equipgg_skip_steam_verification', 'true');
+                window.location.reload();
+              }}
+            >
+              Skip for now
             </Button>
             
             {(process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEV_MODE === 'true') && (

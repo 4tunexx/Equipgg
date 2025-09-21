@@ -39,6 +39,8 @@ interface ApiMatch {
   tournament?: string;
 }
 
+import { useAuth } from '../../../components/auth-provider';
+
 export default function BettingPage() {
   const [activeMatchId, setActiveMatchId] = useState<string | null>(null);
   const [matches, setMatches] = useState<Match[]>([]);
@@ -47,6 +49,7 @@ export default function BettingPage() {
   
   // Initialize real-time betting
   const { isConnected } = useRealtimeBetting();
+  const { user } = useAuth();
 
   // Separate matches by status
   const upcomingMatches = matches.filter(m => m.status === 'Upcoming');
@@ -167,16 +170,18 @@ export default function BettingPage() {
               {isConnected ? 'Live Updates' : 'Offline'}
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button onClick={loadTestMatches} variant="outline" size="sm">
-              <Plus className="h-4 w-4 mr-2" />
-              Load Test Matches
-            </Button>
-            <Button onClick={() => window.location.reload()} variant="outline" size="sm">
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </Button>
-          </div>
+          {user?.role === 'admin' && (
+            <div className="flex gap-2">
+              <Button onClick={loadTestMatches} variant="outline" size="sm">
+                <Plus className="h-4 w-4 mr-2" />
+                Load Test Matches
+              </Button>
+              <Button onClick={() => window.location.reload()} variant="outline" size="sm">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            </div>
+          )}
         </div>
 
 

@@ -58,6 +58,7 @@ import { AdminBalanceManager } from "../../components/admin-balance-manager";
 import { useSiteSettings } from "../../hooks/use-site-settings";
 import { XpDisplay } from "../../components/xp-display";
 import { XPManager } from "../../components/xp-manager";
+import { DashboardTutorialOverlayWrapper } from "./DashboardTutorialOverlayWrapper";
 import { BalanceProvider, useBalance } from "../../contexts/balance-context";
 import { SteamVerificationGate } from "../../components/steam-verification-gate";
 
@@ -889,6 +890,7 @@ export default function DashboardLayout({
   return (
     <BalanceProvider>
       <DashboardSidebar>{children}</DashboardSidebar>
+      <DashboardTutorialOverlayWrapper />
       {/* XP Manager for level-up animations */}
       <XPManager userId={user?.id} showDisplay={false} showAnimations={true} />
     </BalanceProvider>

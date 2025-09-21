@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Registration failed - no user created' }, { status: 400 });
     }
 
-    // Create user profile in the users table
+    // Create user profile in the users table with 50 coins for new users
     try {
       const { error: profileError } = await supabase
         .from('users')
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
           provider: 'default',
           level: 1,
           xp: 0,
-          balance: 0,
+          coins: 50, // Grant 50 coins to new users
           role: 'user',
           account_status: 'active',
           email_verified: false,

@@ -99,6 +99,12 @@ export function XpDisplay({
   const currentLevel = xpData?.level ?? propLevel ?? 1;
   const levelInfo = xpData?.levelInfo ?? getNewLevelInfo(currentXP, defaultXPConfig);
 
+  // Calculate XP earned toward next level
+  const xpEarnedThisLevel = currentXP - (levelInfo.totalXPNeeded ?? 0);
+  const xpNeededForNext = levelInfo.currentLevelXP ?? 1;
+  const safeXpNeededForNext = xpNeededForNext > 0 ? xpNeededForNext : 1;
+  const safeXpEarned = xpEarnedThisLevel > 0 ? xpEarnedThisLevel : 0;
+
   if (isLoading) {
     return (
       <div className={className}>
@@ -117,14 +123,14 @@ export function XpDisplay({
       </div>
     );
   }
-  
+
   return (
     <div className={className}>
       {showText && (
         <div className="flex justify-between text-xs font-semibold mb-1">
           <span>Level {currentLevel}</span>
           <span className="text-primary">
-            {(levelInfo.xpToNext || 0).toLocaleString?.() || '0'} / {(levelInfo.currentLevelXP || 0).toLocaleString?.() || '0'} XP
+            {safeXpEarned.toLocaleString?.() || '0'} / {safeXpNeededForNext.toLocaleString?.() || '1'} XP
           </span>
         </div>
       )}

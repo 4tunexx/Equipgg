@@ -33,27 +33,27 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return; // Prevent multiple submissions
-    
     setLoading(true);
     setError(null);
     try {
       console.log('Starting login process...');
       const result = await signIn(loginEmail, loginPassword);
       console.log('Login successful:', result);
-      
       // Close modal and reset form
       setOpen(false);
       setLoginEmail('');
       setLoginPassword('');
       setError(null);
-      
       // Add explicit redirect after successful login
       console.log('Redirecting to dashboard...');
       router.push('/dashboard');
-      
     } catch (err: unknown) {
       console.error('Login error:', err);
-      setError(err instanceof Error ? err.message : 'Failed to sign in');
+      if (err instanceof Error && err.message === 'Email not confirmed') {
+        setError('Please verify your email before logging in. Check your inbox for a confirmation link.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to sign in');
+      }
     } finally {
       setLoading(false);
     }
@@ -64,7 +64,12 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
     setLoading(true);
     setError(null);
     try {
-      await signUp(registerEmail, registerPassword, registerUsername);
+      const result = await signUp(registerEmail, registerPassword, registerUsername);
+      if (result && result.emailVerificationRequired) {
+        setError('Registration successful! Please check your email to verify your account before logging in.');
+        setLoading(false);
+        return;
+      }
       setLoading(false);
       setOpen(false);
       // Force page redirect for more reliable behavior

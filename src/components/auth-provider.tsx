@@ -427,6 +427,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (!response.ok) {
         setLoading(false);
+        // Detect unconfirmed email error from backend
+        if (data.error && typeof data.error === 'string' && data.error.toLowerCase().includes('confirm')) {
+          throw new Error('Email not confirmed');
+        }
         throw new Error(data.error || 'Login failed');
       }
 
