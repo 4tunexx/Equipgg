@@ -89,6 +89,7 @@ export default function ShopPage() {
       const mockShopItems: DBShopItem[] = [
         {
           id: 'shop-1',
+          name: 'AK-47 | Redline',
           item_id: 'item-ak-redline',
           price: 2500,
           stock: 10,
@@ -109,6 +110,7 @@ export default function ShopPage() {
         },
         {
           id: 'shop-2',
+          name: 'AWP | Dragon Lore',
           item_id: 'item-awp-dragon',
           price: 15000,
           stock: 2,
@@ -129,6 +131,7 @@ export default function ShopPage() {
         },
         {
           id: 'shop-3',
+          name: '★ Karambit | Fade',
           item_id: 'item-knife-fade',
           price: 50000,
           stock: 1,
@@ -149,6 +152,7 @@ export default function ShopPage() {
         },
         {
           id: 'shop-4',
+          name: '★ Specialist Gloves | Crimson Web',
           item_id: 'item-gloves-crimson',
           price: 8000,
           stock: 3,

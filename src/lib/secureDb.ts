@@ -89,7 +89,7 @@ const secureDb = {
     table: Table,
     where: WhereClause<T>
   ): Promise<T | null> {
-    return this.findOne<T>(table, where);
+    return this.findOne(table, where);
   },
 
   async select<T = any>(

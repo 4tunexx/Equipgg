@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
@@ -161,7 +161,7 @@ const CardFooter = ({
   );
 };
 
-export default function SignInPage() {
+function SignInForm() {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -296,5 +296,13 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="container flex h-screen w-screen flex-col items-center justify-center"><div>Loading...</div></div>}>
+      <SignInForm />
+    </Suspense>
   );
 }

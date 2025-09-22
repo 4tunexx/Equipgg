@@ -248,7 +248,7 @@ export function PrestigeActivityFeed() {
                     </span>
                   );
                 } else {
-                  return word + ' ';
+                  return <span key={wordIndex}>{word + ' '}</span>;
                 }
               })}
             </span>

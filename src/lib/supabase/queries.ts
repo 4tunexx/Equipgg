@@ -152,12 +152,15 @@ export interface DBMatch {
 export interface DBShopItem {
   id: string;
   name: string;
-  description: string | null;
+  description?: string;
   price: number;
   item_id: string;
   stock: number;
   discount_percentage?: number;
+  is_featured?: boolean;
+  is_active?: boolean;
   created_at: string;
+  updated_at?: string;
   item?: DBItem; // For joins
 }
 
