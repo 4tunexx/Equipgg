@@ -161,6 +161,17 @@ CREATE TABLE IF NOT EXISTS user_mission_progress (
   UNIQUE(user_id, mission_id)
 );
 
+-- Activity feed table
+CREATE TABLE IF NOT EXISTS activity_feed (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  action VARCHAR(100) NOT NULL,
+  item_id INTEGER REFERENCES items(id) ON DELETE SET NULL,
+  xp INTEGER DEFAULT 0,
+  icon VARCHAR(50),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_achievements_category ON achievements(category);
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
@@ -171,6 +182,8 @@ CREATE INDEX IF NOT EXISTS idx_perks_category ON perks(category);
 CREATE INDEX IF NOT EXISTS idx_user_achievements_user_id ON user_achievements(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_inventory_user_id ON user_inventory(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_mission_progress_user_id ON user_mission_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_feed_user_id ON activity_feed(user_id);
+CREATE INDEX IF NOT EXISTS idx_activity_feed_created_at ON activity_feed(created_at);
 `;
 
 export async function POST(request: NextRequest) {

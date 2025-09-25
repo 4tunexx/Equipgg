@@ -74,34 +74,42 @@ export function HeroSection() {
             
 {/* Mobile Logo ABOVE headline */}
 <div className="lg:hidden flex justify-center mb-8 w-full">
-  <div className="relative w-full flex flex-col items-center justify-center" style={{ minHeight: '120px' }}>
-    {/* Character Logo */}
-    <div className={`relative flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
+  <div className="relative mx-auto" style={{ height: 190, width: 220 }}>
+    {/* Character Logo (bottom layer) */}
+    <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
       isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 -translate-y-full'
-    }`} style={{ zIndex: 2 }}>
+    }`} style={{ zIndex: 1 }}>
+      <div className="translate-y-6">
       <Image 
         src="/1.png" 
         alt="Equip.gg Character Logo" 
-        width={160}
-        height={120}
-        className="w-auto h-auto max-h-24 object-contain mx-auto"
+        width={200}
+        height={150}
+        sizes="(max-width: 640px) 200px, 200px"
+        className="block w-auto h-auto object-contain"
+        style={{ width: 'auto', height: 'auto' }}
         key={`logo1-mobile-${logoKey}`}
         priority
       />
+      </div>
     </div>
-    {/* Text Logo */}
-    <div className={`relative flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
+    {/* Text Logo (top layer) */}
+    <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
       isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 translate-y-full'
-    }`} style={{ zIndex: 1, marginTop: '-16px' }}>
-      <Image 
-        src="/2.png" 
-        alt="Equip.gg Text Layer" 
-        width={140}
-        height={60}
-        className="w-auto h-auto max-h-12 object-contain mx-auto"
-        key={`logo2-mobile-${logoKey}`}
-        priority
-      />
+    }`} style={{ zIndex: 3 }}>
+      <div className="translate-y-10">
+        <Image 
+          src="/2.png" 
+          alt="Equip.gg Text Layer" 
+          width={210}
+          height={95}
+          sizes="(max-width: 640px) 200px, 200px"
+          className="block w-auto h-auto object-contain"
+          style={{ width: 'auto', height: 'auto' }}
+          key={`logo2-mobile-${logoKey}`}
+          priority
+        />
+      </div>
     </div>
   </div>
 </div>
@@ -161,28 +169,34 @@ export function HeroSection() {
               <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
                 isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 transform -translate-y-full'
               }`}>
+                <div className="translate-y-4 translate-x-4">
                 <Image 
                   src="/1.png" 
                   alt="Equip.gg Logo" 
                   width={400}
                   height={300}
-                  className="max-h-56 w-auto object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                  className="w-auto h-auto object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                  style={{ width: 'auto', height: 'auto' }}
                   key={`logo1-desktop-${logoKey}`}
                   priority
                 />
+                </div>
               </div>
               <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
                 isVisible ? 'animate-[slideFromUnderDesktop_1s_ease-out_0.5s_forwards]' : 'opacity-0 transform translate-y-full'
               }`}>
+                <div className="translate-y-8 translate-x-6">
                 <Image 
                   src="/2.png" 
                   alt="Equip.gg Logo Layer" 
                   width={400}
                   height={300}
-                  className="max-h-44 w-auto object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                  className="w-auto h-auto object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                  style={{ width: 'auto', height: 'auto' }}
                   key={`logo2-desktop-${logoKey}`}
                   priority
                 />
+                </div>
               </div>
             </div>
           </div>

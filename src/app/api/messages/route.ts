@@ -21,7 +21,6 @@ export async function GET(request: NextRequest) {
         users (
           id,
           displayname,
-          vip_tier,
           level,
           role
         )
@@ -154,7 +153,6 @@ export async function POST(request: NextRequest) {
         users (
           id,
           displayname,
-          vip_tier,
           level,
           role
         )

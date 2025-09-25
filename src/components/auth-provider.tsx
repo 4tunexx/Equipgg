@@ -576,9 +576,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 role: freshUser.role || 'user',
                 level: freshUser.level || 1,
                 xp: freshUser.xp || 0,
-                provider: 'default',
-                steam_verified: freshUser.steam_verified || false,
-                account_status: freshUser.account_status || 'active'
+                provider: freshUser.isSteamUser ? 'steam' : 'default',
+                steam_verified: freshUser.steamVerified || false,
+                account_status: freshUser.account_status || 'active',
+                steamProfile: freshUser.isSteamUser ? {
+                  avatar: freshUser.avatarUrl || '',
+                  steamId: freshUser.steamId || ''
+                } : undefined
               });
               console.log('User data refreshed successfully');
               return;
@@ -609,7 +613,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           provider: (user.app_metadata?.provider as 'steam' | 'default') || 'default',
           steam_verified: profile?.steam_verified || false,
           account_status: profile?.account_status || 'active',
-          steamProfile: user.user_metadata?.steamProfile
+          steamProfile: profile?.steam_verified || user.user_metadata?.steamProfile ? {
+            avatar: profile?.avatar_url || user.user_metadata?.avatar || '',
+            steamId: profile?.steam_id || user.user_metadata?.steamId || ''
+          } : undefined
         });
       }
     } catch (error) {

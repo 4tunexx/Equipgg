@@ -856,10 +856,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                 {enabled ? (
                   user ? (
                     <div className="flex items-center gap-3">
-                      <Avatar className="size-8">
-                        <AvatarImage src={user?.photoURL || `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(user?.displayName || user?.email || 'User')}`} />
-                        <AvatarFallback>{(user?.displayName || user?.email || 'U').charAt(0).toUpperCase()}</AvatarFallback>
-                      </Avatar>
+                      <UserAvatar user={user} size="sm" />
                       <Button variant="outline" size="sm" onClick={signOutUser}>Sign out</Button>
                     </div>
                   ) : (

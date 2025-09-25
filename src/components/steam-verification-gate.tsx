@@ -61,8 +61,62 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
   // If user needs Steam verification, show the verification gate
   const handleSteamVerification = () => {
     setIsVerifying(true);
-    // Redirect to Steam auth with verification parameter
-    window.location.href = `/api/auth/steam?verify_user=${user?.id}`;
+    
+    // Open Steam auth in a popup window using the new popup endpoint
+    const steamAuthUrl = `/api/auth/steam/popup?verify_user=${user?.id}`;
+    const popup = window.open(
+      steamAuthUrl,
+      'steamAuth',
+      'width=800,height=600,scrollbars=yes,resizable=yes'
+    );
+    
+    if (!popup) {
+      // Fallback to redirect if popup is blocked
+      console.warn('Popup blocked, falling back to redirect');
+      window.location.href = `/api/auth/steam?verify_user=${user?.id}`;
+      return;
+    }
+    
+    // Listen for the popup to close or complete
+    const checkPopup = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopup);
+        setIsVerifying(false);
+        // Refresh user data to check if verification was successful
+        refreshUser();
+      }
+    }, 1000);
+    
+    // Also listen for messages from the popup
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data.type === 'steam_auth_complete') {
+        clearInterval(checkPopup);
+        popup.close();
+        setIsVerifying(false);
+        
+        if (event.data.success) {
+          toast({
+            title: "🎉 Steam Verification Successful!",
+            description: "Your account is now fully activated and ready to use.",
+          });
+          refreshUser();
+        } else {
+          toast({
+            title: "Steam Verification Failed",
+            description: event.data.error || "There was an error linking your Steam account.",
+            variant: "destructive"
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    
+    // Cleanup
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      clearInterval(checkPopup);
+    }, 300000); // 5 minutes timeout
   };
 
   return (

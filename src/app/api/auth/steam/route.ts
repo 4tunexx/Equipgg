@@ -21,7 +21,7 @@ const supabaseAdmin = SUPABASE_SERVICE
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
 
 // Steam OpenID parameters
-function buildSteamAuthUrl(returnUrl: string) {
+export function buildSteamAuthUrl(returnUrl: string) {
   const params = new URLSearchParams({
     'openid.ns': 'http://specs.openid.net/auth/2.0',
     'openid.mode': 'checkid_setup',
@@ -35,7 +35,7 @@ function buildSteamAuthUrl(returnUrl: string) {
 }
 
 // Verify Steam OpenID response
-async function verifySteamResponse(params: URLSearchParams): Promise<string | null> {
+export async function verifySteamResponse(params: URLSearchParams): Promise<string | null> {
   try {
     // Change mode to check_authentication
     const verifyParams = new URLSearchParams(params);
@@ -68,7 +68,7 @@ async function verifySteamResponse(params: URLSearchParams): Promise<string | nu
 }
 
 // Get Steam user info
-async function getSteamUserInfo(steamId: string) {
+export async function getSteamUserInfo(steamId: string) {
   if (!STEAM_API_KEY) {
     console.warn('Steam API key not configured, using fallback profile data');
     return {

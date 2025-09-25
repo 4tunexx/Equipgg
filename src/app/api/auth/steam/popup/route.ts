@@ -1,0 +1,283 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { buildSteamAuthUrl, verifySteamResponse, getSteamUserInfo } from '../route';
+import { supabase } from '@/lib/supabase';
+
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+
+// Handle GET request - initiate Steam auth for popup
+export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  
+  console.log('=== STEAM POPUP AUTH ENDPOINT HIT ===');
+  console.log('URL:', request.url);
+  console.log('Has openid.mode:', searchParams.has('openid.mode'));
+  console.log('openid.mode value:', searchParams.get('openid.mode'));
+  
+  // If this is a callback from Steam (popup completion)
+  if (searchParams.has('openid.mode')) {
+    console.log('=== STEAM POPUP CALLBACK RECEIVED ===');
+    try {
+      const steamId = await verifySteamResponse(searchParams);
+      if (!steamId) {
+        console.error('Steam verification failed');
+        // Return HTML that closes popup and sends error message
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'Steam verification failed'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Steam verification failed. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      
+      console.log('Steam verification successful, Steam ID:', steamId);
+      
+      // Get Steam user info
+      const steamUser = await getSteamUserInfo(steamId);
+      if (!steamUser) {
+        console.error('Failed to get Steam user info');
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'Failed to get Steam user info'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Failed to get Steam user info. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      
+      console.log('Steam user info retrieved:', steamUser);
+      
+      // Get the verify_user parameter from the return URL
+      const returnUrl = searchParams.get('openid.return_to') || '';
+      const verifyUserMatch = returnUrl.match(/verify_user=([^&]+)/);
+      const verifyUserId = verifyUserMatch ? verifyUserMatch[1] : null;
+      
+      console.log('Verify user ID:', verifyUserId);
+      
+      if (!verifyUserId) {
+        console.error('No verify_user parameter found');
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'No user ID provided for verification'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>No user ID provided for verification. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      
+      // Check if Steam ID is already linked to another account
+      const { data: conflictingUsers, error: conflictError } = await supabase
+        .from('users')
+        .select('id, email')
+        .eq('steam_id', steamUser.steamId)
+        .neq('id', verifyUserId)
+        .limit(1);
+        
+      if (conflictError) {
+        console.error('Error checking for Steam ID conflicts:', conflictError);
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'Database error during verification'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Database error during verification. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      
+      if (conflictingUsers && conflictingUsers.length > 0) {
+        console.error('Steam ID already linked to another account:', conflictingUsers[0]);
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'This Steam account is already linked to another EquipGG account'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>This Steam account is already linked to another EquipGG account. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      
+      // Update user with Steam verification
+      const { error: verifyError } = await supabase
+        .from('users')
+        .update({
+          steam_id: steamUser.steamId,
+          steam_verified: true,
+          account_status: 'active',
+          username: steamUser.username,
+          avatar_url: steamUser.avatar,
+          last_login_at: new Date().toISOString()
+        })
+        .eq('id', verifyUserId);
+        
+      if (verifyError) {
+        console.error('Failed to verify Steam for user:', verifyError);
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'Failed to update user account'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Failed to update user account. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      
+      console.log('Successfully verified Steam for user:', verifyUserId);
+      
+      // Return HTML that sends success message and closes popup
+      return new NextResponse(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'steam_auth_complete',
+                success: true,
+                steamId: '${steamUser.steamId}',
+                username: '${steamUser.username}'
+              }, '*');
+            }
+            // Close the popup after a short delay to ensure message is sent
+            setTimeout(() => {
+              window.close();
+            }, 100);
+          </script>
+        </head>
+        <body>
+          <p>Steam verification successful! This window will close automatically...</p>
+        </body>
+        </html>
+      `, {
+        headers: { 'Content-Type': 'text/html' }
+      });
+      
+    } catch (error) {
+      console.error('Steam auth popup callback error:', error);
+      return new NextResponse(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <script>
+            if (window.opener) {
+              window.opener.postMessage({
+                type: 'steam_auth_complete',
+                success: false,
+                error: 'Internal server error'
+              }, '*');
+            }
+            window.close();
+          </script>
+        </head>
+        <body>
+          <p>Internal server error. You can close this window.</p>
+        </body>
+        </html>
+      `, {
+        headers: { 'Content-Type': 'text/html' }
+      });
+    }
+  }
+  
+  // Initiate Steam authentication for popup
+  const url = new URL(request.url);
+  const verifyUserId = url.searchParams.get('verify_user');
+  
+  if (!verifyUserId) {
+    return NextResponse.json({ error: 'No user ID provided' }, { status: 400 });
+  }
+  
+  // Include verify_user parameter in the return URL
+  const returnUrl = `${BASE_URL}/api/auth/steam/popup?verify_user=${verifyUserId}`;
+  const steamAuthUrl = buildSteamAuthUrl(returnUrl);
+  
+  console.log('Redirecting to Steam auth URL:', steamAuthUrl);
+  return NextResponse.redirect(steamAuthUrl);
+}

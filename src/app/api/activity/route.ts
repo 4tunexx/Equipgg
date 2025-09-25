@@ -28,6 +28,17 @@ const CACHE_TTL = 10000; // 10 seconds cache
 
 export async function GET() {
   try {
+    // Add CORS headers to prevent browser issues
+    const headers = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
+
     // Check cache first
     if (activitiesCache && (Date.now() - activitiesCache.timestamp) < CACHE_TTL) {
       return NextResponse.json(activitiesCache.data);
@@ -36,41 +47,60 @@ export async function GET() {
     const supabase = createServerSupabaseClient();
     let activities: any[] = [];
     try {
-      // First try to get the table structure
-      const { data, error } = await supabase
+      console.log('Fetching real activities from Supabase...');
+      // First check if the activity_feed table exists
+      const { data: tableExists, error: tableCheckError } = await supabase
         .from('activity_feed')
-        .select('*')
+        .select('id')
         .limit(1);
 
-      if (error) {
-        console.log('Activity feed table error:', error);
+      if (tableCheckError) {
+        console.error('Activity feed table does not exist or error accessing it:', tableCheckError);
+        console.log('Returning sample activities and attempting to create table...');
+        
+        // Attempt to create the table if it doesn't exist
+        try {
+          const createTableResponse = await fetch('http://localhost:3000/api/admin/database/create-tables', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          });
+          console.log('Create tables response:', createTableResponse.status);
+        } catch (createError) {
+          console.error('Error creating tables:', createError);
+        }
+        
         // Return sample activities if table doesn't exist
         return NextResponse.json(generateSampleActivities());
       }
 
-      // If we get here, try to fetch activities with minimal columns
+      // If we get here, try to fetch activities with all necessary columns
       const { data: activityData, error: activityError } = await supabase
         .from('activity_feed')
         .select(`
-          id,
           user_id,
+          action,
+          description,
+          metadata,
           created_at
         `)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(20);
 
       if (activityError) {
         console.log('Database error fetching activities:', activityError);
+        console.log('Falling back to sample activities due to Supabase error');
         return NextResponse.json(generateSampleActivities());
       }
 
       activities = activityData || [];
+      console.log(`Found ${activities.length} real activities in database`);
       // Only log activity count in development to reduce production log spam
       if (process.env.NODE_ENV === 'development') {
         console.log(`Found ${activities.length} activities in database`);
       }
     } catch (dbError) {
       console.log('Database error fetching activities:', dbError);
+      console.log('Falling back to sample activities due to database error');
       activities = [];
     }
 
@@ -92,37 +122,43 @@ export async function GET() {
       return NextResponse.json(sampleActivities);
     }
 
-    // Transform to expected format with minimal data
-    const formattedActivities: ActivityItem[] = activities.map((activity, index) => ({
-      id: activity.id || `activity_${index}`,
-      type: 'win' as const,
-      message: `User won a game`,
-      amount: 10.50,
-      item: 'Random Item',
-      gameType: 'coinflip',
-      multiplier: 2.0,
-      timestamp: activity.created_at || new Date().toISOString(),
-      user: {
-        username: `User_${activity.user_id?.slice(-8) || Math.random().toString(36).slice(-8)}`,
-        avatar: `https://picsum.photos/32/32?random=${Math.abs((activity.user_id || '').charCodeAt(0) % 100) || Math.floor(Math.random() * 100)}`,
-        role: 'player',
-        xp: 1000,
-        level: 5,
+    // Transform activities to match expected format
+    const transformedActivities = activities.map((activity, index) => ({
+      id: `activity_${index}_${Date.now()}`,
+      type: activity.action,
+      message: activity.description || activity.action.replace('_', ' ').toUpperCase(),
+      amount: activity.metadata?.xp || 0,
+      gameType: activity.metadata?.gameType || 'general',
+      multiplier: activity.metadata?.multiplier || 1,
+      timestamp: activity.created_at,
+      user: activity.users ? {
+        username: activity.users.username || 'Unknown User',
+        avatar: activity.users.avatar_url || '/default-avatar.png',
+        role: activity.users.role || 'user',
+        xp: activity.users.xp || 0,
+        level: activity.users.level || 1,
+        isVip: activity.users.is_vip || false
+      } : {
+        username: 'Unknown User',
+        avatar: '/default-avatar.png',
+        role: 'user',
+        xp: 0,
+        level: 1,
         isVip: false
       }
     }));
 
     // Cache the result
     activitiesCache = {
-      data: formattedActivities,
+      data: transformedActivities,
       timestamp: Date.now()
     };
 
     // Only log in development to reduce production log spam
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Returning ${formattedActivities.length} activities`);
+      console.log(`Returning ${transformedActivities.length} activities`);
     }
-    return NextResponse.json(formattedActivities);
+    return NextResponse.json(transformedActivities);
   } catch (error) {
     console.error('Error fetching activity:', error);
     

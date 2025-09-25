@@ -9,6 +9,7 @@ import { supabase } from "../../../lib/supabase/client";
 import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from "../../../lib/supabase/queries";
 import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
+import { UserAvatar } from "../../../components/user-avatar";
 import { Progress } from "../../../components/ui/progress";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -180,10 +181,7 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="p-6 pt-0">
           <div className="flex items-end gap-4 -mt-12">
-            <Avatar className={cn("w-24 h-24 border-4 border-background ring-2 ring-primary", isVip && "ring-purple-400")}>
-              <AvatarImage src={avatarUrl} data-ai-hint="user avatar" />
-              <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
-            </Avatar>
+            <UserAvatar user={user} size="lg" className={cn("w-24 h-24 border-4 border-background ring-2 ring-primary", isVip && "ring-purple-400")} />
             <div>
               <h1 className={cn("text-2xl font-bold font-headline", isVip && "text-purple-400 animate-pulse", roleColors.text)} style={roleInlineStyle}>{displayName}</h1>
               <p className="text-muted-foreground">{user.provider === 'steam' ? 'Steam User' : 'Registered User'}</p>

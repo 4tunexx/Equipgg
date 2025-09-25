@@ -24,18 +24,27 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
       activityType: data.activityType,
       amount: data.amount
     });
-    await supabase.from('user_activity_feed').insert([
+    
+    // Map activity types to actions for the activity_feed table
+    const actionMap: Record<string, string> = {
+      'game_win': 'won_game',
+      'game_loss': 'lost_game',
+      'crate_open': 'opened_crate',
+      'bet_placed': 'placed_bet',
+      'bet_won': 'won_bet',
+      'trade_up': 'traded_up',
+      'achievement_unlock': 'unlocked_achievement',
+      'level_up': 'leveled_up'
+    };
+    
+    // Use the activity_feed table that the API expects
+    await supabase.from('activity_feed').insert([
       {
         id,
         user_id: data.userId,
-        username: data.username,
-        activity_type: data.activityType,
-        activity_data: data.activityData ? JSON.stringify(data.activityData) : null,
-        amount: data.amount || null,
-        item_name: data.itemName || null,
-        item_rarity: data.itemRarity || null,
-        game_type: data.gameType || null,
-        multiplier: data.multiplier || null,
+        action: actionMap[data.activityType] || data.activityType,
+        xp: data.amount || 0,
+        icon: data.itemRarity || null,
         created_at: timestamp,
       },
     ]);
