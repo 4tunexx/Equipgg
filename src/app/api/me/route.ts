@@ -19,11 +19,28 @@ interface User {
 
 export async function GET(req: NextRequest) {
   try {
+    console.log('=== /api/me DEBUG ===');
+    console.log('Request headers:', req.headers);
+    console.log('Request cookies:', req.cookies.getAll());
+    
+    // Try to get the cookie directly
+    const equipggCookie = req.cookies.get('equipgg_session');
+    console.log('Direct equipgg_session cookie:', equipggCookie);
+    console.log('Direct equipgg_session cookie value:', equipggCookie?.value);
+    
     const session = await getAuthSession(req);
     
+    console.log('Session result:', session);
+    console.log('Session result type:', typeof session);
+    console.log('Session result null check:', session === null);
+    console.log('Session result truthy check:', !!session);
+    
     if (!session) {
+      console.log('No session found, returning null user');
       return NextResponse.json({ user: null });
     }
+    
+    console.log('Session user_id:', session.user_id);
     
     const supabase = createServerSupabaseClient();
     const { data: user, error } = await supabase
