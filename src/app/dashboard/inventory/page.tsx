@@ -20,7 +20,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 import { Separator } from "../../../components/ui/separator";
 
-import { Trash2, DollarSign, Replace, Loader2 } from 'lucide-react';
+import { Trash2, DollarSign, Replace, Loader2, Target, Shield, Sword, Hand, User } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -75,6 +75,7 @@ const SLOTS_PER_PAGE = 20;
 export default function InventoryPage() {
     const { toast } = useToast();
     const { user } = useAuth();
+    const { balance } = useBalance();
     const [localInventory, setLocalInventory] = useState<InventoryItem[]>([]);
     const [equippedItems, setEquippedItems] = useState<Record<string, InventoryItem>>({});
     const [inventoryStats, setInventoryStats] = useState<{totalValue: number; itemCount: number; rarityBreakdown: Record<string, number>} | null>(null);
@@ -91,7 +92,6 @@ export default function InventoryPage() {
     const [touchStartPos, setTouchStartPos] = useState<{ x: number; y: number } | null>(null);
     const [dragOverId, setDragOverId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-    const { balance } = useBalance();
     const dragPreviewRef = useRef<HTMLDivElement>(null);
 
     // Refresh inventory function
@@ -275,7 +275,7 @@ export default function InventoryPage() {
                 })
             });
 
-            const data = await response.json();
+            const data = await response.json() as { price: number; error?: string };
 
             if (response.ok) {
                 toast({
@@ -320,7 +320,7 @@ export default function InventoryPage() {
                 })
             });
 
-            const data = await response.json();
+            const data = await response.json() as { error?: string };
 
             if (response.ok) {
                 toast({
@@ -447,7 +447,7 @@ export default function InventoryPage() {
       if (equipSlot) {
         handleEquip(draggedItem);
       } else if (inventorySlot) {
-        const targetItemId = inventorySlot.getAttribute('data-inventory-slot');
+        const targetItemId = inventorySlot.getAttribute('data-inventory-slot') as string;
         const targetItem = localInventory.find(item => item.id === targetItemId);
         if (targetItem && targetItem.id !== draggedItem.id) {
           // Swap items
@@ -882,8 +882,16 @@ export default function InventoryPage() {
         <div>
           <h2 className="text-2xl font-bold font-headline mb-4">Equipped</h2>
           <div className="space-y-2">
-          {Object.values(equippedSlotsConfig).map((slot: any) => {
+          {Object.values(equippedSlotsConfig).map((slot) => {
             const item = equippedItems[slot.id];
+            const iconMap = {
+              primary: Target,
+              secondary: Shield,
+              knife: Sword,
+              gloves: Hand,
+              agent: User,
+            };
+            const IconComponent = iconMap[slot.id as keyof typeof iconMap];
             return (
               <div
                 key={slot.id}
@@ -906,7 +914,7 @@ export default function InventoryPage() {
                       className="object-contain"
                     />
                   ) : (
-                    <slot.icon className="w-7 h-7 text-muted-foreground" />
+                    IconComponent && <IconComponent className="w-7 h-7 text-muted-foreground" />
                   )}
                 </div>
                 <div className="flex-1">

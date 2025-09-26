@@ -3,34 +3,29 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Card, CardContent, CardHeader } from "./ui/card";
-import { Progress } from "./ui/progress";
 import { cn } from "../lib/utils";
-import type { DBUser, Rarity } from "../lib/supabase/queries";
-import { BadgeCheck, Trophy } from "lucide-react";
-import Image from "next/image";
+import type { Rarity } from "../lib/supabase/queries";
+import { Trophy } from "lucide-react";
 import ItemImage from "./ItemImage";
-// Define utility constants locally
-const rarityGlow: Record<Rarity, string> = {
-  'Common': 'shadow-gray-500/50',
-  'Uncommon': 'shadow-green-500/50',
-  'Rare': 'shadow-blue-500/50',
-  'Epic': 'shadow-purple-500/50',
-  'Legendary': 'shadow-yellow-500/50'
-};
+
 
 type LeaderboardPlayer = {
   id?: string;
   name: string;
+  username?: string;
   avatar?: string;
   role: string;
   dataAiHint: string;
-  xp: number;
+  xp?: number;
   level?: number;
   coins?: number;
 };
 import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
 import { XpDisplay } from "./xp-display";
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
+  
+import { BadgeCheck } from "lucide-react";
+import { rarityGlow } from "../lib/constants";
 
 interface MiniProfileCardProps {
     user: LeaderboardPlayer & { 
@@ -49,7 +44,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
         xp: number;
         level: number;
     } | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState<boolean>(false);
 
     const displayUser = user;
 
@@ -66,7 +61,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                 return;
             }
 
-            const username = displayUser.name || (displayUser as any).username;
+            const username = displayUser.name || displayUser.username;
             if (!username) {
                 setIsLoading(false);
                 return;
@@ -103,7 +98,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
         };
 
         fetchUserStats();
-    }, [displayUser.name, (displayUser as any).username]);
+    }, [displayUser.name, displayUser.username, displayUser.xp, displayUser.level]);
     
     // Prefer userStats over displayUser data, but ensure we never show 0 if we have valid data
     const level = userStats?.level || displayUser.level || 1;
@@ -111,7 +106,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
 
     
     // Safely handle name property
-    const displayName = displayUser.name || (displayUser as any).username || 'Anonymous';
+    const displayName = displayUser.name || displayUser.username || 'Anonymous';
     const userAvatar = displayUser.avatar || 'https://picsum.photos/40/40?random=1';
     
     // Role-based name coloring
