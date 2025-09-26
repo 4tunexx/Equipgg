@@ -71,8 +71,8 @@ export class SecureDatabase {
     return this.allowedColumns.has(column);
   }
 
-  private sanitizeWhereClause(where: Record<string, any>): Record<string, any> {
-    const sanitized: Record<string, any> = {};
+  private sanitizeWhereClause(where: Record<string, unknown>): Record<string, unknown> {
+    const sanitized: Record<string, unknown> = {};
     
     for (const [key, value] of Object.entries(where)) {
       if (this.validateColumnName(key)) {
@@ -89,7 +89,7 @@ export class SecureDatabase {
     return sanitized;
   }
 
-  async findOne<T = any>(table: string, where: Record<string, any>): Promise<T | null> {
+  async findOne<T = Record<string, unknown>>(table: string, where: Record<string, unknown>): Promise<T | null> {
     if (!this.validateTableName(table)) {
       throw new Error(`Invalid table name: ${table}`);
     }
@@ -110,9 +110,9 @@ export class SecureDatabase {
     return data as T | null;
   }
 
-  async findMany<T = any>(
+  async findMany<T = Record<string, unknown>>(
     table: string, 
-    where?: Record<string, any>, 
+    where?: Record<string, unknown>, 
     options?: { limit?: number; offset?: number; orderBy?: string }
   ): Promise<T[]> {
     if (!this.validateTableName(table)) {
@@ -129,7 +129,7 @@ export class SecureDatabase {
     if (options?.orderBy) {
       const [column, direction] = options.orderBy.split(' ');
       if (this.validateColumnName(column) && ['ASC', 'DESC'].includes(direction?.toUpperCase())) {
-        query = query.order(column as any, { ascending: direction.toUpperCase() === 'ASC' });
+        query = query.order(column, { ascending: direction.toUpperCase() === 'ASC' });
       }
     }
 
@@ -151,12 +151,12 @@ export class SecureDatabase {
     return data as T[];
   }
 
-  async create<T = any>(table: string, data: Record<string, any>): Promise<T | null> {
+  async create<T = Record<string, unknown>>(table: string, data: Record<string, unknown>): Promise<T | null> {
     if (!this.validateTableName(table)) {
       throw new Error(`Invalid table name: ${table}`);
     }
 
-    const sanitizedData: Record<string, any> = {};
+    const sanitizedData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       if (this.validateColumnName(key)) {
         if (typeof value === 'string') {
@@ -181,17 +181,17 @@ export class SecureDatabase {
     return result as T | null;
   }
 
-  async update<T = any>(
+  async update<T = Record<string, unknown>>(
     table: string, 
-    where: Record<string, any>, 
-    data: Record<string, any>
+    where: Record<string, unknown>, 
+    data: Record<string, unknown>
   ): Promise<T | null> {
     if (!this.validateTableName(table)) {
       throw new Error(`Invalid table name: ${table}`);
     }
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
-    const sanitizedData: Record<string, any> = {};
+    const sanitizedData: Record<string, unknown> = {};
     
     for (const [key, value] of Object.entries(data)) {
       if (this.validateColumnName(key)) {
@@ -218,7 +218,10 @@ export class SecureDatabase {
     return result as T | null;
   }
 
-  async delete(table: string, where: Record<string, any>): Promise<boolean> {
+  async delete(
+    table: string,
+    where: Record<string, unknown>
+  ): Promise<boolean> {
     if (!this.validateTableName(table)) {
       throw new Error(`Invalid table name: ${table}`);
     }
@@ -239,16 +242,16 @@ export class SecureDatabase {
   }
 
   // Secure raw query execution (only for specific use cases)
-  async executeSecureQuery<T = any>(
+  async executeSecureQuery<T = Record<string, unknown>>(
     functionName: string, 
-    params: any[] = [],
+    params: unknown[] = [],
   ): Promise<T[]> {
     // Basic SQL injection prevention
     if (!/^[a-zA-Z0-9_]+$/.test(functionName)) {
       throw new Error('Invalid function name for RPC.');
     }
 
-    const { data, error } = await this.supabase.rpc(functionName, params);
+    const { data, error } = await this.supabase.rpc(functionName, { params });
     if (error) {
       console.error(`Error in executeSecureQuery for function ${functionName}:`, error);
       return [];

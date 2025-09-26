@@ -8,7 +8,6 @@ const supabase = createClient(
 
 describe('Mission System', () => {
   let userToken: string;
-  let testUserId: string;
   let testMissionId: string;
 
   beforeAll(async () => {
@@ -19,7 +18,6 @@ describe('Mission System', () => {
     });
 
     userToken = authData?.session?.access_token || '';
-    testUserId = authData?.user?.id || '';
 
     // Create test mission
     const { data: missionData } = await supabase
@@ -177,7 +175,7 @@ describe('Mission System', () => {
 
     // Verify missions have been reset
     expect(afterData.missions).not.toEqual(beforeData.missions);
-    afterData.missions.forEach((mission: any) => {
+    afterData.missions.forEach((mission: { progress: number; completed: boolean; claimed: boolean }) => {
       expect(mission.progress).toBe(0);
       expect(mission.completed).toBe(false);
       expect(mission.claimed).toBe(false);

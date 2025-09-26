@@ -54,18 +54,15 @@ export default function ShopPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // Show 12 items per page
   const [shopItems, setShopItems] = useState<DBShopItem[]>([]);
-  const [isLoadingItems, setIsLoadingItems] = useState(true);
   const [categories, setCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSubTab, setActiveSubTab] = useState('all');
-  const [activeTab, setActiveTab] = useState('items');
-  const { user, queries } = useSupabase();
+  const { user } = useSupabase();
   const { balance: userBalance, isLoading } = useBalance();
 
   // Fetch shop items using API endpoint with fallback data
   const fetchShopItems = async () => {
     try {
-      setIsLoadingItems(true);
       const response = await fetch('/api/shop');
       
       if (response.ok) {
@@ -74,7 +71,7 @@ export default function ShopPage() {
         setShopItems(items);
         
         // Extract unique categories
-        const uniqueCategories = [...new Set(items.map((item: any) => item.item?.type ?? 'Unknown'))] as string[];
+        const uniqueCategories = [...new Set(items.map((item: DBShopItem) => item.item?.type ?? 'Unknown'))] as string[];
         setCategories(uniqueCategories);
       } else {
         throw new Error(`API responded with status: ${response.status}`);
@@ -178,7 +175,7 @@ export default function ShopPage() {
       const uniqueCategories = [...new Set(mockShopItems.map(item => item.item?.type ?? 'Unknown'))] as string[];
       setCategories(uniqueCategories);
     } finally {
-      setIsLoadingItems(false);
+      // Loading state handled by isLoading from useBalance
     }
   };
 
@@ -238,37 +235,7 @@ export default function ShopPage() {
     return sortItems(filtered);
   };
   
-  const renderItemGroup = (items: DBShopItem[], title: string) => {
-    const filteredItems = filterItems(items);
-    if (filteredItems.length === 0) {
-      return null;
-    }
-
-    return (
-      <div key={title}>
-        <h2 className="text-2xl font-bold font-headline mb-4 mt-8">{title}</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {filteredItems.map(item => (
-            <ShopItemCard 
-              key={item.id} 
-              item={{
-                ...item,
-                id: item.id,
-                name: item.name,
-                description: item.description || 'No description available',
-                rarity: (item.item?.rarity || 'Common') as any,
-                type: item.item?.type || 'Unknown',
-                image: item.item?.image || '/assets/placeholder.svg',
-                dataAiHint: item.item?.data_ai_hint || '',
-                price: item.price,
-                stock: item.stock
-              }} 
-            />
-          ))}
-        </div>
-      </div>
-    );
-  };
+  // renderItemGroup function removed - using renderPaginatedItems instead
 
   const renderPaginatedItems = () => {
     let filteredItems = shopItems;
@@ -310,7 +277,7 @@ export default function ShopPage() {
             ...shopItem,
             description: shopItem.description ?? 'No description available',
             type: shopItem.item?.type ?? 'Unknown',
-            rarity: (shopItem.item?.rarity ?? 'Common') as any,
+            rarity: (shopItem.item?.rarity ?? 'Common') as Rarity,
             image: shopItem.item?.image ?? '/assets/placeholder.svg',
             dataAiHint: shopItem.item?.data_ai_hint ?? ''
           }} />)}
@@ -393,7 +360,7 @@ export default function ShopPage() {
             ...perk,
             description: perk.description ?? 'No description available',
             type: perk.item?.type ?? 'Unknown',
-            rarity: (perk.item?.rarity ?? 'Common') as any,
+            rarity: (perk.item?.rarity ?? 'Common') as Rarity,
             image: perk.item?.image ?? '/assets/placeholder.svg',
             dataAiHint: perk.item?.data_ai_hint ?? ''
           }} />)}

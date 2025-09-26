@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "./ui/dialog";
 import { useToast } from "../hooks/use-toast";
 import { Settings } from 'lucide-react';
@@ -61,7 +61,7 @@ export function AdminBalanceManager({ userCoins, userGems, onBalanceUpdate }: Ad
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to update balance",

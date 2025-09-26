@@ -36,18 +36,15 @@ export const rarityGlow: Record<Rarity, string> = {
   'Mythic': 'glow-mythic',
 };
 
+export interface EquippedSlotConfig {
+  id: string;
+  name: string;
+}
+
 export const equippedSlotsConfig = {
-  'Pistol': { slot: 'pistol', label: 'Pistol' },
-  'Rifle': { slot: 'rifle', label: 'Rifle' },
-  'SMG': { slot: 'smg', label: 'SMG' },
-  'Heavy': { slot: 'heavy', label: 'Heavy' },
-  'Knife': { slot: 'knife', label: 'Knife' },
-  'Gloves': { slot: 'gloves', label: 'Gloves' },
-  'Agent': { slot: 'agent', label: 'Agent' },
-  'Sticker': { slot: 'sticker', label: 'Sticker' },
-  'Music Kit': { slot: 'music', label: 'Music Kit' },
-  'Graffiti': { slot: 'graffiti', label: 'Graffiti' },
-  'Patch': { slot: 'patch', label: 'Patch' },
-  'Pin': { slot: 'pin', label: 'Pin' },
-  'Other': { slot: 'other', label: 'Other' },
+  primary: { id: 'primary', name: 'Primary Weapon' },
+  secondary: { id: 'secondary', name: 'Secondary Weapon' },
+  knife: { id: 'knife', name: 'Knife' },
+  gloves: { id: 'gloves', name: 'Gloves' },
+  agent: { id: 'agent', name: 'Agent' },
 };

@@ -5,19 +5,21 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Gem, Rocket, Loader2 } from "lucide-react";
+import { Rocket, Loader2 } from "lucide-react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { UserProfileLink } from "../user-profile-link";
 import { useAuth } from "../../hooks/use-auth";
 import { useBalance } from "../../contexts/balance-context";
 import { toast } from 'sonner';
+import { useCallback } from 'react';
 
 interface GameHistoryItem {
     id: string;
     user: {
         id: string;
         name: string;
+        displayName?: string;
         avatar?: string;
         role?: string;
         xp?: number;
@@ -50,7 +52,7 @@ export function CrashGame() {
     const [gameState, setGameState] = useState<GameState>('waiting');
     const [currentMultiplier, setCurrentMultiplier] = useState(1.0);
     const [crashData, setCrashData] = useState<CrashDataPoint[]>([{ time: 0, value: 1.0 }]);
-    const [gameTimer, setGameTimer] = useState(0);
+    const [, setGameTimer] = useState(0);
     const [countdownTimer, setCountdownTimer] = useState(10);
     const [hasBetThisRound, setHasBetThisRound] = useState(false);
     const [cashedOut, setCashedOut] = useState(false);
@@ -165,7 +167,7 @@ export function CrashGame() {
         }
 
         return () => clearInterval(interval);
-    }, [gameState, crashPoint]);
+    }, [gameState, crashPoint, cashedOut, gameProcessed, handleGameCrash, hasBetThisRound]);
 
     // User balance is now handled by the global balance context
 
@@ -175,8 +177,8 @@ export function CrashGame() {
             if (response.ok) {
                 const data = await response.json();
                 // Remove duplicates based on game ID only
-                const uniqueHistory = data.history?.filter((game: any, index: number, self: any[]) => 
-                    index === self.findIndex((g: any) => g.id === game.id)
+                const uniqueHistory = data.history?.filter((game: GameHistoryItem, index: number, self: GameHistoryItem[]) => 
+                    index === self.findIndex((g: GameHistoryItem) => g.id === game.id)
                 ) || [];
                 
                 // Take only the latest 5 unique games
@@ -230,7 +232,7 @@ export function CrashGame() {
         setIsPlaying(false);
     };
 
-    const handleGameCrash = async () => {
+    const handleGameCrash = useCallback(async () => {
         if (!hasBetThisRound || cashedOut || isPlaying || gameProcessed || gameProcessedRef.current) {
             return;
         }
@@ -282,7 +284,7 @@ export function CrashGame() {
         } finally {
             setIsPlaying(false);
         }
-    };
+    }, [hasBetThisRound, cashedOut, isPlaying, gameProcessed, betAmount, crashPoint]);
 
     const handleCashOut = async () => {
         if (!hasBetThisRound || cashedOut || gameState !== 'playing' || isPlaying) {
@@ -349,7 +351,7 @@ export function CrashGame() {
         id: game.id,
         user: { 
             id: game.user.id, 
-            name: game.user.name, 
+            name: game.user.displayName || game.user.name, 
             avatar: game.user.avatar,
             role: game.user.role,
             xp: game.user.xp,

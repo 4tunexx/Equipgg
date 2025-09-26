@@ -25,7 +25,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
   const [balance, setBalance] = useState<UserBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  const fetchBalance = async () => {
+  const fetchBalance = React.useCallback(async () => {
     if (!user) {
       console.log('🔄 No user found, clearing balance');
       setBalance(null);
@@ -46,11 +46,14 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
         const data = await response.json();
         console.log('🔄 Balance data received:', data);
         setBalance({
-          coins: data.coins || 0,
-          gems: data.gems || 0,
-          xp: data.xp || 0,
-          level: data.level || 1
+          coins: data.stats.coins || 0,
+          gems: data.stats.gems || 0,
+          xp: data.stats.xp || 0,
+          level: data.stats.level || 1
         });
+      } else if (response.status === 401) {
+        console.log('🔄 User not authenticated, clearing balance');
+        setBalance(null);
       } else {
         console.error('Failed to fetch balance:', response.status);
       }
@@ -59,9 +62,9 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  const refreshBalance = async () => {
+  const refreshBalance = React.useCallback(async () => {
     console.log('🔄 Refreshing balance...');
     setIsLoading(true);
     try {
@@ -69,7 +72,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Error refreshing balance:', error);
     }
-  };
+  }, [fetchBalance]);
 
   const updateBalance = (updates: Partial<UserBalance>) => {
     setBalance(prev => prev ? { ...prev, ...updates } : null);
@@ -82,7 +85,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     fetchBalance();
-  }, [user]);
+  }, [user, fetchBalance]);
 
   // Listen for balance update events
   useEffect(() => {
@@ -133,7 +136,7 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('gameCompleted', handleGameCompleted);
       window.removeEventListener('inventoryUpdate', handleInventoryUpdate);
     };
-  }, [refreshBalance]);
+  }, [refreshBalance, user]);
 
   return (
     <BalanceContext.Provider value={{

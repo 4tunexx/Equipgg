@@ -1,0 +1,12 @@
+// Test script to check session parsing
+const sessionData = {
+  "user_id": "steam-76561198001993310",
+  "email": "76561198001993310@steam.local",
+  "role": "user",
+  "expires_at": 1735683204000
+};
+
+console.log('Session data:', sessionData);
+console.log('Current time:', Date.now());
+console.log('Session valid:', Date.now() < sessionData.expires_at);
+console.log('User ID:', sessionData.user_id);

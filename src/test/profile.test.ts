@@ -7,7 +7,7 @@ const supabase = createClient(
 );
 
 describe('User Profile System', () => {
-  let testUser: any;
+  let testUser: { id: string; level: number } | null;
   let authToken: string;
 
   beforeAll(async () => {
@@ -61,7 +61,7 @@ describe('User Profile System', () => {
     const data = await response.json();
     expect(data.badges).toBeDefined();
     expect(Array.isArray(data.badges)).toBe(true);
-    data.badges.forEach((badge: any) => {
+    data.badges.forEach((badge: { name: string; image_url: string; description: string }) => {
       expect(badge).toHaveProperty('name');
       expect(badge).toHaveProperty('image_url');
       expect(badge).toHaveProperty('description');

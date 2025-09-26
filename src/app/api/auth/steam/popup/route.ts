@@ -7,6 +7,9 @@ const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 // Handle GET request - initiate Steam auth for popup
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+  const url = new URL(request.url);
+  const verifyUserId = url.searchParams.get('verify_user');
+  const redirectParam = url.searchParams.get('redirect');
   
   console.log('=== STEAM POPUP AUTH ENDPOINT HIT ===');
   console.log('URL:', request.url);
@@ -217,16 +220,23 @@ export async function GET(request: NextRequest) {
         <html>
         <head>
           <script>
+            console.log('Steam verification successful, sending message to parent...');
             if (window.opener) {
+              console.log('Parent window found, sending success message');
               window.opener.postMessage({
                 type: 'steam_auth_complete',
                 success: true,
                 steamId: '${steamUser.steamId}',
-                username: '${steamUser.username}'
+                username: '${steamUser.username}',
+                redirect: '${redirectParam || ''}'
               }, '*');
+              console.log('Message sent, closing popup...');
+            } else {
+              console.log('No parent window found');
             }
             // Close the popup after a short delay to ensure message is sent
             setTimeout(() => {
+              console.log('Closing popup now');
               window.close();
             }, 100);
           </script>
@@ -267,15 +277,15 @@ export async function GET(request: NextRequest) {
   }
   
   // Initiate Steam authentication for popup
-  const url = new URL(request.url);
-  const verifyUserId = url.searchParams.get('verify_user');
-  
+  // Remove duplicate declarations since they're now at the top of the function
   if (!verifyUserId) {
     return NextResponse.json({ error: 'No user ID provided' }, { status: 400 });
   }
   
-  // Include verify_user parameter in the return URL
-  const returnUrl = `${BASE_URL}/api/auth/steam/popup?verify_user=${verifyUserId}`;
+  // Include verify_user parameter in the return URL, and redirect if provided
+  const returnUrl = redirectParam 
+    ? `${BASE_URL}/api/auth/steam/popup?verify_user=${verifyUserId}&redirect=${encodeURIComponent(redirectParam)}`
+    : `${BASE_URL}/api/auth/steam/popup?verify_user=${verifyUserId}`;
   const steamAuthUrl = buildSteamAuthUrl(returnUrl);
   
   console.log('Redirecting to Steam auth URL:', steamAuthUrl);

@@ -21,7 +21,7 @@ export interface Activity {
   user_id: string;
   username: string;
   activity_type: string;
-  activity_data?: Record<string, any> | null;
+  activity_data?: Record<string, unknown> | null;
   amount?: number | null;
   item_name?: string | null;
   item_rarity?: string | null;
@@ -70,7 +70,7 @@ type WhereClause<T> = Partial<T>;
 
 const secureDb = {
   // Execute raw SQL queries
-  async raw<T = any>(sql: string, values?: any[]): Promise<T[]> {
+  async raw<T = Record<string, unknown>>(sql: string, values?: unknown[]): Promise<T[]> {
     try {
       const { data, error } = await supabase.rpc('execute_sql', { sql, values });
 
@@ -85,14 +85,14 @@ const secureDb = {
   },
 
   // Alias for findOne for compatibility
-  async getOne<T = any>(
+  async getOne<T = Record<string, unknown>>(
     table: Table,
     where: WhereClause<T>
   ): Promise<T | null> {
     return this.findOne(table, where);
   },
 
-  async select<T = any>(
+  async select<T = Record<string, unknown>>(
     table: Table,
     options: QueryOptions<T> = {}
   ): Promise<T[]> {
@@ -127,7 +127,7 @@ const secureDb = {
     }
   },
 
-  async insert<T = any>(
+  async insert<T = Record<string, unknown>>(
     table: Table,
     data: Partial<T> | Partial<T>[]
   ): Promise<T[]> {
@@ -147,7 +147,7 @@ const secureDb = {
     }
   },
 
-  async update<T = any>(
+  async update<T = Record<string, unknown>>(
     table: Table,
     where: WhereClause<T>,
     data: Partial<T>
@@ -169,7 +169,7 @@ const secureDb = {
     }
   },
 
-  async upsert<T = any>(
+  async upsert<T = Record<string, unknown>>(
     table: Table,
     data: Partial<T> | Partial<T>[],
     onConflict?: string
@@ -190,7 +190,7 @@ const secureDb = {
     }
   },
 
-  async delete<T = any>(
+  async delete<T = Record<string, unknown>>(
     table: Table,
     where: WhereClause<T>
   ): Promise<T[]> {
@@ -211,7 +211,7 @@ const secureDb = {
     }
   },
 
-  async findOne<T = any>(
+  async findOne<T = Record<string, unknown>>(
     table: Table,
     where: WhereClause<T>
   ): Promise<T | null> {
@@ -237,7 +237,7 @@ const secureDb = {
   },
 
   // Extra utility methods
-  async count<T = any>(
+  async count<T = Record<string, unknown>>(
     table: Table,
     where?: WhereClause<T>
   ): Promise<number> {

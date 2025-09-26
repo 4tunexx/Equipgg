@@ -10,7 +10,7 @@ export interface ActivityLogData {
   itemRarity?: 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythical';
   gameType?: 'crash' | 'coinflip' | 'sweeper' | 'plinko';
   multiplier?: number;
-  activityData?: any;
+  activityData?: unknown;
 }
 
 export async function logActivity(data: ActivityLogData): Promise<void> {
@@ -54,36 +54,60 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
   }
 }
 
-export function formatActivityMessage(activity: any): string {
-  switch (activity.activity_type) {
+export function formatActivityMessage(activity: unknown): string {
+  // Type guard to check if activity has the expected structure
+  if (typeof activity !== 'object' || activity === null) {
+    return 'had some activity';
+  }
+  
+  const act = activity as Record<string, unknown>;
+  
+  switch (act.activity_type as string) {
     case 'game_win':
-      if (activity.multiplier && activity.multiplier > 1) {
+      const amount = act.amount as number | undefined;
+      const multiplier = act.multiplier as number | undefined;
+      const gameType = act.game_type as string | undefined;
+      
+      if (multiplier && multiplier > 1) {
         // Format multiplier to 2 decimal places and remove trailing zeros
-        const formattedMultiplier = parseFloat(activity.multiplier.toFixed(2));
-        return `won ${activity.amount?.toLocaleString?.() || '0'} coins with ${formattedMultiplier}x multiplier on ${activity.game_type}`;
+        const formattedMultiplier = parseFloat(multiplier.toFixed(2));
+        return `won ${amount?.toLocaleString?.() || '0'} coins with ${formattedMultiplier}x multiplier on ${gameType}`;
       }
-      return `won ${activity.amount?.toLocaleString?.() || '0'} coins on ${activity.game_type}`;
+      return `won ${amount?.toLocaleString?.() || '0'} coins on ${gameType}`;
     
     case 'game_loss':
-      return `lost ${activity.amount?.toLocaleString?.() || '0'} coins on ${activity.game_type}`;
+      const lossAmount = act.amount as number | undefined;
+      const lossGameType = act.game_type as string | undefined;
+      return `lost ${lossAmount?.toLocaleString?.() || '0'} coins on ${lossGameType}`;
     
     case 'crate_open':
-      return `opened a crate and received ${activity.item_name} (${activity.item_rarity})`;
+      const itemName = act.item_name as string | undefined;
+      const itemRarity = act.item_rarity as string | undefined;
+      return `opened a crate and received ${itemName} (${itemRarity})`;
     
     case 'bet_placed':
-      return `placed a ${activity.amount?.toLocaleString?.() || '0'} coin bet on ${activity.game_type}`;
+      const betAmount = act.amount as number | undefined;
+      const betGameType = act.game_type as string | undefined;
+      return `placed a ${betAmount?.toLocaleString?.() || '0'} coin bet on ${betGameType}`;
     
     case 'bet_won':
-      return `won ${activity.amount?.toLocaleString?.() || '0'} coins from bet payout`;
+      const wonAmount = act.amount as number | undefined;
+      return `won ${wonAmount?.toLocaleString?.() || '0'} coins from bet payout`;
     
     case 'trade_up':
-      return `traded up to ${activity.item_name} (${activity.item_rarity})`;
+      const tradeItemName = act.item_name as string | undefined;
+      const tradeItemRarity = act.item_rarity as string | undefined;
+      return `traded up to ${tradeItemName} (${tradeItemRarity})`;
     
     case 'achievement_unlock':
-      return `unlocked achievement: ${activity.activity_data?.achievementName || 'Mystery Achievement'}`;
+      const activityData = act.activity_data as Record<string, unknown> | undefined;
+      const achievementName = activityData?.achievementName as string | undefined;
+      return `unlocked achievement: ${achievementName || 'Mystery Achievement'}`;
     
     case 'level_up':
-      return `reached level ${activity.activity_data?.newLevel || 'unknown'}`;
+      const levelData = act.activity_data as Record<string, unknown> | undefined;
+      const newLevel = levelData?.newLevel as string | undefined;
+      return `reached level ${newLevel || 'unknown'}`;
     
     default:
       return 'had some activity';

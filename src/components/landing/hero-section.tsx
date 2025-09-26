@@ -73,47 +73,47 @@ export function HeroSection() {
           <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left order-1 lg:order-1 min-w-0">
             
 {/* Mobile Logo ABOVE headline */}
-<div className="lg:hidden flex justify-center mb-8 w-full">
-  <div className="relative mx-auto" style={{ height: 190, width: 220 }}>
-    {/* Character Logo (bottom layer) */}
-    <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 group cursor-pointer ${
-      isVisible ? 'animate-[dropFromTop_1s_ease-out_forwards]' : 'opacity-0 -translate-y-full'
-    }`} style={{ zIndex: 1 }}>
-      <div className="translate-y-6">
-      <Image 
-        src="/1.png" 
-        alt="Equip.gg Character Logo" 
+<div className="lg:hidden flex justify-center items-center mb-4 w-full">
+  <div className="relative h-40 w-full max-w-[220px] flex justify-center items-center">
+    {/* Character Logo */}
+    <div
+      className={`absolute flex justify-center items-center transition-all duration-1000 ${
+        isVisible
+          ? 'animate-[dropFromTop_1s_ease-out_forwards]'
+          : 'opacity-0 -translate-y-full'
+      }`}
+    >
+      <Image
+        src="/1.png"
+        alt="Equip.gg Character Logo"
         width={200}
         height={150}
-        sizes="(max-width: 640px) 200px, 200px"
-        className="block w-auto h-auto object-contain"
-        style={{ width: 'auto', height: 'auto' }}
+        className="object-contain mx-auto"
         key={`logo1-mobile-${logoKey}`}
         priority
       />
-      </div>
     </div>
-    {/* Text Logo (top layer) */}
-    <div className={`absolute inset-0 flex items-center justify-center transition-all duration-1000 delay-500 group cursor-pointer ${
-      isVisible ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]' : 'opacity-0 translate-y-full'
-    }`} style={{ zIndex: 3 }}>
-      <div className="translate-y-10">
-        <Image 
-          src="/2.png" 
-          alt="Equip.gg Text Layer" 
-          width={210}
-          height={95}
-          sizes="(max-width: 640px) 200px, 200px"
-          className="block w-auto h-auto object-contain"
-          style={{ width: 'auto', height: 'auto' }}
-          key={`logo2-mobile-${logoKey}`}
-          priority
-        />
-      </div>
+
+    {/* Text Logo */}
+    <div
+      className={`absolute flex justify-center items-center transition-all duration-1000 delay-500 ${
+        isVisible
+          ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]'
+          : 'opacity-0 translate-y-full'
+      }`}
+    >
+      <Image
+        src="/2.png"
+        alt="Equip.gg Text Layer"
+        width={210}
+        height={95}
+        className="object-contain mx-auto"
+        key={`logo2-mobile-${logoKey}`}
+        priority
+      />
     </div>
   </div>
 </div>
-
             {/* Headline */}
             <h1 
               className={`text-4xl sm:text-5xl lg:text-5xl xl:text-6xl font-headline font-bold tracking-tighter mb-6 text-shadow-lg transition-all duration-1000 ease-out transform ${

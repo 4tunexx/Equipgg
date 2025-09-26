@@ -1,12 +1,10 @@
 
 'use client';
 
-import Image from 'next/image';
 import ItemImage from "./ItemImage";
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
-import { createSupabaseQueries } from "../lib/supabase/queries";
 import type { Rarity } from "../lib/supabase/queries";
 import { ShopItem } from '../types/shop';
 import { cn } from "../lib/utils";

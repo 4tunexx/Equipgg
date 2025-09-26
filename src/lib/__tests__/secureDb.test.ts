@@ -1,5 +1,3 @@
-import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import secureDb from "../secureDb";
 
 // Mock Supabase client
@@ -29,17 +27,17 @@ describe('secureDb', () => {
 
   it('sanitizes where clauses', async () => {
     await secureDb.select('users', {
-      where: { id: "'; DROP TABLE users; --" } as any,
+      where: { id: "'; DROP TABLE users; --" },
     });
 
-    const supabaseClient = require('@supabase/supabase-js').createClient();
+    const supabaseClient = (await import('@supabase/supabase-js')).createClient();
     expect(supabaseClient.from).toHaveBeenCalledWith('users');
     expect(supabaseClient.from().select().eq).toHaveBeenCalledWith('id', "DROP TABLE users");
   });
 
   it('handles query errors', async () => {
     const mockError = new Error('Database error');
-    const supabaseClient = require('@supabase/supabase-js').createClient();
+    const supabaseClient = (await import('@supabase/supabase-js')).createClient();
     supabaseClient.from().select.mockImplementationOnce(() => ({
       error: mockError,
     }));
@@ -53,11 +51,11 @@ describe('secureDb', () => {
     expect(mockSupabase.from().insert).toHaveBeenCalledWith({ name: 'Test User' });
 
     // Read
-    await secureDb.select('users', { where: { id: '123' } as any });
+    await secureDb.select('users', { where: { id: '123' } });
     expect(mockSupabase.from().select).toHaveBeenCalled();
 
     // Update
-    await secureDb.update('users', { id: '123' } as any, { name: 'Updated User' } as any);
+    await secureDb.update('users', { id: '123' }, { name: 'Updated User' });
     expect(mockSupabase.from().update).toHaveBeenCalledWith({ name: 'Updated User' });
 
     // Delete

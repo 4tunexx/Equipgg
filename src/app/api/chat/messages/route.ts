@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       messages: orderedMessages
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Get chat messages error:', error);
     return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
   }
@@ -157,7 +157,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Send chat message error:', error);
     return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
   }
@@ -224,7 +224,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Message deleted successfully'
     });
 
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('Delete chat message error:', error);
     return NextResponse.json({ error: 'Failed to delete message' }, { status: 500 });
   }

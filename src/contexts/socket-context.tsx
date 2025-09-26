@@ -43,7 +43,7 @@ interface XpGainedData {
 interface InventoryChangedData {
   userId: string;
   action: 'add' | 'remove' | 'equip' | 'unequip';
-  item: any;
+  item: unknown;
 }
 
 interface BalanceUpdatedData {

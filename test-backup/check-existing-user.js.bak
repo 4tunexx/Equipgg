@@ -1,0 +1,64 @@
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+async function checkExistingUser() {
+  const steamId = '76561198001993310';
+  const steamUuid = `steam-${steamId}`;
+  
+  console.log('Checking for existing user with:');
+  console.log('Steam ID:', steamId);
+  console.log('Steam UUID:', steamUuid);
+  
+  try {
+    // Check by steam_id
+    const { data: steamUser, error: steamError } = await supabase
+      .from('users')
+      .select('id, email, username, steam_id, steam_verified')
+      .eq('steam_id', steamId)
+      .single();
+      
+    if (steamUser) {
+      console.log('Found user by steam_id:', steamUser);
+    } else {
+      console.log('No user found by steam_id');
+    }
+    
+    // Check by ID
+    const { data: idUser, error: idError } = await supabase
+      .from('users')
+      .select('id, email, username, steam_id, steam_verified')
+      .eq('id', steamUuid)
+      .single();
+      
+    if (idUser) {
+      console.log('Found user by ID:', idUser);
+    } else {
+      console.log('No user found by ID');
+    }
+    
+    // Check if any user has this email pattern
+    const { data: emailUser, error: emailError } = await supabase
+      .from('users')
+      .select('id, email, username, steam_id, steam_verified')
+      .like('email', `${steamId}@%`)
+      .single();
+      
+    if (emailUser) {
+      console.log('Found user by email pattern:', emailUser);
+    } else {
+      console.log('No user found by email pattern');
+    }
+    
+  } catch (err) {
+    console.error('Error:', err);
+  }
+}
+
+checkExistingUser();

@@ -41,7 +41,15 @@ interface UserStats {
   completedMissions: number;
 }
 
-interface ActivityItem {
+interface Mission {
+  id: string;
+  name: string;
+  description: string;
+  xp_reward: number;
+  completed: boolean;
+}
+
+interface Activity {
   id: string;
   type: 'bet' | 'mission' | 'vote' | 'crate';
   description: string;
@@ -52,14 +60,14 @@ interface ActivityItem {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { balance, isLoading: balanceLoading } = useBalance();
+  const { balance } = useBalance();
+  const [dailyMissions, setDailyMissions] = useState<Mission[]>([]);
   const [dailyStats, setDailyStats] = useState({ dailyCompleted: 0, totalDaily: 0 });
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
-  const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
-  const [dailyMissions, setDailyMissions] = useState<DBMission[]>([]);
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [activities, setActivities] = useState<Activity[]>([]);
 
   useEffect(() => {
     const fetchDailyMissions = async () => {
@@ -159,6 +167,19 @@ export default function DashboardPage() {
                 Here&apos;s your mission briefing for today. Your current rank is <span className='font-bold text-primary'>{getRankByLevel(userStats?.level || user?.level || 1)}</span>.
               </p>
             </div>
+            {/* Add user avatar display */}
+            {user?.photoURL && (
+              <div className="flex items-center gap-3">
+                <img 
+                  src={user.photoURL} 
+                  alt="Profile" 
+                  className="w-12 h-12 rounded-full border-2 border-primary"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
+              </div>
+            )}
           </div>
 
           {/* Optional marketing banner can be toggled later */}

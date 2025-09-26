@@ -164,6 +164,15 @@ export default function ProfilePage() {
   const roleColors = getRoleColors(user.role || 'user');
   const roleInlineStyle = getRoleInlineStyle(user.role || 'user');
 
+  // Fix the UserAvatar props to use the correct field mapping
+  const userAvatarProps = {
+    username: displayName,
+    avatar: user.photoURL,
+    role: user.role,
+    provider: user.provider,
+    steamProfile: user.steamProfile
+  };
+
   const handleCopy = () => {
     navigator.clipboard.writeText(referralCode);
     toast({
@@ -181,7 +190,7 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="p-6 pt-0">
           <div className="flex items-end gap-4 -mt-12">
-            <UserAvatar user={user} size="lg" className={cn("w-24 h-24 border-4 border-background ring-2 ring-primary", isVip && "ring-purple-400")} />
+            <UserAvatar user={userAvatarProps} size="lg" className={cn("w-24 h-24 border-4 border-background ring-2 ring-primary", isVip && "ring-purple-400")} />
             <div>
               <h1 className={cn("text-2xl font-bold font-headline", isVip && "text-purple-400 animate-pulse", roleColors.text)} style={roleInlineStyle}>{displayName}</h1>
               <p className="text-muted-foreground">{user.provider === 'steam' ? 'Steam User' : 'Registered User'}</p>

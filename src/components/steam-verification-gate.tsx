@@ -17,6 +17,8 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
   const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(false);
   const [skip, setSkip] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [checkingVerification, setCheckingVerification] = useState(true);
 
   // Check for skip flag on mount (client only)
   useEffect(() => {
@@ -24,6 +26,28 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
       setSkip(true);
     }
   }, []);
+
+  // Check if user needs Steam verification - fetch fresh data from database
+   useEffect(() => {
+     if (!user) return;
+     (async () => {
+       setCheckingVerification(true);
+       try {
+         const res = await fetch(`/api/steam-verification/check?userId=${user.id}`);
+         if (!res.ok) {
+           throw new Error('Failed to check verification status');
+         }
+         const data = await res.json();
+         setNeedsVerification(data.needsVerification);
+       } catch (error) {
+         console.error('Error checking Steam verification status:', error);
+         // Fallback to local user data if API call fails
+         setNeedsVerification(!user.steam_verified && user.provider !== 'steam');
+       } finally {
+         setCheckingVerification(false);
+       }
+     })();
+   }, [user]);
 
   // Check for verification success from URL params
   useEffect(() => {
@@ -53,11 +77,23 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
     }
   }, [toast, refreshUser]);
 
-  // If user is Steam verified, or provider is steam, or skip is set, show dashboard
-  if (user?.steam_verified || user?.provider === 'steam' || skip) {
+  // If user is Steam verified, or provider is steam, or skip is set, or still checking, show dashboard
+  if (user?.steam_verified || user?.provider === 'steam' || skip || checkingVerification || !needsVerification) {
     return <>{children}</>;
   }
 
+  // Show loading state while checking verification status
+  if (checkingVerification) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Checking verification status...</p>
+        </div>
+      </div>
+    );
+  }
+ 
   // If user needs Steam verification, show the verification gate
   const handleSteamVerification = () => {
     setIsVerifying(true);
@@ -89,18 +125,34 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
     
     // Also listen for messages from the popup
     const handleMessage = (event: MessageEvent) => {
+      console.log('Received message from popup:', event.data);
       if (event.data.type === 'steam_auth_complete') {
+        console.log('Steam auth complete message received:', event.data);
         clearInterval(checkPopup);
-        popup.close();
+        
+        // Close popup immediately
+        if (popup && !popup.closed) {
+          popup.close();
+        }
+        
         setIsVerifying(false);
         
         if (event.data.success) {
+          console.log('Steam verification successful, refreshing user data...');
           toast({
             title: "🎉 Steam Verification Successful!",
             description: "Your account is now fully activated and ready to use.",
           });
-          refreshUser();
+          // Force refresh user data after a short delay to allow DB updates
+          setTimeout(async () => {
+            await refreshUser();
+            // Re-check verification status after refresh
+            setTimeout(() => {
+              window.location.reload();
+            }, 500);
+          }, 1000);
         } else {
+          console.log('Steam verification failed:', event.data.error);
           toast({
             title: "Steam Verification Failed",
             description: event.data.error || "There was an error linking your Steam account.",

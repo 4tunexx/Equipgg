@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui
 import { Textarea } from "../../../components/ui/textarea";
 import { PlusCircle, MessageSquare, Eye } from "lucide-react";
 import { Badge } from "../../../components/ui/badge";
-import { cn } from "../../../lib/utils";
+
 import { toast } from "sonner";
 
 interface Ticket {

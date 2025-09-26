@@ -125,17 +125,16 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (user) {
+    // Load chat data regardless of user authentication
+    fetchMessages();
+    fetchOnlineUsers();
+    // Set up real-time updates (mock for now)
+    const interval = setInterval(() => {
+      // In real implementation, this would be WebSocket updates
       fetchMessages();
-      fetchOnlineUsers();
-      // Set up real-time updates (mock for now)
-      const interval = setInterval(() => {
-        // In real implementation, this would be WebSocket updates
-        fetchMessages();
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [activeChannel, user]);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [activeChannel]);
 
   useEffect(() => {
     scrollToBottom();
@@ -147,82 +146,64 @@ export default function ChatPage() {
 
   const fetchMessages = async () => {
     try {
-      // Mock messages for now
-      const mockMessages: ChatMessage[] = [
-        {
-          id: '1',
-          content: 'Welcome to EquipGG chat! 🎮',
-          senderId: 'system',
-          senderName: 'System',
-          senderRole: 'system',
-          timestamp: new Date(Date.now() - 3600000).toISOString(),
-          channelId: activeChannel,
-          type: 'system'
-        },
-        {
-          id: '2',
-          content: 'Anyone want to trade some skins?',
-          senderId: 'user1',
-          senderName: 'TraderPro',
-          senderRole: 'user',
-          timestamp: new Date(Date.now() - 1800000).toISOString(),
-          channelId: activeChannel,
-          type: 'text'
-        },
-        {
-          id: '3',
-          content: 'Just got a knife from a crate! So hyped! 🔥',
-          senderId: 'user2',
-          senderName: 'LuckyPlayer',
-          senderRole: 'vip',
-          timestamp: new Date(Date.now() - 900000).toISOString(),
-          channelId: activeChannel,
-          type: 'text'
+      // Try to fetch messages with authentication if user is logged in
+      const headers: HeadersInit = {};
+      if (user) {
+        // Add any authentication headers if available
+        headers['Content-Type'] = 'application/json';
+      }
+      
+      const response = await fetch(`/api/chat/messages?channelId=${activeChannel}&limit=50`, {
+        headers,
+        credentials: 'include' // Include cookies for authentication
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages);
+        } else {
+          // Start with empty chat, let API handle fallback
+          setMessages([]);
         }
-      ];
-      setMessages(mockMessages);
+      } else {
+        // Start with empty chat if API fails
+        setMessages([]);
+      }
     } catch (error) {
       console.error('Error fetching messages:', error);
+      // Start with empty chat on error
+      setMessages([]);
     }
   };
 
   const fetchOnlineUsers = async () => {
     try {
-      // Mock online users
-      const mockUsers: ChatUser[] = [
-        {
-          id: 'user1',
-          displayName: 'TraderPro',
-          role: 'user',
-          status: 'online'
-        },
-        {
-          id: 'user2',
-          displayName: 'LuckyPlayer',
-          role: 'vip',
-          status: 'online'
-        },
-        {
-          id: 'user3',
-          displayName: 'ModeratorMax',
-          role: 'moderator',
-          status: 'online'
-        },
-        {
-          id: 'user4',
-          displayName: 'AdminAlice',
-          role: 'admin',
-          status: 'away'
-        }
-      ];
-      setOnlineUsers(mockUsers);
+      const response = await fetch('/api/chat/online-users');
+      if (!response.ok) {
+        throw new Error('Failed to fetch online users');
+      }
+      
+      const data = await response.json();
+      setOnlineUsers(data.users || []);
     } catch (error) {
       console.error('Error fetching online users:', error);
+      // Start with empty online users list on error
+      setOnlineUsers([]);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !user) return;
+    if (!messageInput.trim()) return;
+    
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to send messages",
+        variant: "destructive"
+      });
+      return;
+    }
 
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -236,18 +217,39 @@ export default function ChatPage() {
     };
 
     try {
+      // Optimistically add message to UI
       setMessages(prev => [...prev, newMessage]);
       setMessageInput('');
       
-      // In real implementation, send to server
+      // Try to send to server
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+        body: JSON.stringify({
+          channelId: activeChannel,
+          content: messageInput.trim()
+        })
+      });
+      
+      if (!response.ok) {
+        // If server rejects, remove the optimistic message and show error
+        setMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
+        throw new Error('Failed to send message - authentication required');
+      }
+      
       toast({
-        title: "Info",
-        description: "Chat API is not yet implemented. This is a preview of the chat interface.",
+        title: "Success",
+        description: "Message sent successfully!",
       });
     } catch (error) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
       toast({
         title: "Error",
-        description: "Failed to send message",
+        description: "Failed to send message - please try logging in again",
         variant: "destructive"
       });
     }
@@ -463,36 +465,53 @@ export default function ChatPage() {
 
         {/* Message Input */}
         <div className="border-t bg-card p-4">
-          <div className="flex items-end gap-2">
-            <div className="flex-1 relative">
-              <Input
-                ref={inputRef}
-                placeholder={`Message #${currentChannel?.name}`}
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                className="pr-20"
-                disabled={loading}
-              />
-              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
-                <Button size="icon" variant="ghost" className="h-8 w-8">
-                  <Smile className="w-4 h-4" />
-                </Button>
-                <Button size="icon" variant="ghost" className="h-8 w-8">
-                  <Paperclip className="w-4 h-4" />
+          {!user ? (
+            <div className="text-center py-2">
+              <p className="text-sm text-muted-foreground mb-2">
+                Please log in to send messages
+              </p>
+              <Button 
+                onClick={() => window.location.href = '/auth/login'}
+                size="sm"
+                variant="outline"
+              >
+                Login to Chat
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-end gap-2">
+                <div className="flex-1 relative">
+                  <Input
+                    ref={inputRef}
+                    placeholder={`Message #${currentChannel?.name}`}
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    className="pr-20"
+                    disabled={loading}
+                  />
+                  <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex gap-1">
+                    <Button size="icon" variant="ghost" className="h-8 w-8">
+                      <Smile className="w-4 h-4" />
+                    </Button>
+                    <Button size="icon" variant="ghost" className="h-8 w-8">
+                      <Paperclip className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+                <Button 
+                  onClick={handleSendMessage} 
+                  disabled={!messageInput.trim() || loading}
+                >
+                  <Send className="w-4 h-4" />
                 </Button>
               </div>
-            </div>
-            <Button 
-              onClick={handleSendMessage} 
-              disabled={!messageInput.trim() || loading}
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-          <div className="text-xs text-muted-foreground mt-2">
-            Press Enter to send, Shift+Enter for new line
-          </div>
+              <div className="text-xs text-muted-foreground mt-2">
+                Press Enter to send, Shift+Enter for new line
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>

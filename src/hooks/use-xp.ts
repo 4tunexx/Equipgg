@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { addXP, getUserXPInfo } from "../lib/xp-service";
+// XP service functions can be imported here if needed
 
 interface XPData {
   xp: number;

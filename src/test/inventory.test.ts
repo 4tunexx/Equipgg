@@ -1,11 +1,10 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals';
-import { createClient } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
 describe('Inventory System Tests', () => {
   let authToken: string;
-  let testUser: any;
-  let testItem: any;
+  let testUser: { id: string } | null;
+  let testItem: { id: string } | null;
 
   beforeAll(async () => {
     // Create a test user
@@ -100,7 +99,7 @@ describe('Inventory System Tests', () => {
     
     expect(data.success).toBe(true);
     expect(Array.isArray(data.inventory)).toBe(true);
-    data.inventory.forEach((item: any) => {
+    data.inventory.forEach((item: { equipped: boolean }) => {
       expect(item.equipped).toBe(true);
     });
   });
@@ -117,7 +116,7 @@ describe('Inventory System Tests', () => {
     
     expect(data.success).toBe(true);
     expect(Array.isArray(data.inventory)).toBe(true);
-    data.inventory.forEach((item: any) => {
+    data.inventory.forEach((item: { type: string }) => {
       expect(item.type).toBe('Rifle');
     });
   });

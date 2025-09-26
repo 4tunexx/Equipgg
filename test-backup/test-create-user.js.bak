@@ -1,0 +1,53 @@
+import { createClient } from '@supabase/supabase-js';
+import * as dotenv from 'dotenv';
+
+dotenv.config({ path: '.env.local' });
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+async function testUserCreation() {
+  const steamId = '76561198001993310';
+  const steamUuid = `steam-${steamId}`;
+  const email = `${steamId}@steam.local`;
+  
+  console.log('Testing user creation with:');
+  console.log('ID:', steamUuid);
+  console.log('Email:', email);
+  
+  try {
+    const { data, error } = await supabase
+      .from('users')
+      .insert({
+        id: steamUuid,
+        email: email,
+        username: 'Steam User',
+        avatar_url: 'https://steamcdn-a.akamaihd.net/steamcommunity/public/images/avatars/fe/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb.jpg',
+        role: 'user',
+        coins: 1000,
+        xp: 0,
+        level: 1,
+        steam_id: steamId,
+        steam_verified: true,
+        account_status: 'active',
+        created_at: new Date().toISOString(),
+        last_login_at: new Date().toISOString()
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      console.error('Error creating user:', error);
+      console.error('Error code:', error.code);
+      console.error('Error message:', error.message);
+    } else {
+      console.log('User created successfully:', data);
+    }
+  } catch (err) {
+    console.error('Exception:', err);
+  }
+}
+
+testUserCreation();

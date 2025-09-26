@@ -1,7 +1,6 @@
 
 'use client';
 
-
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { Send } from "lucide-react";
@@ -9,24 +8,20 @@ import { ScrollArea } from "./ui/scroll-area";
 import { UserProfileLink } from "./user-profile-link";
 import { useAuth } from "./auth-provider";
 import { useEffect, useRef, useState } from "react";
-import { getRoleColors } from "../lib/role-colors";
+import { useToast } from "../hooks/use-toast";
+
 
 type LiveChatProps = {
     title: string;
     lobby: string;
 };
 
-// Use static timestamps to prevent hydration mismatches
-const fallbackMessages = [
-    { id: 'fallback-1', user: { rank: 1, name: 'Admin', avatar: 'https://picsum.photos/32/32?random=31', dataAiHint: 'gamer avatar', xp: 100, role: 'admin' }, message: 'Welcome to the chat! 🎉', timestamp: '2024-01-15T12:00:00Z' },
-    { id: 'fallback-2', user: { rank: 2, name: 'Moderator', avatar: 'https://picsum.photos/32/32?random=32', dataAiHint: 'player avatar', xp: 200, role: 'moderator' }, message: 'Good luck have fun!', timestamp: '2024-01-15T12:01:00Z' },
-    { id: 'fallback-3', user: { rank: 3, name: 'User3', avatar: 'https://picsum.photos/32/32?random=33', dataAiHint: 'gaming profile', xp: 300, role: 'user' }, message: 'What a play!', timestamp: '2024-01-15T12:02:00Z' },
-    { id: 'fallback-4', user: { rank: 4, name: 'User4', avatar: 'https://picsum.photos/32/32?random=34', dataAiHint: 'user avatar', xp: 400, role: 'user' }, message: 'I believe in them', timestamp: '2024-01-15T12:03:00Z' },
-    { id: 'fallback-5', user: { rank: 5, name: 'User5', avatar: 'https://picsum.photos/32/32?random=35', dataAiHint: 'esports fan', xp: 500, role: 'user' }, message: 'This is intense!', timestamp: '2024-01-15T12:04:00Z' },
-];
+// No fallback messages - start with empty chat
+const fallbackMessages = [];
 
 export function LiveChat({ title, lobby }: LiveChatProps) {
     const { user } = useAuth();
+    const { toast } = useToast();
     const [input, setInput] = useState('');
     interface ChatMessage {
         id: string;
@@ -50,7 +45,7 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
                 if (response.ok) {
                     const data = await response.json();
                     // Map API response to expected format
-                    const mappedMessages = (data.messages || []).map((msg: any, index: number) => ({
+                    const mappedMessages = (data.messages || []).map((msg: { id: string; rank: number; username: string; avatar: string; role: string; content: string; timestamp: string; level: number }, index: number) => ({
                         id: `api-${msg.id || index}`,
                         user: {
                             rank: Number(msg.rank) || 0,
@@ -65,18 +60,18 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
                     }));
                     setMessages(mappedMessages);
                 } else {
-                    // Fallback to mock messages if API fails
-                    setMessages(fallbackMessages);
+                    // Start with empty chat if API fails
+                    setMessages([]);
                 }
             } catch (error) {
                 console.error('Failed to fetch chat messages:', error);
-                // Fallback to mock messages on error
-                setMessages(fallbackMessages);
+                // Start with empty chat on error
+                setMessages([]);
             }
         };
 
         fetchMessages();
-    }, [title]);
+    }, [title, lobby]);
 
     useEffect(() => {
         if (!scrollRef.current) return;
@@ -135,21 +130,12 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
             }
         } catch (error) {
             console.error('Failed to send message:', error);
-            // Add message locally as fallback
-            const fallbackMsg = {
-                id: `error-${Date.now()}`,
-                user: user ? {
-                    rank: 0,
-                    name: user.displayName || user.email,
-                    avatar: user.photoURL || 'https://picsum.photos/32/32?random=99',
-                    role: user.role || 'user',
-                    dataAiHint: 'user avatar',
-                    xp: 0,
-                } : fallbackMessages[0].user,
-                message: messageContent,
-                timestamp: new Date().toISOString(),
-            };
-            setMessages(prev => [...prev, fallbackMsg]);
+            // Don't add fallback message on error - let user retry
+            toast({
+                title: "Failed to send message",
+                description: "Please try again",
+                variant: "destructive"
+            });
         }
     };
 

@@ -1,9 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Image from 'next/image';
-import ItemImage from "../ItemImage";
 import { Card, CardContent } from "../ui/card";
+import ItemImage from "../ItemImage";
 interface FeaturedItem {
   id: string;
   name: string;

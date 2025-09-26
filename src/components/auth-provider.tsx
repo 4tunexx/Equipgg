@@ -3,21 +3,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 import { supabase } from "../lib/supabase";
 import { useToast } from "../hooks/use-toast";
-import type { Session, User } from '@supabase/supabase-js';
+import type { Session } from '@supabase/supabase-js';
 
-interface ApiUser {
-  id: string;
-  email: string;
-  displayName?: string;
-  avatarUrl?: string;
-  role?: string;
-  provider?: 'steam' | 'default';
-  steamProfile?: {
-    steamId?: string;
-    avatar?: string;
-    profileUrl?: string;
-  };
-}
+
 
 export type LocalUser = {
   id: string;
@@ -42,8 +30,8 @@ export type AuthContextValue = {
   session: Session | null;
   loading: boolean;
   enabled: boolean;
-  signIn: (email: string, password: string) => Promise<any>;
-  signUp: (email: string, password: string, displayName?: string) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<{ session: Session; user: LocalUser }>;
+  signUp: (email: string, password: string, displayName?: string) => Promise<{ session?: Session; user?: LocalUser; emailVerificationRequired?: boolean }>;
   signOutUser: () => Promise<void>;
   refreshUser: () => Promise<void>;
 };
@@ -59,22 +47,7 @@ export const AuthContext = createContext<AuthContextValue>({
   async refreshUser() {},
 });
 
-async function api<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, {
-    method: 'GET',
-    credentials: 'include',
-    headers: { 
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    },
-    ...init,
-  });
-  if (!res.ok) {
-    const errorData = await res.json().catch(() => ({}));
-    throw new Error(errorData?.error || res.statusText);
-  }
-  return res.json();
-}
+
 
 function getCookie(name: string): string | null {
   const value = `; ${document.cookie}`;
@@ -89,100 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-    const checkMainSessionCookie = async () => {
-    try {
-      console.log('Checking main session cookie via API call');
-      const response = await fetch('/api/me', {
-        method: 'GET',
-        credentials: 'include', // Important: include cookies
-        headers: {
-          'Accept': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        console.log('Main session cookie is valid, user data:', userData);
-        
-        // Set user directly without going through loadSteamUser
-        setUser({
-          id: userData.user_id || userData.id,
-          email: userData.email,
-          displayName: userData.displayName || userData.displayname,
-          photoURL: userData.avatarUrl || userData.avatar_url,
-          role: userData.role,
-          provider: 'steam',
-          steamProfile: userData.steamProfile
-        });
-        setLoading(false);
-      } else {
-        console.log('Main session cookie check failed:', response.status);
-        setLoading(false);
-      }
-    } catch (error) {
-      console.log('Error checking main session cookie:', error);
-      setLoading(false);
-    }
-  };
 
-  const loadSteamUser = async (userId: string, email: string) => {
-    try {
-      console.log('Loading Steam user:', userId);
-      
-      // Get user data from our database
-      const { data: userData, error } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', userId)
-        .single();
-        
-      if (error || !userData) {
-        console.error('Failed to load Steam user:', error);
-        return;
-      }
 
-      // Create a mock session for Steam users
-      const mockSession = {
-        access_token: `steam-${userId}`,
-        refresh_token: `steam-refresh-${userId}`,
-        expires_in: 60 * 60 * 24 * 7,
-        expires_at: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 7),
-        token_type: 'bearer',
-        user: {
-          id: userId,
-          email: email,
-          email_confirmed_at: new Date().toISOString(),
-          app_metadata: { provider: 'steam' },
-          user_metadata: { 
-            displayName: userData.displayname,
-            provider: 'steam'
-          }
-        }
-      } as any;
 
-      const localUser: LocalUser = {
-        id: userData.id,
-        email: userData.email,
-        displayName: userData.displayname,
-        photoURL: userData.avatar_url,
-        role: userData.role,
-        level: userData.level,
-        xp: userData.xp,
-        provider: 'steam',
-        steam_verified: userData.steam_verified || true,
-        account_status: userData.account_status || 'active'
-      };
-
-      setSession(mockSession);
-      setUser(localUser);
-      setLoading(false);
-      
-      console.log('Steam user loaded successfully');
-    } catch (error) {
-      console.error('Error loading Steam user:', error);
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     // Set up auth state change listener
@@ -197,21 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         
         if (steamUserId && steamUserEmail) {
           console.log('DEVELOPMENT MODE: Auto-login with Steam cookies');
-          setUser({
-            id: steamUserId,
-            email: decodeURIComponent(steamUserEmail),
-            displayName: steamUserId.replace('steam-', ''),
-            photoURL: null,
-            role: 'user',
-            provider: 'steam',
-            steamProfile: {
-              steamId: steamUserId.replace('steam-', ''),
-              avatar: null,
-              profileUrl: null
-            }
-          });
-          setLoading(false);
-          return;
+          // For now, just skip the development override to prevent hardcoded data issues
+          console.log('Skipping development override to prevent hardcoded Steam ID issues');
+          // Continue to normal authentication flow instead of using cookie data
         }
       }
 
@@ -226,7 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: session.user.id,
           email: session.user.email || '',
-          displayName: profile?.displayname || session.user.user_metadata?.displayName,
+          displayName: profile?.displayname || session.user.user_metadata?.displayName || session.user.user_metadata?.displayname,
           photoURL: profile?.avatar_url || session.user.user_metadata?.avatar,
           role: profile?.role || 'user',
           level: profile?.level || 1,
@@ -244,7 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     // Initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       
       // If we have a Supabase session, use it (prioritize regular auth over Steam)
@@ -264,13 +134,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (equipggSessionCookie) {
         try {
           // Handle double URL encoding by decoding twice if needed
-          let cookieValue = equipggSessionCookie;
+          const cookieValue = equipggSessionCookie;
           let sessionData = null;
           
           try {
             // Try single decode first
             sessionData = JSON.parse(decodeURIComponent(cookieValue));
-          } catch (firstError) {
+          } catch {
             console.log('Single decode failed, trying double decode');
             // If single decode fails, try double decode
             sessionData = JSON.parse(decodeURIComponent(decodeURIComponent(cookieValue)));
@@ -286,14 +156,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: sessionData.user_id,
               email: sessionData.email,
-              displayName: sessionData.displayName || sessionData.email.split('@')[0],
-              photoURL: null,
+              displayName: sessionData.displayName || sessionData.displayname || sessionData.email.split('@')[0],
+              photoURL: sessionData.avatarUrl || null,
               role: sessionData.role || 'user',
-              provider: 'default',
-              level: 1,
-              xp: 0,
-              steam_verified: false,
-              account_status: 'active'
+              provider: sessionData.provider || 'default',
+              level: sessionData.level || 1,
+              xp: sessionData.xp || 0,
+              steam_verified: sessionData.steamVerified || false,
+              account_status: 'active',
+              steamProfile: sessionData.steamProfile || undefined
             });
             setLoading(false);
             return;
@@ -302,8 +173,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
             document.cookie = 'equipgg_session=; Max-Age=0; path=/';
           }
-        } catch (parseError) {
-          console.log('Failed to parse equipgg_session_client cookie:', parseError);
+        } catch {
+          console.log('Failed to parse equipgg_session_client cookie');
           document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
           document.cookie = 'equipgg_session=; Max-Age=0; path=/';
         }
@@ -326,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: sessionData.user_id,
               email: sessionData.email,
-              displayName: sessionData.displayName || sessionData.email.split('@')[0],
+              displayName: sessionData.displayName || sessionData.displayname || sessionData.email.split('@')[0],
               photoURL: null,
               role: sessionData.role || 'user',
               provider: 'default',
@@ -342,8 +213,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
             document.cookie = 'equipgg_session=; Max-Age=0; path=/';
           }
-        } catch (parseError) {
-          console.log('Failed to parse main session cookie:', parseError);
+        } catch {
+          console.log('Failed to parse main session cookie');
           document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
           document.cookie = 'equipgg_session=; Max-Age=0; path=/';
         }
@@ -355,10 +226,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const steamSession = getCookie('equipgg_steam_session');
       const steamEmail = getCookie('equipgg_steam_email');
       
+      console.log('Checking for Steam cookies:');
+      console.log('- steamSession:', steamSession);
+      console.log('- steamEmail:', steamEmail);
+      
       if (steamSession && steamEmail) {
-        console.log('Found legacy Steam session, loading user data');
-        // Load user data from the database using the Steam session
-        loadSteamUser(steamSession, steamEmail);
+        console.log('Found legacy Steam session, loading user data from database');
+        
+        // Try to load actual user data from database instead of using Steam ID as display name
+        const steamUserId = steamSession.replace('steam-', '');
+        console.log('Steam User ID:', steamUserId);
+        
+        // Fetch user data from database
+        try {
+          const { data: userData, error } = await supabase.from('users').select('*').eq('id', steamSession).single();
+          
+          if (userData && !error) {
+            console.log('Found user in database, using actual user data');
+            setUser({
+              id: userData.id,
+              email: userData.email,
+              displayName: userData.display_name || userData.email.split('@')[0],
+              photoURL: userData.avatar_url || null,
+              role: userData.role || 'user',
+              level: userData.level || 1,
+              xp: userData.xp || 0,
+              provider: userData.provider || 'steam',
+              steam_verified: userData.steam_verified || false,
+              account_status: userData.account_status || 'active',
+              steamProfile: userData.steam_profile || {
+                steamId: steamUserId,
+                avatar: userData.avatar_url || null,
+                profileUrl: null
+              }
+            });
+          } else {
+            console.log('User not found in database, falling back to Steam ID as display name');
+            // Fallback to Steam ID as display name
+            setUser({
+              id: steamSession,
+              email: decodeURIComponent(steamEmail),
+              displayName: steamUserId, // Use Steam ID as display name
+              photoURL: null,
+              role: 'user',
+              level: 1,
+              xp: 0,
+              provider: 'steam',
+              steam_verified: false,
+              account_status: 'active',
+              steamProfile: {
+                steamId: steamUserId,
+                avatar: null,
+                profileUrl: null
+              }
+            });
+          }
+          setLoading(false);
+        } catch {
+          console.error('Error loading user from database');
+          // Fallback to Steam ID as display name on error
+          setUser({
+            id: steamSession,
+            email: decodeURIComponent(steamEmail),
+            displayName: steamUserId,
+            photoURL: null,
+            role: 'user',
+            level: 1,
+            xp: 0,
+            provider: 'steam',
+            steam_verified: false,
+            account_status: 'active',
+            steamProfile: {
+              steamId: steamUserId,
+              avatar: null,
+              profileUrl: null
+            }
+          });
+          setLoading(false);
+        }
+        
         return;
       }
       
@@ -371,8 +317,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log('No valid session found, redirecting to sign-in');
         window.location.href = `/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`;
       }
-    }).catch((error) => {
-      console.error('Error checking session:', error);
+    }).catch(() => {
+      console.error('Error checking session');
       setLoading(false);
     });
 
@@ -492,10 +438,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         throw new Error('Registration failed - no session returned');
       }
-    } catch (error) {
-      console.error('Auth provider sign up error:', error);
+    } catch {
+      console.error('Auth provider sign up error');
       setLoading(false);
-      throw error;
+      throw new Error('Sign up failed');
     }
   }, []);
 
@@ -542,8 +488,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Force redirect to landing page
       console.log('Redirecting to home page...');
       window.location.href = '/';
-    } catch (error) {
-      console.error('Sign out error:', error);
+    } catch {
+      console.error('Sign out error');
       toast({
         title: 'Logout Error',
         description: 'There was an issue logging out. Please try again.',
@@ -562,7 +508,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (equipggMatch) {
         try {
-          const sessionData = JSON.parse(decodeURIComponent(equipggMatch[1]));
+          JSON.parse(decodeURIComponent(equipggMatch[1]));
           // Fetch fresh user data from database
           const response = await fetch('/api/me', { credentials: 'include' });
           if (response.ok) {
@@ -571,7 +517,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser({
                 id: freshUser.id,
                 email: freshUser.email || '',
-                displayName: freshUser.displayName || '',
+                displayName: freshUser.displayName || freshUser.displayname || '',
                 photoURL: freshUser.avatarUrl || '',
                 role: freshUser.role || 'user',
                 level: freshUser.level || 1,
@@ -588,7 +534,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               return;
             }
           }
-        } catch (parseError) {
+        } catch {
           console.log('Failed to parse session cookie');
         }
       }
@@ -605,7 +551,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: user.id,
           email: user.email || '',
-          displayName: profile?.displayname || user.user_metadata?.displayName,
+          displayName: profile?.displayname || user.user_metadata?.displayName || user.user_metadata?.displayname,
           photoURL: profile?.avatar_url || user.user_metadata?.avatar,
           role: profile?.role || 'user',
           level: profile?.level || 1,
@@ -619,8 +565,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } : undefined
         });
       }
-    } catch (error) {
-      console.error('Failed to refresh user:', error);
+    } catch {
+      console.error('Failed to refresh user');
     }
   }, []);
 

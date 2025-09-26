@@ -5,17 +5,21 @@ import Image from 'next/image';
 import { cn } from "../lib/utils";
 import { getRoleColors } from "../lib/role-colors";
 
-interface UserAvatarProps {
-  user: {
-    username?: string;
-    name?: string;
+interface User {
+  username?: string;
+  name?: string;
+  displayName?: string;
+  displayname?: string;
+  avatar?: string;
+  role?: string;
+  provider?: 'steam' | 'default';
+  steamProfile?: {
     avatar?: string;
-    role?: string;
-    provider?: 'steam' | 'default';
-    steamProfile?: {
-      avatar?: string;
-    };
   };
+}
+
+interface UserAvatarProps {
+  user: User;
   size?: 'sm' | 'md' | 'lg' | 'xl';
   className?: string;
   showOnlineStatus?: boolean;
@@ -46,9 +50,9 @@ export function UserAvatar({
     return user.avatar;
   };
   
-  // Get initials from username or name
+  // Get initials from displayName, name, or username
   const getInitials = () => {
-    const displayName = user.name || user.username || 'U';
+    const displayName = user.displayname || user.displayName || user.name || user.username || 'U';
     return displayName
       .split(' ')
       .map(word => word.charAt(0))
@@ -57,9 +61,9 @@ export function UserAvatar({
       .slice(0, 2);
   };
   
-  // Generate background color based on username
+  // Generate background color based on username or displayName
   const getBackgroundColor = () => {
-    const name = user.username || user.name || 'default';
+    const name = user.displayName || user.username || user.name || 'default';
     const colors = [
       'bg-red-500',
       'bg-blue-500',
@@ -95,7 +99,7 @@ export function UserAvatar({
       {shouldShowImage ? (
         <Image
           src={avatarUrl}
-          alt={`${user.username || user.name || 'User'}'s avatar`}
+          alt={`${user.displayName || user.username || user.name || 'User'}'s avatar`}
           fill
           className="object-cover"
           onError={() => setImageError(true)}

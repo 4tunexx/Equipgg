@@ -35,13 +35,11 @@ export function TutorialOverlay({
   onComplete,
   onSkip,
   onStepChange,
-  highlightStep,
 }: {
   open: boolean;
   onComplete: () => void;
   onSkip: () => void;
   onStepChange?: (step: number) => void;
-  highlightStep?: number | null;
 }) {
   const [step, setStep] = useState(0);
 

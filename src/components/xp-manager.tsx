@@ -33,7 +33,7 @@ export function XPManager({
     const interval = setInterval(() => {
       // Only refresh if not currently loading
       if (!isLoading) {
-        // You could add a refresh function here if needed
+        // Refresh functionality can be added here if needed
       }
     }, 30000);
 
@@ -76,7 +76,7 @@ export function XPManager({
 // Utility functions for awarding XP from anywhere in the app
 export const XPUtils = {
   // Award XP for login
-  async awardLoginXP(userId: string) {
+  async awardLoginXP() {
     const response = await fetch('/api/xp/award', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -102,7 +102,7 @@ export const XPUtils = {
   },
 
   // Award XP for bet placement
-  async awardBetXP(userId: string, betAmount: number) {
+  async awardBetXP() {
     const response = await fetch('/api/xp/award', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

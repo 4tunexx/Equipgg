@@ -23,10 +23,19 @@ export default function Home() {
       try {
         const res = await fetch('/api/me', { credentials: 'include' });
         if (res.ok) {
-          const data = await res.json();
+          const responseText = await res.text();
+          let data;
+          try {
+            data = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('Failed to parse /api/me response:', parseError, responseText);
+            return;
+          }
           if (data?.user) router.replace('/dashboard');
         }
-      } catch {}
+      } catch (error) {
+        console.error('Error checking user session:', error);
+      }
     }, 100);
     
     return () => clearTimeout(timer);

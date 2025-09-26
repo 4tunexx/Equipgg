@@ -206,11 +206,61 @@ function SignInForm() {
 
   const handleSteamLogin = () => {
     console.log('Starting Steam authentication...');
-    // Redirect to Steam auth with the current redirect parameter
-    const steamUrl = redirectTo !== '/dashboard' 
-      ? `/api/auth/steam?redirect=${encodeURIComponent(redirectTo)}`
-      : '/api/auth/steam';
-    window.location.href = steamUrl;
+    
+    // Open Steam auth in a popup window
+    const steamAuthUrl = redirectTo !== '/dashboard' 
+      ? `/api/auth/steam/popup?redirect=${encodeURIComponent(redirectTo)}`
+      : '/api/auth/steam/popup';
+    
+    const popup = window.open(
+      steamAuthUrl,
+      'steamAuth',
+      'width=800,height=600,scrollbars=yes,resizable=yes'
+    );
+    
+    if (!popup) {
+      // Fallback to redirect if popup is blocked
+      console.warn('Popup blocked, falling back to redirect');
+      const steamUrl = redirectTo !== '/dashboard' 
+        ? `/api/auth/steam?redirect=${encodeURIComponent(redirectTo)}`
+        : '/api/auth/steam';
+      window.location.href = steamUrl;
+      return;
+    }
+    
+    // Listen for messages from the popup
+    const handleMessage = (event: MessageEvent) => {
+      console.log('Received message from popup:', event.data);
+      if (event.data.type === 'steam_auth_complete') {
+        console.log('Steam auth complete message received:', event.data);
+        
+        if (event.data.success) {
+          console.log('Steam authentication successful, redirecting to:', event.data.redirect || redirectTo);
+          // Redirect to the intended page (use redirect from popup if available)
+          window.location.href = event.data.redirect || redirectTo;
+        } else {
+          console.log('Steam authentication failed:', event.data.error);
+          alert(`Steam authentication failed: ${event.data.error || 'Unknown error'}`);
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    
+    // Also check if popup closes
+    const checkPopup = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(checkPopup);
+        window.removeEventListener('message', handleMessage);
+        console.log('Steam popup closed');
+      }
+    }, 1000);
+    
+    // Cleanup after 5 minutes
+    setTimeout(() => {
+      window.removeEventListener('message', handleMessage);
+      clearInterval(checkPopup);
+    }, 300000);
   };
   
   return (

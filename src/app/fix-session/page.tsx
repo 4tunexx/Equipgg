@@ -16,7 +16,7 @@ export default function FixSessionPage() {
         const response = await fetch('/api/fix-session');
         const result = await response.json();
         setCurrentToken(result.currentToken || 'No session cookie found');
-      } catch (error) {
+      } catch {
         setCurrentToken('Error loading current token');
       }
     };
@@ -104,7 +104,7 @@ export default function FixSessionPage() {
           <div className="bg-gray-800 p-6 rounded-lg">
             <h3 className="text-xl font-semibold mb-3">After fixing:</h3>
             <ol className="list-decimal list-inside space-y-2 text-gray-300">
-              <li>Click the "Fix Session Cookie" button above</li>
+              <li>Click the &quot;Fix Session Cookie&quot; button above</li>
               <li>Wait for the success message</li>
               <li>You'll be automatically redirected to the dashboard</li>
               <li>Your balance should show: <strong className="text-green-400">3,961 coins, 100 gems, 533 XP</strong></li>

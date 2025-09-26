@@ -77,30 +77,18 @@ export default function ForumPage() {
         search: searchTerm
       });
       
-      // For now, use fallback data until API is implemented
-      setPosts([
-        {
-          id: '1',
-          title: 'Welcome to the Community Forum!',
-          content: 'This is the first post in our community forum. Feel free to discuss anything related to CS2 and gaming!',
-          author: {
-            id: 'admin',
-            displayName: 'Admin',
-            avatarUrl: '',
-            role: 'admin',
-            xp: 10000,
-            level: 50
-          },
-          category: 'general',
-          views: 150,
-          replies: 5,
-          likes: 12,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isPinned: true,
-          isLocked: false
-        }
-      ]);
+      const response = await fetch(`/api/forum/posts?${queryParams}`, {
+        credentials: 'include'
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPosts(data.posts || []);
+      } else {
+        console.error('Failed to fetch posts:', response.status);
+        // Fallback to empty array if API fails
+        setPosts([]);
+      }
       setLoading(false);
     } catch (error) {
       console.error('Error fetching posts:', error);

@@ -23,7 +23,6 @@ type Match = {
   tournament?: string;
 };
 import { ChevronDown, Gamepad2, Gem, MapPin, Users, Clock, PlayCircle, Edit } from 'lucide-react';
-import Image from 'next/image';
 import { Progress } from "./ui/progress";
 import { useToast } from "../hooks/use-toast";
 import { AspectRatio } from './ui/aspect-ratio';
@@ -162,7 +161,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
       if (response.ok) {
         // Show unlocked achievements if any
         if (data.unlockedAchievements && data.unlockedAchievements.length > 0) {
-          data.unlockedAchievements.forEach((achievement: any) => {
+          data.unlockedAchievements.forEach((achievement: { title: string; description: string; xpReward: number }) => {
             toast({
               title: 'Achievement Unlocked!',
               description: `${achievement.title}: ${achievement.description} (+${achievement.xpReward} XP)`,
@@ -369,9 +368,9 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
             <div className="p-4 pt-2 space-y-6">
                  {/* Live Stream Player */}
                 <div>
-                    {(match as any).stream_url ? (
+                    {'stream_url' in match && (match as Match & { stream_url?: string }).stream_url ? (
                         <StreamingPlayer 
-                            streamUrl={(match as any).stream_url}
+                            streamUrl={(match as Match & { stream_url?: string }).stream_url!}
                             matchTitle={`${match.team1.name} vs ${match.team2.name}`}
                             className="w-full"
                         />

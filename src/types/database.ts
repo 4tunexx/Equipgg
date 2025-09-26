@@ -14,7 +14,7 @@ export interface User extends BaseModel {
   coins: number;
   gems: number;
   steamId?: string;
-  steamProfile?: Record<string, any>;
+  steamProfile?: Record<string, unknown>;
   provider?: string;
   avatar_url?: string;
   banned?: boolean;
@@ -26,7 +26,7 @@ export interface Activity extends BaseModel {
   user_id: string;
   username: string;
   activity_type: ActivityType;
-  activity_data?: Record<string, any> | null;
+  activity_data?: Record<string, unknown> | null;
   amount?: number | null;
   item_name?: string | null;
   item_rarity?: ItemRarity | null;

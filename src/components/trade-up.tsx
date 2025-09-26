@@ -5,10 +5,9 @@ import { useState } from 'react';
 import { Button } from "./ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { ArrowRight, Bot, Loader2, Sparkles, XCircle } from 'lucide-react';
-import { InventoryItem, InventoryItemType, Rarity, rarityColors, rarityGlow } from "../lib/types";
+import { InventoryItem, Rarity, rarityColors, rarityGlow } from "../lib/types";
 import { cn } from "../lib/utils";
 import { useToast } from "../hooks/use-toast";
-import Image from 'next/image';
 import ItemImage from "./ItemImage";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { ScrollArea } from "./ui/scroll-area";
@@ -28,13 +27,6 @@ interface TradeUpProps {
 }
 
 const allRarities: Rarity[] = ['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'];
-const rarityTiers = {
-    'Common': 0,
-    'Uncommon': 1,
-    'Rare': 2,
-    'Epic': 3,
-    'Legendary': 4
-};
 
 const renderInventoryGrid = (items: InventoryItem[], onSelect: (item: InventoryItem) => void, selectedIds: Set<string>) => (
     <ScrollArea className="flex-grow bg-card/50 rounded-lg p-4 border border-white/10 h-[600px]">

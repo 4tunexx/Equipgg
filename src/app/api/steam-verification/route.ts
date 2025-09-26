@@ -34,9 +34,13 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error checking Steam verification:', error);
+    // Fallback response on error
     return NextResponse.json({ 
-      error: "Failed to check verification status" 
-    }, { status: 500 });
+      steam_verified: false,
+      has_steam_id: false,
+      account_status: 'active',
+      fallback: true
+    });
   }
 }
 

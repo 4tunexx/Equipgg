@@ -28,7 +28,7 @@ type LeaderboardPlayer = {
     equippedItem?: { 
         name: string; 
         image: string; 
-        rarity: any; 
+        rarity: string; 
         dataAiHint: string; 
     };
 };
@@ -41,7 +41,7 @@ interface UserProfileLinkProps {
         role?: string;
         xp?: number;
         achievement?: { title: string, icon: React.ComponentType<React.SVGProps<SVGSVGElement>> };
-        equippedItem?: { name: string, image: string, rarity: any, dataAiHint: string };
+        equippedItem?: { name: string, image: string, rarity: string, dataAiHint: string };
     };
     avatarOnly?: boolean;
     hideAvatar?: boolean;
@@ -52,9 +52,9 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
     const isMobile = useIsMobile();
     const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
     
-    // Handle both 'name' and 'username' properties safely
-    const displayName = user.name || (user as any).username || 'Anonymous';
-    const userAvatar = user.avatar && user.avatar !== 'null' ? user.avatar : 'https://picsum.photos/40/40?random=1';
+    // Handle 'displayName', 'name', and 'username' properties safely
+    const displayName = user.name || user.username || 'Anonymous';
+    const userAvatar = user.avatar || 'https://picsum.photos/40/40?random=1';
     
     // Role-based name coloring
     const roleColors = getRoleColors(user.role || 'user');

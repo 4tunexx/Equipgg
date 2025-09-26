@@ -50,7 +50,7 @@ export async function getAuthSession(request: NextRequest): Promise<AuthSession 
           // Try to parse, if it fails, try double decode for localhost
           try {
             sessionData = JSON.parse(decodedValue);
-          } catch (firstParseError) {
+          } catch {
             console.log('Single decode parse failed, trying double decode');
             try {
               decodedValue = decodeURIComponent(decodedValue);
@@ -102,7 +102,7 @@ export async function getAuthSession(request: NextRequest): Promise<AuthSession 
               // Try to parse, if it fails, try double decode for localhost
               try {
                 sessionData = JSON.parse(decodedValue);
-              } catch (firstParseError) {
+              } catch {
                 console.log('Single decode parse failed, trying double decode');
                 try {
                   decodedValue = decodeURIComponent(decodedValue);

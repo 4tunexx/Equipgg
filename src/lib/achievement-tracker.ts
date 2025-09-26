@@ -15,7 +15,7 @@ export interface AchievementUpdate {
   userId: string;
   action: string;
   value?: number;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 async function getWinStreak(userId: string): Promise<number> {

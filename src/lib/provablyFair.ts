@@ -2,19 +2,19 @@ import { createHash } from 'crypto';
 import { supabase } from './supabase';
 
 // Generate a cryptographically secure seed
-export function generateSeed(): string {
+export async function generateSeed(): Promise<string> {
   const array = new Uint8Array(32);
   if (typeof window !== 'undefined' && window.crypto) {
     window.crypto.getRandomValues(array);
   } else {
     // Node.js environment
-    const crypto = require('crypto');
+    const crypto = await import('crypto');
     crypto.randomFillSync(array);
   }
   return Buffer.from(array).toString('hex');
 }
 
-export function verifySeed(serverSeed: string, clientSeed: string, nonce: number, result: any): boolean {
+export function verifySeed(serverSeed: string, clientSeed: string, nonce: number, result: unknown): boolean {
   try {
     const expectedHash = hashCombined(serverSeed, clientSeed, nonce);
     const resultHash = typeof result === 'object' ? JSON.stringify(result) : String(result);
@@ -44,7 +44,7 @@ export async function getActiveServerSeed(): Promise<string> {
     
     if (error || !data) {
       // Create new server seed if none exists
-      const newSeed = generateSeed();
+      const newSeed = await generateSeed();
       const { error: insertError } = await supabase
         .from('server_seeds')
         .insert({
@@ -60,7 +60,7 @@ export async function getActiveServerSeed(): Promise<string> {
     return data.seed_hash;
   } catch (error) {
     console.error('Error getting server seed:', error);
-    return hashSeed(generateSeed());
+    return hashSeed(await generateSeed());
   }
 }
 
@@ -75,7 +75,7 @@ export async function getOrCreateClientSeed(userId: string): Promise<string> {
     
     if (error || !data) {
       // Create new client seed
-      const newSeed = generateSeed();
+      const newSeed = await generateSeed();
       const { error: insertError } = await supabase
         .from('client_seeds')
         .insert({
@@ -92,7 +92,7 @@ export async function getOrCreateClientSeed(userId: string): Promise<string> {
     return data.seed;
   } catch (error) {
     console.error('Error getting client seed:', error);
-    return generateSeed();
+    return await generateSeed();
   }
 }
 
@@ -117,7 +117,7 @@ export async function getNextNonce(userId: string): Promise<number> {
   }
 }
 
-export async function getGameVerificationData(gameId: string): Promise<any> {
+export async function getGameVerificationData(gameId: string): Promise<unknown> {
   try {
     const { data, error } = await supabase
       .from('game_results')
@@ -156,7 +156,7 @@ export async function verifyGameResult(gameId: string, serverSeed: string): Prom
   }
 }
 
-export async function getUserGameHistory(userId: string, limit: number = 50): Promise<any[]> {
+export async function getUserGameHistory(userId: string, limit: number = 50): Promise<unknown[]> {
   try {
     const { data, error } = await supabase
       .from('game_results')

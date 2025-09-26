@@ -752,7 +752,7 @@ export default function ModeratorDashboardPage() {
                           </DialogTrigger>
                           <DialogContent>
                             <DialogHeader>
-                              <DialogTitle>Moderate User: {user.name}</DialogTitle>
+                              <DialogTitle>Moderate User: {(user as any).displayName || user.name}</DialogTitle>
                               <DialogDescription>
                                 Review and moderate this user's activity.
                               </DialogDescription>

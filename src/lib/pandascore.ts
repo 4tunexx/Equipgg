@@ -44,16 +44,8 @@ interface PandaScoreMatch {
   };
 }
 
-interface PandaScoreTeam {
-  id: number;
-  name: string;
-  slug: string;
-  image_url?: string;
-  acronym?: string;
-}
-
 // Fetch matches from PandaScore API
-async function fetchFromPandaScore(endpoint: string): Promise<any> {
+async function fetchFromPandaScore(endpoint: string): Promise<unknown> {
   if (!PANDASCORE_API_KEY) {
     throw new Error('PANDASCORE_API_KEY environment variable is not set');
   }
@@ -87,7 +79,7 @@ function convertMatchStatus(status: string): 'upcoming' | 'live' | 'finished' {
 }
 
 // Sync matches from PandaScore
-export async function syncMatchesFromPandaScore(): Promise<any[]> {
+export async function syncMatchesFromPandaScore(): Promise<unknown[]> {
   try {
     console.log('Starting PandaScore match sync...');
 
@@ -122,7 +114,7 @@ export async function syncMatchesFromPandaScore(): Promise<any[]> {
           id: match.id,
           status: match.status,
           tournament: match.tournament?.name,
-          teams: match.opponents?.map((o: any) => o.opponent.name).join(' vs ')
+          teams: match.opponents?.map((o: { opponent: { name: string } }) => o.opponent.name).join(' vs ')
         });
 
       } catch (error) {
@@ -232,7 +224,7 @@ async function updateExistingMatch(match: PandaScoreMatch) {
 }
 
 // Process completed match results
-export async function processMatchResults(): Promise<any[]> {
+export async function processMatchResults(): Promise<unknown[]> {
   try {
     console.log('Processing completed match results...');
 

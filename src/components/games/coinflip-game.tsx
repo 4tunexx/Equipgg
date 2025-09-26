@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -57,8 +57,36 @@ export function CoinflipGame() {
     const [isLoadingLobbies, setIsLoadingLobbies] = useState(true);
     const [isJoining, setIsJoining] = useState<string | null>(null);
     const { balance: userBalance } = useBalance();
-    const [activeGame, setActiveGame] = useState<any>(null);
-    const [liveTimers, setLiveTimers] = useState<Record<string, string>>({});
+    const [activeGame, setActiveGame] = useState<{
+        lobbyId: string;
+        creator: {
+            name: string;
+            avatar: string;
+            dataAiHint: string;
+        };
+        joiner: {
+            name: string;
+            avatar: string;
+            dataAiHint: string;
+        };
+        betAmount: number;
+        creatorSide: 'heads' | 'tails';
+        joinerSide: 'heads' | 'tails';
+        gameResult: {
+            flipResult: 'heads' | 'tails';
+            winner: {
+                id: string;
+                name: string;
+            };
+            loser: {
+                id: string;
+                name: string;
+            };
+            winnings: number;
+            xpGained: number;
+            betAmount: number;
+        };
+    } | null>(null);
     
     useEffect(() => {
         fetchGameHistory();
@@ -67,13 +95,13 @@ export function CoinflipGame() {
         // Refresh lobbies every 1 second to catch expired lobbies immediately
         const interval = setInterval(fetchLobbies, 1000);
         return () => clearInterval(interval);
-    }, [user]);
+    }, [user, fetchGameHistory, fetchLobbies]);
 
     // No more frontend timer - let backend handle everything
 
     // User balance is now handled by the global balance context
 
-    const fetchGameHistory = async () => {
+    const fetchGameHistory = useCallback(async () => {
         try {
             const response = await fetch('/api/games/history?gameType=coinflip');
             if (response.ok) {
@@ -85,9 +113,9 @@ export function CoinflipGame() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
-    const fetchLobbies = async () => {
+    const fetchLobbies = useCallback(async () => {
         try {
             const response = await fetch('/api/coinflip/lobbies');
             if (response.ok) {
@@ -115,7 +143,7 @@ export function CoinflipGame() {
         } finally {
             setIsLoadingLobbies(false);
         }
-    };
+    }, [repairSession]);
 
     const handleCreateLobby = async () => {
         if (!user) {
@@ -181,7 +209,7 @@ export function CoinflipGame() {
         // Check if user is trying to join their own lobby
         const currentUserName = user.displayName || user.email;
         if (lobby.creator.name === currentUserName) {
-            toast.error("You can't join your own lobby! Create a different lobby or wait for someone else to join.");
+            toast.error("You can&apos;t join your own lobby! Create a different lobby or wait for someone else to join.");
             return;
         }
 
@@ -229,14 +257,14 @@ export function CoinflipGame() {
             } else {
                 toast.error(data.error || 'Failed to join lobby');
             }
-        } catch (error) {
+        } catch {
             toast.error('Failed to join lobby');
         } finally {
             setIsJoining(null);
         }
     };
 
-    const handleGameComplete = (result: any) => {
+    const handleGameComplete = (result: { xpGained?: number }) => {
         setActiveGame(null);
         fetchLobbies(); // Refresh lobbies
         fetchGameHistory(); // Refresh history
@@ -256,8 +284,8 @@ export function CoinflipGame() {
 
     const recentPlaysFromHistory = gameHistory.map(game => ({
         id: game.id,
-        winner: game.profit > 0 ? { name: game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
-        loser: game.profit <= 0 ? { name: game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
+        winner: game.profit > 0 ? { name: game.user.displayName || game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
+        loser: game.profit <= 0 ? { name: game.user.displayName || game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
         amount: game.betAmount,
         result: game.result?.result || 'heads',
         playerSide: game.result?.playerSide || 'heads'

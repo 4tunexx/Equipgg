@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
@@ -13,8 +13,6 @@ import { Textarea } from "../../../components/ui/textarea";
 import { useAuth } from "../../../hooks/use-auth";
 import { useToast } from "../../../hooks/use-toast";
 import { 
-  Search, 
-  Users, 
   Send, 
   Clock, 
   Check, 
@@ -27,7 +25,6 @@ import {
   Star,
   MessageCircle
 } from 'lucide-react';
-import Link from 'next/link';
 import ItemImage from "../../../components/ItemImage";
 import { InventoryItem } from "../../../lib/types";
 import { cn } from "../../../lib/utils";
@@ -71,7 +68,6 @@ export default function TradingPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [selectedOffer, setSelectedOffer] = useState<TradeOffer | null>(null);
   const [isCreateOfferOpen, setIsCreateOfferOpen] = useState(false);
   
   // Create offer state
@@ -82,15 +78,7 @@ export default function TradingPage() {
     requestedItems: [] as string[]
   });
 
-  useEffect(() => {
-    if (user) {
-      fetchTradeOffers();
-      fetchTradingUsers();
-      fetchUserInventory();
-    }
-  }, [user]);
-
-  const fetchTradeOffers = async () => {
+  const fetchTradeOffers = useCallback(async () => {
     try {
       setLoading(true);
       // Mock data for now
@@ -128,14 +116,14 @@ export default function TradingPage() {
           updatedAt: new Date().toISOString()
         }
       ]);
-    } catch (error) {
-      console.error('Error fetching trade offers:', error);
+    } catch {
+      console.error('Error fetching trade offers');
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, user?.displayName]);
 
-  const fetchTradingUsers = async () => {
+  const fetchTradingUsers = useCallback(async () => {
     try {
       // Mock data for now
       setTradingUsers([
@@ -160,12 +148,12 @@ export default function TradingPage() {
           successRate: 99.1
         }
       ]);
-    } catch (error) {
-      console.error('Error fetching trading users:', error);
+    } catch {
+      console.error('Error fetching trading users');
     }
-  };
+  }, []);
 
-  const fetchUserInventory = async () => {
+  const fetchUserInventory = useCallback(async () => {
     try {
       // Mock inventory data
       setUserInventory([
@@ -186,10 +174,18 @@ export default function TradingPage() {
           dataAiHint: 'cs2 knife skin'
         }
       ]);
-    } catch (error) {
-      console.error('Error fetching inventory:', error);
+    } catch {
+      console.error('Error fetching inventory');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      fetchTradeOffers();
+      fetchTradingUsers();
+      fetchUserInventory();
+    }
+  }, [user, fetchTradeOffers, fetchTradingUsers, fetchUserInventory]);
 
   const handleAcceptOffer = async (offerId: string) => {
     try {
@@ -201,7 +197,7 @@ export default function TradingPage() {
       setTradeOffers(prev => prev.map(offer => 
         offer.id === offerId ? { ...offer, status: 'accepted' as const } : offer
       ));
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to accept trade offer",
@@ -219,7 +215,7 @@ export default function TradingPage() {
       setTradeOffers(prev => prev.map(offer => 
         offer.id === offerId ? { ...offer, status: 'declined' as const } : offer
       ));
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to decline trade offer",
@@ -250,7 +246,7 @@ export default function TradingPage() {
         offeredItems: [],
         requestedItems: []
       });
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to create trade offer",
@@ -601,7 +597,7 @@ export default function TradingPage() {
           <Card>
             <CardHeader>
               <CardTitle>Outgoing Trade Offers</CardTitle>
-              <CardDescription>Track offers you've sent to other players</CardDescription>
+              <CardDescription>Track offers you&apos;ve sent to other players</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="text-center py-8">

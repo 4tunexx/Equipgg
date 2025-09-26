@@ -1,15 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
-import { Gem, Loader2, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Gem, CheckCircle, XCircle } from "lucide-react";
 import { UserProfileLink } from "../user-profile-link";
-import { toast } from 'sonner';
+
 
 interface CoinflipGamePanelProps {
-    lobbyId: string;
     creator: {
         name: string;
         avatar: string;
@@ -37,12 +36,24 @@ interface CoinflipGamePanelProps {
         xpGained: number;
         betAmount: number;
     };
-    onGameComplete: (result: any) => void;
+    onGameComplete: (result: {
+        flipResult: 'heads' | 'tails';
+        winner: {
+            id: string;
+            name: string;
+        };
+        loser: {
+            id: string;
+            name: string;
+        };
+        winnings: number;
+        xpGained: number;
+        betAmount: number;
+    }) => void;
     onClose: () => void;
 }
 
 export function CoinflipGamePanel({ 
-    lobbyId, 
     creator, 
     joiner, 
     betAmount, 
@@ -55,7 +66,10 @@ export function CoinflipGamePanel({
     const [gameState, setGameState] = useState<'waiting' | 'spinning' | 'result'>('waiting');
     const [countdown, setCountdown] = useState(3);
     const [coinResult, setCoinResult] = useState<'heads' | 'tails' | null>(null);
-    const [winner, setWinner] = useState<any>(null);
+    const [winner, setWinner] = useState<{
+        id: string;
+        name: string;
+    } | null>(null);
     const [isSpinning, setIsSpinning] = useState(false);
 
     useEffect(() => {
@@ -75,9 +89,9 @@ export function CoinflipGamePanel({
 
             return () => clearInterval(timer);
         }
-    }, [gameResult]);
+    }, [gameResult, startCoinSpin]);
 
-    const startCoinSpin = () => {
+    const startCoinSpin = useCallback(() => {
         setIsSpinning(true);
         
         // Show spinning animation for 3 seconds, then show the actual result
@@ -92,7 +106,7 @@ export function CoinflipGamePanel({
                 onGameComplete(gameResult);
             }
         }, 3000);
-    };
+    }, [gameResult, onGameComplete]);
 
     const getCoinIcon = () => {
         if (isSpinning) {

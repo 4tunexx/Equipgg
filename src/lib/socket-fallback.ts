@@ -16,7 +16,7 @@ export class SocketFallback {
   private config: FallbackConfig;
   private retryCount: number = 0;
   private isConnected: boolean = false;
-  private pendingRequests: Map<string, { resolve: Function; reject: Function; timestamp: number }> = new Map();
+  private pendingRequests: Map<string, { resolve: (value: unknown) => void; reject: (reason?: unknown) => void; timestamp: number }> = new Map();
 
   constructor(config: Partial<FallbackConfig> = {}) {
     this.config = { ...defaultConfig, ...config };
@@ -73,7 +73,7 @@ export class SocketFallback {
   }
 
   // Specific fallback methods for different features
-  async getBalance(): Promise<any> {
+  async getBalance(): Promise<{ coins: number; gems: number; xp: number; level: number }> {
     return this.request(
       'get-balance',
       () => new Promise((resolve) => {
@@ -87,7 +87,7 @@ export class SocketFallback {
     );
   }
 
-  async getInventory(): Promise<any> {
+  async getInventory(): Promise<unknown[]> {
     return this.request(
       'get-inventory',
       () => new Promise((resolve) => {
@@ -101,7 +101,7 @@ export class SocketFallback {
     );
   }
 
-  async getLeaderboard(type: string): Promise<any> {
+  async getLeaderboard(type: string): Promise<unknown[]> {
     return this.request(
       `get-leaderboard-${type}`,
       () => new Promise((resolve) => {
@@ -115,7 +115,7 @@ export class SocketFallback {
     );
   }
 
-  async getChatHistory(channel: string): Promise<any> {
+  async getChatHistory(channel: string): Promise<unknown[]> {
     return this.request(
       `get-chat-${channel}`,
       () => new Promise((resolve) => {
@@ -129,7 +129,7 @@ export class SocketFallback {
     );
   }
 
-  async getMatches(): Promise<any> {
+  async getMatches(): Promise<unknown[]> {
     return this.request(
       'get-matches',
       () => new Promise((resolve) => {
@@ -143,7 +143,7 @@ export class SocketFallback {
     );
   }
 
-  async getMissions(): Promise<any> {
+  async getMissions(): Promise<unknown[]> {
     return this.request(
       'get-missions',
       () => new Promise((resolve) => {
@@ -158,7 +158,7 @@ export class SocketFallback {
   }
 
   // Notification fallbacks
-  showNotification(type: 'success' | 'error' | 'info' | 'warning', message: string, details?: any) {
+  showNotification(type: 'success' | 'error' | 'info' | 'warning', message: string, details?: string) {
     switch (type) {
       case 'success':
         toast.success(message, { description: details });
@@ -172,6 +172,10 @@ export class SocketFallback {
       case 'warning':
         toast.warning(message, { description: details });
         break;
+      default:
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const _exhaustiveCheck: never = type;
+        throw new Error(`Unhandled notification type: ${type}`);
     }
   }
 
@@ -219,7 +223,7 @@ export function showFallbackNotification(message: string, type: 'success' | 'err
 // Connection status hook
 export function useSocketFallback() {
   return {
-    isConnected: (socketFallback as any).isConnected,
+    isConnected: socketFallback.isConnected,
     request: socketFallback.request.bind(socketFallback),
     retry: socketFallback.retry.bind(socketFallback),
     showNotification: socketFallback.showNotification.bind(socketFallback)

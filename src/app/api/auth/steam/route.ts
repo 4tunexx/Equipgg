@@ -72,10 +72,10 @@ export async function getSteamUserInfo(steamId: string) {
   if (!STEAM_API_KEY) {
     console.warn('Steam API key not configured, using fallback profile data');
     return {
-      steamid: steamId,
-      personaname: `Player_${steamId.slice(-4)}`,
+      steamId: steamId,
+      username: `Player_${steamId.slice(-4)}`,
       avatar: 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb.jpg',
-      profileurl: `https://steamcommunity.com/profiles/${steamId}`
+      profileUrl: `https://steamcommunity.com/profiles/${steamId}`
     };
   }
   try {

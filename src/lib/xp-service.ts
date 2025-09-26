@@ -109,7 +109,7 @@ export async function addXP(
 
     // Handle level up rewards and notifications
     if (leveledUp) {
-      await handleLevelUp(userId, oldLevel, newLevel, config);
+      await handleLevelUp(userId, oldLevel, newLevel);
     }
 
     return {
@@ -169,8 +169,7 @@ export async function getUserXPInfo(
 async function handleLevelUp(
   userId: string, 
   oldLevel: number, 
-  newLevel: number, 
-  config: XPConfig
+  newLevel: number
 ): Promise<void> {
   try {
     const levelsGained = newLevel - oldLevel;

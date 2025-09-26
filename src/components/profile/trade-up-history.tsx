@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
-import Image from "next/image";
+
 import ItemImage from "../ItemImage";
 import { cn } from "../../lib/utils";
 
@@ -18,11 +18,19 @@ const rarityColors = {
 };
 
 // Type definitions
+type TradeUpItem = {
+  id?: string;
+  name: string;
+  rarity: string;
+  type: string;
+  dataAiHint?: string;
+};
+
 type TradeUpHistoryItem = {
   id: string;
   date: string;
-  usedItems: any[];
-  receivedItem: any;
+  usedItems: TradeUpItem[];
+  receivedItem: TradeUpItem;
 };
 
 export function TradeUpHistory() {
@@ -62,7 +70,7 @@ export function TradeUpHistory() {
                                     <TableCell className="font-mono text-xs">{trade.date}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
-                                            {trade.usedItems.map((item: any) => (
+                                            {trade.usedItems.map((item: TradeUpItem) => (
                                                 <ItemImage 
                                                     key={item.id || item.name} 
                                                     itemName={item.name}

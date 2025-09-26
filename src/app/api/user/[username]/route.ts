@@ -14,23 +14,34 @@ export async function GET(
 
     const supabase = createServerSupabaseClient();
 
-    // Get user data by username (display_name) or email
+    // Get user data by username, displayname, or email
     let { data: user, error } = await supabase
       .from('users')
-      .select('id, displayname, avatar_url, xp, level, role, coins, created_at')
-      .eq('displayname', username)
+      .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
+      .eq('username', username)
       .single();
     
     if (error && !user) {
-      // Try by email
-      const { data: userByEmail, error: emailError } = await supabase
+      // Try by displayname
+      const { data: userByDisplayName, error: displayError } = await supabase
         .from('users')
-        .select('id, displayname, avatar_url, xp, level, role, coins, created_at')
-        .eq('email', username)
+        .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
+        .eq('displayname', username)
         .single();
       
-      if (!emailError && userByEmail) {
-        user = userByEmail;
+      if (!displayError && userByDisplayName) {
+        user = userByDisplayName;
+      } else {
+        // Try by email
+        const { data: userByEmail, error: emailError } = await supabase
+          .from('users')
+          .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
+          .eq('email', username)
+          .single();
+        
+        if (!emailError && userByEmail) {
+          user = userByEmail;
+        }
       }
     }
 
@@ -43,9 +54,9 @@ export async function GET(
       success: true,
       user: {
         id: user.id,
-        name: user.displayname,
-        displayName: user.displayname,
-        username: user.displayname,
+        name: user.displayname || user.username || 'Player',
+        displayName: user.displayname || user.username || 'Player',
+        username: user.username || user.displayname || 'Player',
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,

@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from "../../../lib/supabase";
 import { secureDb } from "../../../lib/secure-db";
+import { getAuthSession } from "../../../lib/auth-utils";
 import { v4 as uuidv4 } from 'uuid';
 
 interface ChatMessage {
@@ -15,8 +16,11 @@ interface ChatMessage {
   role?: string;
 }
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
+    // Check authentication - allow both authenticated and unauthenticated requests
+    const session = await getAuthSession(request);
+    
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const before = searchParams.get('before'); // For pagination
@@ -80,21 +84,21 @@ export async function GET(request: Request) {
       return NextResponse.json({ messages: mockMessages.reverse() });
     }
     // Attach user info
-    const messagesWithUser = await Promise.all(
-      (messages as any[]).map(async (m) => {
-        const user = await secureDb.findOne('users', { id: m.user_id });
-        return {
-          id: m.id,
-          content: m.content,
-          created_at: m.created_at,
-          user_id: m.user_id,
-          username: user?.displayName || 'Unknown',
-          avatar: user?.avatar_url || null,
-          level: user?.level || 1,
-          role: user?.role || 'user',
-        };
-      })
-    );
+      const messagesWithUser = await Promise.all(
+        (messages as any[]).map(async (m) => {
+          const user = await secureDb.findOne('users', { id: m.user_id });
+          return {
+            id: m.id,
+            content: m.content,
+            created_at: m.created_at,
+            user_id: m.user_id,
+            username: user?.displayname || user?.username || 'Unknown',
+            avatar: user?.avatar_url || null,
+            level: user?.level || 1,
+            role: user?.role || 'user',
+          };
+        })
+      );
     if (messagesWithUser.length === 0) {
       // ...existing code for mockMessages...
       const mockMessages = [
@@ -168,9 +172,15 @@ export async function GET(request: Request) {
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-  const { content, lobby } = await request.json();
+    // Check authentication - require authenticated user for posting
+    const session = await getAuthSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const { content, lobby } = await request.json();
     
     // SECURITY: Input validation and sanitization
     if (!content || typeof content !== 'string') {
@@ -216,29 +226,7 @@ export async function POST(request: Request) {
     // For now, we'll just log the attempt
     console.log(`Chat message attempt from IP: ${clientIP}`);
     
-    // Get the current user from session
-    const cookies = request.headers.get('cookie') || '';
-    const sessionToken = cookies
-      .split(';')
-      .find(c => c.trim().startsWith('equipgg_session='))
-      ?.split('=')[1];
-    
-    if (!sessionToken) {
-      return NextResponse.json(
-        { error: 'Not authenticated' },
-        { status: 401 }
-      );
-    }
-    
-    // Get user from session
-    const session = await secureDb.findOne('sessions', { token: sessionToken });
-    if (!session) {
-      return NextResponse.json(
-        { error: 'Invalid session' },
-        { status: 401 }
-      );
-    }
-    // Get user details
+    // Get user details from session
     const user = await secureDb.findOne('users', { id: session.user_id });
     if (!user) {
       return NextResponse.json(
@@ -252,7 +240,7 @@ export async function POST(request: Request) {
       id: messageId,
       content: sanitizedContent,
       user_id: session.user_id,
-      username: user.displayName,
+      username: user.displayname || user.username || 'Player',
       created_at: new Date().toISOString(),
       lobby: lobby || 'dashboard',
     });
@@ -262,7 +250,7 @@ export async function POST(request: Request) {
       content: sanitizedContent,
       created_at: new Date().toISOString(),
       user_id: session.user_id,
-      username: user.displayName,
+      username: user.displayname || user.username || 'Player',
       avatar: user.avatar_url || null,
       level: user.level || 1,
       role: user.role || 'user',

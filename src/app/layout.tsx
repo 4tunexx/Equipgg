@@ -5,7 +5,7 @@ import { cn } from "../lib/utils";
 import { Toaster } from "../components/ui/toaster";
 import { AuthProvider } from "../components/auth-provider";
 import { SocketProvider } from "../contexts/socket-context";
-import { matchScheduler } from "../lib/scheduler";
+
 import React from "react";
 
 export const metadata: Metadata = {

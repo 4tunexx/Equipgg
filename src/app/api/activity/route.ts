@@ -26,6 +26,18 @@ interface ActivityItem {
 let activitiesCache: { data: any; timestamp: number } | null = null;
 const CACHE_TTL = 10000; // 10 seconds cache
 
+export async function OPTIONS() {
+  // Handle CORS preflight requests
+  const headers = {
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400', // 24 hours
+  };
+  
+  return new NextResponse(null, { headers });
+}
+
 export async function GET() {
   try {
     // Add CORS headers to prevent browser issues
@@ -41,7 +53,7 @@ export async function GET() {
 
     // Check cache first
     if (activitiesCache && (Date.now() - activitiesCache.timestamp) < CACHE_TTL) {
-      return NextResponse.json(activitiesCache.data);
+      return NextResponse.json(activitiesCache.data, { headers });
     }
 
     const supabase = createServerSupabaseClient();
@@ -70,7 +82,7 @@ export async function GET() {
         }
         
         // Return sample activities if table doesn't exist
-        return NextResponse.json(generateSampleActivities());
+        return NextResponse.json(generateSampleActivities(), { headers });
       }
 
       // If we get here, try to fetch activities with all necessary columns
@@ -89,7 +101,7 @@ export async function GET() {
       if (activityError) {
         console.log('Database error fetching activities:', activityError);
         console.log('Falling back to sample activities due to Supabase error');
-        return NextResponse.json(generateSampleActivities());
+        return NextResponse.json(generateSampleActivities(), { headers });
       }
 
       activities = activityData || [];
@@ -119,7 +131,7 @@ export async function GET() {
         timestamp: Date.now()
       };
       
-      return NextResponse.json(sampleActivities);
+      return NextResponse.json(sampleActivities, { headers });
     }
 
     // Transform activities to match expected format
@@ -158,7 +170,7 @@ export async function GET() {
     if (process.env.NODE_ENV === 'development') {
       console.log(`Returning ${transformedActivities.length} activities`);
     }
-    return NextResponse.json(transformedActivities);
+    return NextResponse.json(transformedActivities, { headers });
   } catch (error) {
     console.error('Error fetching activity:', error);
     
@@ -169,7 +181,18 @@ export async function GET() {
       timestamp: Date.now()
     };
     
-    return NextResponse.json(sampleActivities);
+    // Add CORS headers to error response
+    const errorHeaders = {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0'
+    };
+    
+    return NextResponse.json(sampleActivities, { headers: errorHeaders });
   }
 }
 

@@ -10,26 +10,10 @@ interface InventoryLevelProgressionProps {
   currentSlots: number;
 }
 
-// Calculate inventory slots based on user level: 10 slots at level 1, +5 every 5 levels
-const getInventorySlots = (level: number): number => {
-  if (level <= 1) return 10;
-  if (level <= 5) return 15;
-  if (level <= 10) return 20;
-  if (level <= 15) return 25;
-  if (level <= 20) return 30;
-  if (level <= 25) return 35;
-  if (level <= 30) return 40;
-  if (level <= 35) return 45;
-  if (level <= 40) return 50;
-  if (level <= 45) return 55;
-  if (level <= 50) return 60;
-  // For levels above 50, add 5 slots every 5 levels
-  return Math.min(60 + Math.floor((level - 50) / 5) * 5, 100); // Max 100 slots
-};
+
 
 export function InventoryLevelProgression({ currentLevel, currentSlots }: InventoryLevelProgressionProps) {
   const nextMilestone = Math.ceil(currentLevel / 5) * 5 + 1;
-  const nextMilestoneSlots = getInventorySlots(nextMilestone);
   const progressToNext = ((currentLevel % 5) / 5) * 100;
   
   const milestones = [

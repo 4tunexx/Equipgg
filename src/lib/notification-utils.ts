@@ -11,7 +11,7 @@ export interface NotificationData {
   amount?: number;
   level?: number;
   achievementId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface CreateNotificationParams {
@@ -111,7 +111,7 @@ export async function createNotificationsForRoles({
       .in('role', roles);
     if (error) throw error;
     if (users && users.length > 0) {
-      const userIds = users.map((u: any) => u.id);
+      const userIds = users.map((u: { id: string }) => u.id);
       await createBulkNotifications({ userIds, type, title, message, data });
     }
   } catch (error) {

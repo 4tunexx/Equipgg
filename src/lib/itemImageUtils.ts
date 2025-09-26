@@ -1,16 +1,5 @@
 import { itemMap, getItemType } from "../config/itemMap";
 
-// CSGODatabase is the most reliable source for CS2 item images
-// Steam blocks external access to their image API
-const IMAGE_SOURCES = [
-  {
-    name: 'CSGODatabase',
-    baseUrl: 'https://www.csgodatabase.com/images',
-    format: 'webp',
-    reliable: true
-  }
-];
-
 // Placeholder image for missing items
 const PLACEHOLDER_IMAGE = '/assets/placeholder.svg';
 
@@ -31,46 +20,7 @@ function formatItemName(itemName: string): string {
     .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
 }
 
-/**
- * Checks if an image exists at the given URL
- * @param url - The image URL to check
- * @returns Promise<boolean> - True if image exists
- */
-async function checkImageExists(url: string): Promise<boolean> {
-  // Skip on server side
-  if (typeof window === 'undefined') {
-    return false;
-  }
 
-  if (imageCache.has(url)) {
-    return imageCache.get(url)!;
-  }
-
-  try {
-    // Use a more reliable method to check image existence
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => {
-        imageCache.set(url, true);
-        resolve(true);
-      };
-      img.onerror = () => {
-        imageCache.set(url, false);
-        resolve(false);
-      };
-      img.src = url;
-      
-      // Timeout after 5 seconds
-      setTimeout(() => {
-        imageCache.set(url, false);
-        resolve(false);
-      }, 5000);
-    });
-  } catch (error) {
-    imageCache.set(url, false);
-    return false;
-  }
-}
 
 /**
  * Gets the best available image URL for an item

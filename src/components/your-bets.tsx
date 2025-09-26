@@ -12,7 +12,7 @@ import {
   TableRow,
 } from "./ui/table";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-// Define Bet type locally until moved to Supabase types
+// Define Bet type locally until it&apos;s moved to Supabase types
 type Bet = {
   id: string;
   matchTitle: string;
@@ -114,7 +114,7 @@ export function YourBets({ refreshTrigger }: YourBetsProps) {
           <CardTitle>Your Bets</CardTitle>
         </CardHeader>
         <CardContent className="text-center py-8 text-muted-foreground">
-          You haven't placed any bets yet.
+          You haven&apos;t placed any bets yet.
         </CardContent>
       </Card>
     );

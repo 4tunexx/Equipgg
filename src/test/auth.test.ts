@@ -26,7 +26,7 @@ describe('Authentication System', () => {
     }
   };
 
-  let authTokens: Record<string, string> = {};
+  const authTokens: Record<string, string> = {};
 
   beforeAll(async () => {
     // Sign in all test users and store their tokens
