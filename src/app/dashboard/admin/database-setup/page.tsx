@@ -37,28 +37,15 @@ export default function DatabaseSetupPage() {
       setProgress(40);
       setResults(prev => [...prev, "✅ Database tables created successfully"]);
 
-      // Step 2: Populate with sample data
+      // Step 2: Populate with sample data (DISABLED)
       setProgress(60);
-      setResults(prev => [...prev, "📊 Populating with sample data..."]);
-      
-      const populateResponse = await fetch('/api/admin/database/populate', {
-        method: 'POST',
-      });
-      
-      if (!populateResponse.ok) {
-        throw new Error('Failed to populate data');
-      }
-      
-      const data = await populateResponse.json();
-      
-      setProgress(80);
-      setResults(prev => [...prev, `✅ Inserted ${data.achievements} achievements`]);
-      setResults(prev => [...prev, `✅ Inserted ${data.items} items`]);
-      setResults(prev => [...prev, `✅ Inserted ${data.missions} missions`]);
-      setResults(prev => [...prev, `✅ Inserted ${data.perks} perks`]);
-      setResults(prev => [...prev, `✅ Inserted ${data.badges} badges`]);
+      setResults(prev => [...prev, "📊 Populating with sample data... (disabled)"]);
+      setResults(prev => [...prev, "ℹ️ The application is configured to use your Supabase production data. In-repo population is disabled to avoid accidental DB writes."]);
+      // Skip calling /api/admin/database/populate because population is intentionally disabled.
 
-      // Step 3: Verify data
+      setProgress(80);
+
+  // Step 3: Verify data (verifies existing Supabase data)
       setProgress(100);
       setResults(prev => [...prev, "🔍 Verifying database setup..."]);
       

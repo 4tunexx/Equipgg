@@ -1,0 +1,751 @@
+-- WARNING: This schema is for context only and is not meant to be run.
+-- Table order and constraints may not be valid for execution.
+
+CREATE TABLE public.achievements (
+  id integer NOT NULL DEFAULT nextval('achievements_id_seq'::regclass),
+  name character varying NOT NULL,
+  description text NOT NULL,
+  category character varying NOT NULL,
+  xp_reward integer DEFAULT 100,
+  icon_url character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  coin_reward integer,
+  gem_reward integer,
+  badge_reward character varying,
+  updated_at timestamp without time zone,
+  CONSTRAINT achievements_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.activity_feed (
+  id integer NOT NULL DEFAULT nextval('activity_feed_id_seq'::regclass),
+  user_id text,
+  action text NOT NULL,
+  description text,
+  metadata jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT activity_feed_pkey PRIMARY KEY (id),
+  CONSTRAINT activity_feed_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.admin_logs (
+  id text NOT NULL,
+  admin_id text,
+  action text,
+  details text,
+  target_id text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT admin_logs_pkey PRIMARY KEY (id),
+  CONSTRAINT admin_logs_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.badges (
+  id integer NOT NULL DEFAULT nextval('badges_id_seq'::regclass),
+  name character varying NOT NULL,
+  description text NOT NULL,
+  category character varying NOT NULL,
+  requirement_type character varying,
+  requirement_value integer,
+  icon_url character varying,
+  rarity character varying DEFAULT 'common'::character varying,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT badges_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.bets (
+  id integer NOT NULL DEFAULT nextval('bets_id_seq'::regclass),
+  user_id text,
+  match_id integer,
+  team_choice text,
+  amount numeric,
+  potential_win numeric,
+  status text DEFAULT 'pending'::text,
+  result text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT bets_pkey PRIMARY KEY (id),
+  CONSTRAINT bets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT bets_match_id_fkey FOREIGN KEY (match_id) REFERENCES public.matches(id)
+);
+CREATE TABLE public.chat_messages (
+  id text NOT NULL,
+  user_id text,
+  username text,
+  message text,
+  content text,
+  avatar_url text,
+  channel text DEFAULT 'arena'::text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT chat_messages_pkey PRIMARY KEY (id),
+  CONSTRAINT chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.client_seeds (
+  id text NOT NULL,
+  user_id text,
+  seed text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT client_seeds_pkey PRIMARY KEY (id),
+  CONSTRAINT client_seeds_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.coinflip_lobbies (
+  id text NOT NULL,
+  creator_id text,
+  joiner_id text,
+  bet_amount integer,
+  side text,
+  status text DEFAULT 'waiting'::text,
+  winner_id text,
+  flip_result text,
+  created_at timestamp without time zone DEFAULT now(),
+  expires_at timestamp without time zone,
+  completed_at timestamp without time zone,
+  CONSTRAINT coinflip_lobbies_pkey PRIMARY KEY (id),
+  CONSTRAINT coinflip_lobbies_creator_id_fkey FOREIGN KEY (creator_id) REFERENCES public.users(id),
+  CONSTRAINT coinflip_lobbies_joiner_id_fkey FOREIGN KEY (joiner_id) REFERENCES public.users(id),
+  CONSTRAINT coinflip_lobbies_winner_id_fkey FOREIGN KEY (winner_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.crate_items (
+  id integer NOT NULL DEFAULT nextval('crate_items_id_seq'::regclass),
+  crate_id integer,
+  item_id integer,
+  drop_chance numeric DEFAULT 0.1,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT crate_items_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.crate_openings (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id text,
+  crate_id integer,
+  item_received_id integer,
+  opened_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT crate_openings_pkey PRIMARY KEY (id),
+  CONSTRAINT crate_openings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.crates (
+  id integer NOT NULL DEFAULT nextval('crates_id_seq'::regclass),
+  name character varying NOT NULL,
+  description text NOT NULL,
+  coin_price integer DEFAULT 0,
+  gem_price integer DEFAULT 0,
+  image_url character varying,
+  is_purchasable boolean DEFAULT true,
+  is_active boolean DEFAULT true,
+  rarity_common numeric DEFAULT 0.00,
+  rarity_uncommon numeric DEFAULT 0.00,
+  rarity_rare numeric DEFAULT 0.00,
+  rarity_epic numeric DEFAULT 0.00,
+  rarity_legendary numeric DEFAULT 0.00,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT crates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.cs2_skin_deliveries (
+  id text NOT NULL,
+  user_id text,
+  skin_id text,
+  skin_name text,
+  gems_paid integer,
+  steam_id text,
+  steam_trade_url text,
+  status text DEFAULT 'pending'::text,
+  trade_offer_id text,
+  delivered_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT cs2_skin_deliveries_pkey PRIMARY KEY (id),
+  CONSTRAINT cs2_skin_deliveries_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.cs2_skins (
+  id text NOT NULL,
+  name text,
+  rarity text,
+  gems integer,
+  steam_market_price numeric,
+  category text,
+  enabled boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT cs2_skins_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.equipgg (
+  id bigint GENERATED ALWAYS AS IDENTITY NOT NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT equipgg_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.exchange_rates (
+  id integer NOT NULL DEFAULT nextval('exchange_rates_id_seq'::regclass),
+  coins_to_gems integer DEFAULT 1000,
+  gems_to_coins integer DEFAULT 800,
+  CONSTRAINT exchange_rates_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.flash_sales (
+  id integer NOT NULL DEFAULT nextval('flash_sales_id_seq'::regclass),
+  item_id integer,
+  original_price numeric,
+  sale_price numeric,
+  discount_percent integer,
+  start_time timestamp without time zone,
+  end_time timestamp without time zone,
+  active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT flash_sales_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.forum_categories (
+  id text NOT NULL,
+  name text,
+  description text,
+  icon text,
+  topic_count integer DEFAULT 0,
+  post_count integer DEFAULT 0,
+  display_order integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT forum_categories_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.forum_post_reactions (
+  id text NOT NULL,
+  post_id text,
+  user_id text,
+  reaction text,
+  CONSTRAINT forum_post_reactions_pkey PRIMARY KEY (id),
+  CONSTRAINT forum_post_reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.forum_posts(id),
+  CONSTRAINT forum_post_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.forum_posts (
+  id text NOT NULL,
+  topic_id text,
+  content text,
+  author_id text,
+  is_edited boolean DEFAULT false,
+  edited_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT forum_posts_pkey PRIMARY KEY (id),
+  CONSTRAINT forum_posts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.forum_topics(id),
+  CONSTRAINT forum_posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.forum_topics (
+  id text NOT NULL,
+  category_id text,
+  title text,
+  content text,
+  author_id text,
+  is_pinned boolean DEFAULT false,
+  is_locked boolean DEFAULT false,
+  view_count integer DEFAULT 0,
+  reply_count integer DEFAULT 0,
+  last_reply_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT forum_topics_pkey PRIMARY KEY (id),
+  CONSTRAINT forum_topics_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.forum_categories(id)
+);
+CREATE TABLE public.game_history (
+  id text NOT NULL,
+  user_id text,
+  game_type text,
+  bet_amount integer,
+  winnings integer DEFAULT 0,
+  profit integer,
+  multiplier real,
+  game_data text,
+  result text,
+  tiles_cleared integer DEFAULT 0,
+  xp_gained integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT game_history_pkey PRIMARY KEY (id),
+  CONSTRAINT game_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.game_results (
+  id text NOT NULL,
+  user_id text,
+  game_id text,
+  game_type text,
+  server_seed_id text,
+  client_seed_id text,
+  nonce integer,
+  result text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT game_results_pkey PRIMARY KEY (id),
+  CONSTRAINT game_results_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT game_results_server_seed_id_fkey FOREIGN KEY (server_seed_id) REFERENCES public.server_seeds(id),
+  CONSTRAINT game_results_client_seed_id_fkey FOREIGN KEY (client_seed_id) REFERENCES public.client_seeds(id)
+);
+CREATE TABLE public.game_sessions (
+  id integer NOT NULL DEFAULT nextval('game_sessions_id_seq'::regclass),
+  user_id text,
+  game_type text NOT NULL,
+  bet_amount numeric,
+  multiplier numeric,
+  win_amount numeric,
+  seed_hash text,
+  result jsonb,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT game_sessions_pkey PRIMARY KEY (id),
+  CONSTRAINT game_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.gem_packages (
+  id text NOT NULL,
+  gems integer,
+  price numeric,
+  currency text DEFAULT 'USD'::text,
+  name text,
+  description text,
+  enabled boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT gem_packages_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.gem_settings (
+  id integer NOT NULL DEFAULT nextval('gem_settings_id_seq'::regclass),
+  gem_shop_enabled boolean DEFAULT true,
+  cs2_skins_enabled boolean DEFAULT true,
+  exchange_enabled boolean DEFAULT true,
+  daily_exchange_limit integer DEFAULT 10000,
+  max_exchange_per_transaction integer DEFAULT 1000,
+  gem_shop_maintenance boolean DEFAULT false,
+  CONSTRAINT gem_settings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.gem_transactions (
+  id text NOT NULL,
+  user_id text,
+  type text,
+  amount integer,
+  currency text,
+  description text,
+  gems_paid integer,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT gem_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT gem_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.inventory_items (
+  id text NOT NULL,
+  user_id text NOT NULL,
+  item_id text NOT NULL,
+  quantity integer DEFAULT 1,
+  acquired_at timestamp without time zone DEFAULT now(),
+  acquired_method text DEFAULT 'purchase'::text,
+  tradeable boolean DEFAULT true,
+  CONSTRAINT inventory_items_pkey PRIMARY KEY (id),
+  CONSTRAINT inventory_items_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.items (
+  id integer NOT NULL DEFAULT nextval('items_id_seq'::regclass),
+  name character varying NOT NULL,
+  description text,
+  category character varying NOT NULL,
+  weapon_type character varying,
+  rarity character varying NOT NULL,
+  coin_price integer DEFAULT 0,
+  gem_price integer DEFAULT 0,
+  image_url character varying,
+  is_tradeable boolean DEFAULT true,
+  is_sellable boolean DEFAULT true,
+  is_equipable boolean DEFAULT true,
+  sell_price integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT items_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.match_vote_stats (
+  match_id text NOT NULL,
+  team1_votes integer DEFAULT 0,
+  team2_votes integer DEFAULT 0,
+  total_votes integer DEFAULT 0,
+  last_updated timestamp without time zone DEFAULT now(),
+  CONSTRAINT match_vote_stats_pkey PRIMARY KEY (match_id)
+);
+CREATE TABLE public.match_votes (
+  id text NOT NULL,
+  user_id text,
+  match_id text,
+  team_id text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT match_votes_pkey PRIMARY KEY (id),
+  CONSTRAINT match_votes_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.matches (
+  id integer NOT NULL DEFAULT nextval('matches_id_seq'::regclass),
+  match_id text UNIQUE,
+  team1_name text,
+  team2_name text,
+  team1_logo text,
+  team2_logo text,
+  game text,
+  tournament text,
+  start_time timestamp without time zone,
+  status text DEFAULT 'scheduled'::text,
+  team1_odds numeric,
+  team2_odds numeric,
+  winner text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT matches_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.missions (
+  id integer NOT NULL DEFAULT nextval('missions_id_seq'::regclass),
+  name character varying NOT NULL,
+  description text NOT NULL,
+  mission_type character varying NOT NULL,
+  tier integer DEFAULT 1,
+  order_index integer DEFAULT 0,
+  xp_reward integer DEFAULT 50,
+  coin_reward integer DEFAULT 0,
+  requirement_type character varying,
+  requirement_value integer DEFAULT 1,
+  is_repeatable boolean DEFAULT false,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT missions_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.notifications (
+  id integer NOT NULL DEFAULT nextval('notifications_id_seq'::regclass),
+  user_id text,
+  title text NOT NULL,
+  message text,
+  type text DEFAULT 'info'::text,
+  read boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id),
+  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.payment_intents (
+  id text NOT NULL,
+  user_id text,
+  amount numeric,
+  currency text DEFAULT 'USD'::text,
+  status text DEFAULT 'pending'::text,
+  stripe_payment_intent_id text,
+  paypal_order_id text,
+  gems integer,
+  created_at timestamp without time zone DEFAULT now(),
+  completed_at timestamp without time zone,
+  CONSTRAINT payment_intents_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.payment_settings (
+  id integer NOT NULL DEFAULT nextval('payment_settings_id_seq'::regclass),
+  stripe_public_key text,
+  stripe_secret_key text,
+  paypal_client_id text,
+  paypal_client_secret text,
+  webhook_secret text,
+  enabled boolean DEFAULT false,
+  CONSTRAINT payment_settings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.perks (
+  id integer NOT NULL DEFAULT nextval('perks_id_seq'::regclass),
+  name character varying NOT NULL,
+  description text NOT NULL,
+  category character varying NOT NULL,
+  perk_type character varying NOT NULL,
+  effect_value numeric,
+  duration_hours integer DEFAULT 0,
+  coin_price integer DEFAULT 100,
+  gem_price integer DEFAULT 0,
+  is_consumable boolean DEFAULT true,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT perks_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.polls (
+  id text NOT NULL,
+  title text NOT NULL,
+  description text,
+  options jsonb NOT NULL DEFAULT '[]'::jsonb,
+  votes jsonb DEFAULT '{}'::jsonb,
+  total_votes integer DEFAULT 0,
+  poll_type text DEFAULT 'community'::text,
+  match_id integer,
+  start_time timestamp without time zone DEFAULT now(),
+  end_time timestamp without time zone,
+  is_active boolean DEFAULT true,
+  created_by text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT polls_pkey PRIMARY KEY (id),
+  CONSTRAINT polls_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id),
+  CONSTRAINT polls_match_id_fkey FOREIGN KEY (match_id) REFERENCES public.matches(id)
+);
+CREATE TABLE public.ranks (
+  id integer NOT NULL DEFAULT nextval('ranks_id_seq'::regclass),
+  rank_number integer NOT NULL,
+  name character varying NOT NULL,
+  tier character varying NOT NULL,
+  min_level integer NOT NULL,
+  max_level integer NOT NULL,
+  icon_url character varying,
+  prestige_icon_url character varying,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT ranks_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.server_seeds (
+  id text NOT NULL,
+  seed text,
+  hashed_seed text,
+  is_revealed boolean DEFAULT false,
+  created_at timestamp without time zone DEFAULT now(),
+  revealed_at timestamp without time zone,
+  CONSTRAINT server_seeds_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.sessions (
+  token text NOT NULL,
+  user_id text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT sessions_pkey PRIMARY KEY (token),
+  CONSTRAINT sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.shop_items (
+  id text NOT NULL,
+  item_id integer NOT NULL,
+  price_coins integer DEFAULT 0,
+  price_gems integer DEFAULT 0,
+  stock integer DEFAULT 1,
+  max_per_user integer DEFAULT 1,
+  discount_percent integer DEFAULT 0,
+  featured boolean DEFAULT false,
+  is_active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  expires_at timestamp without time zone,
+  CONSTRAINT shop_items_pkey PRIMARY KEY (id),
+  CONSTRAINT shop_items_item_id_fkey FOREIGN KEY (item_id) REFERENCES public.items(id)
+);
+CREATE TABLE public.site_settings (
+  id text NOT NULL,
+  setting_key text UNIQUE,
+  setting_value text,
+  setting_type text,
+  description text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT site_settings_pkey PRIMARY KEY (id)
+);
+CREATE TABLE public.steam_trade_offers (
+  id text NOT NULL,
+  user_id text NOT NULL,
+  steam_id text,
+  item_id text,
+  item_name text,
+  gem_price integer,
+  trade_offer_id text,
+  steam_trade_url text,
+  status text DEFAULT 'pending'::text,
+  created_at timestamp without time zone DEFAULT now(),
+  completed_at timestamp without time zone,
+  failed_reason text,
+  CONSTRAINT steam_trade_offers_pkey PRIMARY KEY (id),
+  CONSTRAINT steam_trade_offers_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.support_tickets (
+  id text NOT NULL,
+  user_id text,
+  title text NOT NULL,
+  description text NOT NULL,
+  category text DEFAULT 'general'::text,
+  priority text DEFAULT 'medium'::text,
+  status text DEFAULT 'open'::text,
+  assigned_to text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  resolved_at timestamp without time zone,
+  CONSTRAINT support_tickets_pkey PRIMARY KEY (id),
+  CONSTRAINT support_tickets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT support_tickets_assigned_to_fkey FOREIGN KEY (assigned_to) REFERENCES public.users(id)
+);
+CREATE TABLE public.trade_offers (
+  id text NOT NULL,
+  sender_id text NOT NULL,
+  receiver_id text NOT NULL,
+  sender_items jsonb DEFAULT '[]'::jsonb,
+  receiver_items jsonb DEFAULT '[]'::jsonb,
+  sender_coins integer DEFAULT 0,
+  receiver_coins integer DEFAULT 0,
+  status text DEFAULT 'pending'::text,
+  expires_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  completed_at timestamp without time zone,
+  cancelled_by text,
+  CONSTRAINT trade_offers_pkey PRIMARY KEY (id),
+  CONSTRAINT trade_offers_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id),
+  CONSTRAINT trade_offers_receiver_id_fkey FOREIGN KEY (receiver_id) REFERENCES public.users(id),
+  CONSTRAINT trade_offers_cancelled_by_fkey FOREIGN KEY (cancelled_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.trade_up_contracts (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id text,
+  input_items jsonb NOT NULL,
+  output_item_id integer,
+  contract_cost integer DEFAULT 100,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT trade_up_contracts_pkey PRIMARY KEY (id),
+  CONSTRAINT trade_up_contracts_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.transactions (
+  id text NOT NULL,
+  user_id text,
+  type text NOT NULL,
+  amount numeric,
+  details jsonb,
+  outcome text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_achievements (
+  id text NOT NULL,
+  user_id text,
+  achievement_id text,
+  unlocked_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_achievements_pkey PRIMARY KEY (id),
+  CONSTRAINT user_achievements_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_badges (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  user_id text,
+  badge_id integer,
+  earned_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_badges_pkey PRIMARY KEY (id),
+  CONSTRAINT user_badges_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT user_badges_badge_id_fkey FOREIGN KEY (badge_id) REFERENCES public.badges(id)
+);
+CREATE TABLE public.user_bets (
+  id text NOT NULL,
+  user_id text,
+  match_id text,
+  team_id text,
+  amount integer,
+  odds real,
+  potential_payout integer,
+  status text DEFAULT 'pending'::text,
+  result text,
+  payout integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_bets_pkey PRIMARY KEY (id),
+  CONSTRAINT user_bets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_crates (
+  id text NOT NULL,
+  user_id text,
+  crate_id text,
+  crate_name text,
+  key_required text,
+  acquired_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_crates_pkey PRIMARY KEY (id),
+  CONSTRAINT user_crates_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_inventory (
+  id text NOT NULL,
+  user_id text,
+  item_id text,
+  item_name text,
+  item_type text,
+  rarity text,
+  image_url text,
+  value integer DEFAULT 0,
+  equipped boolean DEFAULT false,
+  slot_type text,
+  acquired_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_inventory_pkey PRIMARY KEY (id),
+  CONSTRAINT user_inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_keys (
+  id text NOT NULL,
+  user_id text,
+  crate_id text,
+  keys_count integer DEFAULT 0,
+  acquired_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_keys_pkey PRIMARY KEY (id),
+  CONSTRAINT user_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_mission_progress (
+  user_id text NOT NULL,
+  mission_id text NOT NULL,
+  progress integer DEFAULT 0,
+  completed boolean DEFAULT false,
+  completed_at timestamp without time zone,
+  last_updated timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_mission_progress_pkey PRIMARY KEY (user_id, mission_id),
+  CONSTRAINT user_mission_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_missions (
+  id integer NOT NULL DEFAULT nextval('user_missions_id_seq'::regclass),
+  user_id text,
+  mission_id text,
+  progress integer DEFAULT 0,
+  completed boolean DEFAULT false,
+  completed_at timestamp without time zone,
+  created_at timestamp without time zone DEFAULT now(),
+  expires_at timestamp without time zone,
+  CONSTRAINT user_missions_pkey PRIMARY KEY (id),
+  CONSTRAINT user_missions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_moderation (
+  id text NOT NULL,
+  user_id text,
+  action text,
+  reason text,
+  moderator_id text,
+  active boolean DEFAULT true,
+  created_at timestamp without time zone DEFAULT now(),
+  expires_at timestamp without time zone,
+  CONSTRAINT user_moderation_pkey PRIMARY KEY (id),
+  CONSTRAINT user_moderation_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_perk_claims (
+  id text NOT NULL,
+  user_id text NOT NULL,
+  perk_id text NOT NULL,
+  claimed_at timestamp without time zone DEFAULT now(),
+  expires_at timestamp without time zone,
+  is_active boolean DEFAULT true,
+  claim_method text DEFAULT 'purchase'::text,
+  CONSTRAINT user_perk_claims_pkey PRIMARY KEY (id),
+  CONSTRAINT user_perk_claims_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_perks (
+  id text NOT NULL,
+  user_id text,
+  perk_id text,
+  perk_name text,
+  perk_type text,
+  duration_hours integer,
+  expires_at timestamp without time zone,
+  is_active boolean DEFAULT true,
+  applied_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_perks_pkey PRIMARY KEY (id),
+  CONSTRAINT user_perks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_settings (
+  id integer NOT NULL DEFAULT nextval('user_settings_id_seq'::regclass),
+  user_id text UNIQUE,
+  notifications_enabled boolean DEFAULT true,
+  sound_enabled boolean DEFAULT true,
+  theme text DEFAULT 'dark'::text,
+  language text DEFAULT 'en'::text,
+  created_at timestamp without time zone DEFAULT now(),
+  updated_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_settings_pkey PRIMARY KEY (id),
+  CONSTRAINT user_settings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.user_transactions (
+  id text NOT NULL,
+  user_id text,
+  type text,
+  amount integer,
+  currency text DEFAULT 'coins'::text,
+  description text,
+  item_id text,
+  created_at timestamp without time zone DEFAULT now(),
+  CONSTRAINT user_transactions_pkey PRIMARY KEY (id),
+  CONSTRAINT user_transactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.users (
+  id text NOT NULL,
+  email text NOT NULL UNIQUE,
+  password_hash text,
+  displayname text,
+  avatar_url text,
+  role text DEFAULT 'user'::text,
+  xp integer DEFAULT 0,
+  level integer DEFAULT 1,
+  coins integer DEFAULT 0,
+  gems integer DEFAULT 0,
+  created_at timestamp without time zone DEFAULT now(),
+  last_login_at timestamp without time zone,
+  steam_id text UNIQUE,
+  steam_verified boolean DEFAULT false,
+  account_status text DEFAULT 'pending'::text,
+  steam_trade_url text,
+  username text,
+  avatar text,
+  wins integer DEFAULT 0,
+  matches_played integer DEFAULT 0,
+  CONSTRAINT users_pkey PRIMARY KEY (id)
+);

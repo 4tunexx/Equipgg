@@ -7,7 +7,7 @@ import { useAuth } from "../../../hooks/use-auth";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { supabase } from "../../../lib/supabase/client";
 import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from "../../../lib/supabase/queries";
-import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History } from "lucide-react";
+import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History, Award } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
 import { UserAvatar } from "../../../components/user-avatar";
 import { Progress } from "../../../components/ui/progress";
@@ -43,33 +43,83 @@ export default function ProfilePage() {
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [ranks, setRanks] = useState<any[]>([]);
+  const [userBadges, setUserBadges] = useState<any[]>([]);
   const referralCode = "REF-4F2B9A1C";
-  
-  // Mock data for missing variables
-  const badges = {
-    "Achievement Badges": [
-      { title: "First Win", description: "Won your first bet" },
-      { title: "Lucky Streak", description: "Won 5 bets in a row" },
-      { title: "High Roller", description: "Placed a bet over 10,000 coins" }
-    ],
-    "Special Badges": [
-      { title: "VIP Member", description: "Premium member status" },
-      { title: "Early Adopter", description: "Joined during beta" }
-    ]
-  };
-  
-  const ranks = {
-    "Competitive Ranks": [
-      { id: "silver1", name: "Silver I", title: "Silver I", level: 1, image: "/ranks/silver1.png", description: "Levels 1-9" },
-      { id: "silver2", name: "Silver II", title: "Silver II", level: 10, image: "/ranks/silver2.png", description: "Levels 10-24" },
-      { id: "gold1", name: "Gold I", title: "Gold I", level: 25, image: "/ranks/gold1.png", description: "Levels 25+" }
-    ]
-  };
-  
+  // Fetch ranks from database - use user API instead of admin API
+  useEffect(() => {
+    const fetchRanks = async () => {
+      try {
+        // Try user ranks API first, fallback to admin API
+        let response = await fetch('/api/user/ranks', { credentials: 'include' });
+        if (!response.ok) {
+          response = await fetch('/api/admin/ranks');
+        }
+        if (response.ok) {
+          const data = await response.json();
+          setRanks(data.ranks || []);
+        }
+      } catch (error) {
+        console.error('Error fetching ranks:', error);
+        // Fallback to mock ranks for testing
+        setRanks([
+          { id: 1, name: 'Silver I', min_xp: 0, max_xp: 100, tier: 1 },
+          { id: 2, name: 'Silver II', min_xp: 100, max_xp: 200, tier: 1 },
+          { id: 3, name: 'Silver III', min_xp: 200, max_xp: 300, tier: 1 },
+          { id: 4, name: 'Silver IV', min_xp: 300, max_xp: 400, tier: 1 },
+          { id: 5, name: 'Silver Elite', min_xp: 400, max_xp: 500, tier: 2 },
+          { id: 6, name: 'Silver Elite Master', min_xp: 500, max_xp: 600, tier: 2 },
+          { id: 7, name: 'Gold Nova I', min_xp: 600, max_xp: 700, tier: 3 },
+          { id: 8, name: 'Gold Nova II', min_xp: 700, max_xp: 800, tier: 3 },
+          { id: 9, name: 'Gold Nova III', min_xp: 800, max_xp: 900, tier: 3 },
+          { id: 10, name: 'Gold Nova Master', min_xp: 900, max_xp: 1000, tier: 3 },
+          { id: 11, name: 'Master Guardian I', min_xp: 1000, max_xp: 1100, tier: 4 },
+          { id: 12, name: 'Master Guardian II', min_xp: 1100, max_xp: 1200, tier: 4 },
+          { id: 13, name: 'Master Guardian Elite', min_xp: 1200, max_xp: 1300, tier: 4 },
+          { id: 14, name: 'Distinguished Master Guardian', min_xp: 1300, max_xp: 1400, tier: 4 },
+          { id: 15, name: 'Legendary Eagle', min_xp: 1400, max_xp: 1500, tier: 5 },
+          { id: 16, name: 'Legendary Eagle Master', min_xp: 1500, max_xp: 1600, tier: 5 },
+          { id: 17, name: 'Supreme', min_xp: 1600, max_xp: null, tier: 6 },
+        ]);
+      }
+    };
+
+    fetchRanks();
+  }, []);
+
+  // Fetch user badges from database
+  useEffect(() => {
+    const fetchUserBadges = async () => {
+      if (!user?.username) return;
+
+      try {
+        const response = await fetch(`/api/user/${user.username}/badges`);
+        if (response.ok) {
+          const data = await response.json();
+          setUserBadges(data.badges || []);
+        }
+      } catch (error) {
+        console.error('Error fetching user badges:', error);
+        // Fallback to mock badges for testing
+        setUserBadges([
+          { id: 1, name: 'First Win', description: 'Win your first bet', category: 'Betting', rarity: 'Common', earned: true },
+          { id: 2, name: 'Lucky Streak', description: 'Win 5 bets in a row', category: 'Betting', rarity: 'Rare', earned: false },
+        ]);
+      }
+    };
+
+    if (user?.username) {
+      fetchUserBadges();
+    }
+  }, [user?.username]);
+
   const getRankByLevel = (level: number) => {
-    if (level >= 25) return "Gold I";
-    if (level >= 10) return "Silver II";
-    return "Silver I";
+    // Find the appropriate rank based on XP (assuming level roughly correlates to XP)
+    const estimatedXp = level * 100; // Rough estimation
+    const currentRank = ranks.find(rank =>
+      estimatedXp >= rank.min_xp && (rank.max_xp === null || estimatedXp <= rank.max_xp)
+    );
+    return currentRank?.name || 'Unranked';
   };
   
   const achievedItems = new Set([
@@ -416,6 +466,7 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Achievements</CardTitle>
+              <CardDescription>Track your progress and unlock rewards</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {Object.keys(achievements).length > 0 ? (
@@ -423,24 +474,50 @@ export default function ProfilePage() {
                   <div key={category}>
                     <h3 className="text-xl font-bold mb-2">{category}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {items.map((item: any) => (
-                        <Card key={item.id} className={cn("bg-secondary/50 transition-all", !item.achieved && 'opacity-50 grayscale hover:grayscale-0 hover:opacity-100')}>
-                          <CardHeader className="flex-row items-center gap-4">
-                            <Trophy className={cn("w-6 h-6", item.achieved ? 'text-primary' : 'text-muted-foreground')}/>
-                            <div>
-                              <p className="font-semibold">{item.title}</p>
-                              <p className="text-xs text-muted-foreground">{item.description}</p>
-                            </div>
-                          </CardHeader>
-                        </Card>
-                      ))}
+                      {items.map((item: any) => {
+                        const isAchieved = item.achieved || item.unlocked_at;
+                        return (
+                          <Card key={item.id} className={cn(
+                            "transition-all hover:scale-105",
+                            isAchieved ? "bg-secondary/50 border-green-500/20" : "bg-secondary/50 opacity-60 grayscale hover:grayscale-0 hover:opacity-100"
+                          )}>
+                            <CardHeader className="flex-row items-center gap-4">
+                              <Trophy className={cn(
+                                "w-6 h-6",
+                                isAchieved ? "text-yellow-500" : "text-muted-foreground"
+                              )}/>
+                              <div className="flex-1">
+                                <p className={cn(
+                                  "font-semibold",
+                                  isAchieved && "text-green-600"
+                                )}>
+                                  {item.title || item.name}
+                                  {isAchieved && " ✓"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">{item.description}</p>
+                                {item.reward_xp && (
+                                  <p className="text-xs text-blue-500 mt-1">Reward: {item.reward_xp} XP</p>
+                                )}
+                                {item.reward_coins && (
+                                  <p className="text-xs text-yellow-500">Reward: {item.reward_coins} coins</p>
+                                )}
+                                {isAchieved && (
+                                  <UiBadge variant="default" className="text-xs bg-green-600 mt-1">
+                                    Unlocked
+                                  </UiBadge>
+                                )}
+                              </div>
+                            </CardHeader>
+                          </Card>
+                        );
+                      })}
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="text-center py-8">
                   <Trophy className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No achievements yet. Start playing to unlock achievements!</p>
+                  <p className="text-muted-foreground">No achievements available yet. Start playing to unlock achievements!</p>
                 </div>
               )}
             </CardContent>
@@ -450,26 +527,71 @@ export default function ProfilePage() {
            <Card>
             <CardHeader>
               <CardTitle>Badges</CardTitle>
+              <CardDescription>Your earned achievement badges</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Object.entries(badges).map(([category, items]) => (
-                <div key={category}>
-                  <h3 className="text-xl font-bold mb-2">{category}</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {items.map((item) => (
-                      <Card key={item.title} className="bg-secondary/50">
+              {userBadges.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {userBadges.map((badge) => {
+                    const isEarned = badge.earned || badge.earned_at;
+                    return (
+                      <Card key={badge.id} className={cn(
+                        "transition-all",
+                        isEarned ? "bg-secondary/50 border-green-500/20" : "bg-secondary/50 opacity-60 grayscale"
+                      )}>
                         <CardHeader className="flex-row items-center gap-4">
-                           <Gem className="w-6 h-6 text-primary"/>
-                           <div>
-                            <p className="font-semibold">{item.title}</p>
-                            <p className="text-xs text-muted-foreground">{item.description}</p>
-                           </div>
+                          {badge.image_url ? (
+                            <img
+                              src={badge.image_url}
+                              alt={badge.name}
+                              className={cn(
+                                "w-8 h-8 rounded",
+                                !isEarned && "grayscale opacity-50"
+                              )}
+                              onError={(e) => {
+                                e.currentTarget.src = `/badges/${badge.name.toLowerCase().replace(/\s+/g, '')}.png`;
+                              }}
+                            />
+                          ) : (
+                            <Award className={cn(
+                              "w-6 h-6",
+                              isEarned ? "text-primary" : "text-muted-foreground"
+                            )}/>
+                          )}
+                          <div className="flex-1">
+                            <p className={cn(
+                              "font-semibold",
+                              isEarned && "text-green-600"
+                            )}>
+                              {badge.name}
+                              {isEarned && " ✓"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">{badge.description}</p>
+                            <div className="flex gap-2 mt-1">
+                              <UiBadge variant="secondary" className="text-xs">
+                                {badge.category}
+                              </UiBadge>
+                              <UiBadge variant="outline" className="text-xs">
+                                {badge.rarity}
+                              </UiBadge>
+                              {isEarned && (
+                                <UiBadge variant="default" className="text-xs bg-green-600">
+                                  Earned
+                                </UiBadge>
+                              )}
+                            </div>
+                          </div>
                         </CardHeader>
                       </Card>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
-              ))}
+              ) : (
+                <div className="text-center py-8">
+                  <Award className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">No badges available yet. Start playing to earn badges!</p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -480,47 +602,43 @@ export default function ProfilePage() {
               <CardDescription>Your rank is determined by your Level. You earn a new rank for every two levels you gain.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Object.entries(ranks).map(([category, items]) => {
-                const currentRank = getRankByLevel(balance?.level || 1);
-                return (
-                  <div key={category}>
-                    <h3 className="text-xl font-bold mb-2">{category}</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {items.map((item) => {
-                        const isCurrentRank = item.title === currentRank;
-                        const levelRange = item.description.match(/Levels? (\d+)(?:-(\d+))?/);
-                        const minLevel = levelRange ? parseInt(levelRange[1]) : 1;
-                        const isAchieved = (balance?.level || 1) >= minLevel;
-                        
-                        return (
-                          <Card key={item.title} className={cn(
-                            "transition-all",
-                            isCurrentRank ? "bg-primary/20 border-primary" : "bg-secondary/50",
-                            !isAchieved && "opacity-50 grayscale"
-                          )}>
-                            <CardHeader className="flex-row items-center gap-4">
-                               <CheckCircle className={cn(
-                                 "w-6 h-6",
-                                 isCurrentRank ? "text-primary" : isAchieved ? "text-green-500" : "text-muted-foreground"
-                               )}/>
-                               <div>
-                                <p className={cn(
-                                  "font-semibold",
-                                  isCurrentRank && "text-primary"
-                                )}>
-                                  {item.title}
-                                  {isCurrentRank && " (Current)"}
-                                </p>
-                                <p className="text-xs text-muted-foreground">{item.description}</p>
-                               </div>
-                            </CardHeader>
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+              <div>
+                <h3 className="text-xl font-bold mb-2">Competitive Ranks</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {ranks.map((rank, index) => {
+                    const currentRank = getRankByLevel(balance?.level || 1);
+                    const isCurrentRank = rank.name === currentRank;
+                    const isAchieved = (balance?.level || 1) >= Math.floor(rank.min_xp / 100); // Rough level estimation
+
+                    return (
+                      <Card key={rank.id} className={cn(
+                        "transition-all",
+                        isCurrentRank ? "bg-primary/20 border-primary" : "bg-secondary/50",
+                        !isAchieved && "opacity-50 grayscale"
+                      )}>
+                        <CardHeader className="flex-row items-center gap-4">
+                           <CheckCircle className={cn(
+                             "w-6 h-6",
+                             isCurrentRank ? "text-primary" : isAchieved ? "text-green-500" : "text-muted-foreground"
+                           )}/>
+                           <div>
+                            <p className={cn(
+                              "font-semibold",
+                              isCurrentRank && "text-primary"
+                            )}>
+                              {rank.name}
+                              {isCurrentRank && " (Current)"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              XP: {rank.min_xp}{rank.max_xp ? ` - ${rank.max_xp}` : '+'} | Tier: {rank.tier}
+                            </p>
+                           </div>
+                        </CardHeader>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
                 <div className="mt-6 pt-6 border-t">
                     <h3 className="text-xl font-bold mb-2">Prestige Ranks ✨</h3>
                     <p className="text-muted-foreground">When you reach Level 100, you can choose to Prestige. This resets your level to 1, increases your prestige rank, and gives your base rank icons a new, elite appearance to show off your dedication.</p>

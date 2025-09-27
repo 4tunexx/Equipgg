@@ -64,118 +64,25 @@ export default function ShopPage() {
   const fetchShopItems = async () => {
     try {
       const response = await fetch('/api/shop');
-      
+
       if (response.ok) {
         const data = await response.json();
         const items = data.items || [];
         setShopItems(items);
-        
+
         // Extract unique categories
         const uniqueCategories = [...new Set(items.map((item: DBShopItem) => item.item?.type ?? 'Unknown'))] as string[];
         setCategories(uniqueCategories);
       } else {
-        throw new Error(`API responded with status: ${response.status}`);
+        console.error(`API responded with status: ${response.status}`);
+        setShopItems([]);
+        setCategories([]);
       }
     } catch (error) {
-      console.error('Failed to fetch shop items:', {
-        message: error instanceof Error ? error.message : 'Unknown error',
-        stack: error instanceof Error ? error.stack : undefined,
-        error: error
-      });
-      // Use fallback mock data when database is not available
-      const mockShopItems: DBShopItem[] = [
-        {
-          id: 'shop-1',
-          name: 'AK-47 | Redline',
-          item_id: 'item-ak-redline',
-          price: 2500,
-          stock: 10,
-          discount_percentage: 0,
-          is_featured: false,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-ak-redline',
-            name: 'AK-47 | Redline',
-            type: 'weapon',
-            rarity: 'Classified' as Rarity,
-            image: 'https://picsum.photos/seed/ak47-redline/300/200',
-            data_ai_hint: 'A classic AK-47 with red line design',
-            created_at: new Date().toISOString()
-          }
-        },
-        {
-          id: 'shop-2',
-          name: 'AWP | Dragon Lore',
-          item_id: 'item-awp-dragon',
-          price: 15000,
-          stock: 2,
-          discount_percentage: 10,
-          is_featured: true,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-awp-dragon',
-            name: 'AWP | Dragon Lore',
-            type: 'weapon',
-            rarity: 'Covert' as Rarity,
-            image: 'https://picsum.photos/seed/awp-dragon/300/200',
-            data_ai_hint: 'Legendary AWP with dragon design',
-            created_at: new Date().toISOString()
-          }
-        },
-        {
-          id: 'shop-3',
-          name: '★ Karambit | Fade',
-          item_id: 'item-knife-fade',
-          price: 50000,
-          stock: 1,
-          discount_percentage: 0,
-          is_featured: true,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-knife-fade',
-            name: '★ Karambit | Fade',
-            type: 'knife',
-            rarity: 'Covert' as Rarity,
-            image: 'https://picsum.photos/seed/karambit-fade/300/200',
-            data_ai_hint: 'Rare karambit knife with fade pattern',
-            created_at: new Date().toISOString()
-          }
-        },
-        {
-          id: 'shop-4',
-          name: '★ Specialist Gloves | Crimson Web',
-          item_id: 'item-gloves-crimson',
-          price: 8000,
-          stock: 3,
-          discount_percentage: 5,
-          is_featured: false,
-          is_active: true,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-          item: {
-            id: 'item-gloves-crimson',
-            name: '★ Specialist Gloves | Crimson Web',
-            type: 'gloves',
-            rarity: 'Covert' as Rarity,
-            image: 'https://picsum.photos/seed/gloves-crimson/300/200',
-            data_ai_hint: 'Specialist gloves with crimson web pattern',
-            created_at: new Date().toISOString()
-          }
-        }
-      ];
-      setShopItems(mockShopItems);
-      
-      // Extract unique categories from mock data
-      const uniqueCategories = [...new Set(mockShopItems.map(item => item.item?.type ?? 'Unknown'))] as string[];
-      setCategories(uniqueCategories);
-    } finally {
-      // Loading state handled by isLoading from useBalance
+      console.error('Failed to fetch shop items:', error);
+      // Clear items and indicate error state; UI will show friendly message
+      setShopItems([]);
+      setCategories([]);
     }
   };
 

@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
         username: username || email.split('@')[0],
         email: email,
         role: 'user',
-        coins: 1000, // Starting coins
+        coins: 50, // Starting coins
         gems: 10,    // Starting gems
         xp: 0,
         level: 1

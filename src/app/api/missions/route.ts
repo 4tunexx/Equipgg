@@ -15,9 +15,9 @@ export async function GET(request: NextRequest) {
     // Get all active missions
     const { data: missions, error } = await supabase
       .from('missions')
-      .select('*')
+      .select('id, name, description, type, reward_xp, reward_coins, requirements, is_active, target_value')
       .eq('is_active', true)
-      .order('difficulty', { ascending: true });
+      .order('id', { ascending: true });
     
     if (error) throw error;
     
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     
     // Get user's progress for each mission
     const { data: progress, error: progressError } = await supabase
-      .from('mission_progress')
+      .from('user_mission_progress')
       .select('*')
       .eq('user_id', authSession.user_id);
     

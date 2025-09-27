@@ -1,26 +1,18 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 
-// Legacy database route - disabled during Supabase migration
+// Featured items seeding/management disabled to avoid modifying production Supabase.
 export async function GET(request: NextRequest) {
-  return NextResponse.json({ 
-    error: "This feature is temporarily unavailable during database migration" 
-  }, { status: 503 });
+  return NextResponse.json({ error: 'Feature disabled. Use Supabase data.' }, { status: 410 });
 }
 
 export async function POST(request: NextRequest) {
-  return NextResponse.json({ 
-    error: "This feature is temporarily unavailable during database migration" 
-  }, { status: 503 });
+  return NextResponse.json({ error: 'Feature disabled. Use Supabase data.' }, { status: 410 });
 }
 
 export async function PUT(request: NextRequest) {
-  return NextResponse.json({ 
-    error: "This feature is temporarily unavailable during database migration" 
-  }, { status: 503 });
+  return NextResponse.json({ error: 'Feature disabled. Use Supabase data.' }, { status: 410 });
 }
 
 export async function DELETE(request: NextRequest) {
-  return NextResponse.json({ 
-    error: "This feature is temporarily unavailable during database migration" 
-  }, { status: 503 });
+  return NextResponse.json({ error: 'Feature disabled. Use Supabase data.' }, { status: 410 });
 }

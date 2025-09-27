@@ -36,7 +36,7 @@ type LeaderboardPlayer = {
 
 interface UserProfileLinkProps {
     user: LeaderboardPlayer & { 
-        rank?: number;
+        rank?: number | { id: string; name: string; image_url?: string; tier: string };
         level?: number;
         isVip?: boolean;
         role?: string;

@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     try {
       // Try to get user's mission progress summary from database
       const { data: progressData, error: progressError } = await supabase
-        .from('mission_progress')
+        .from('user_mission_progress')
         .select(`
           *,
           missions!inner(title, reward_type, reward_value, difficulty)

@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 // GET - Get specific ticket with replies
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: any
 ) {
   try {
     const session = await getAuthSession(request);
@@ -73,7 +73,7 @@ export async function GET(
 // PUT - Update ticket status, priority, or assignment
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: any
 ) {
   try {
     const session = await getAuthSession(request);

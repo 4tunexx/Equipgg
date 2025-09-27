@@ -10,6 +10,7 @@ import type { Session } from '@supabase/supabase-js';
 export type LocalUser = {
   id: string;
   email: string;
+  username?: string;
   displayName?: string;
   photoURL?: string;
   role?: string;
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: session.user.id,
           email: session.user.email || '',
+          username: profile?.username,
           displayName: profile?.displayname || session.user.user_metadata?.displayName || session.user.user_metadata?.displayname,
           photoURL: profile?.avatar_url || session.user.user_metadata?.avatar,
           role: profile?.role || 'user',
@@ -156,6 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: sessionData.user_id,
               email: sessionData.email,
+              username: sessionData.username,
               displayName: sessionData.displayName || sessionData.displayname || sessionData.email.split('@')[0],
               photoURL: sessionData.avatarUrl || null,
               role: sessionData.role || 'user',
@@ -197,6 +200,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: sessionData.user_id,
               email: sessionData.email,
+              username: sessionData.username,
               displayName: sessionData.displayName || sessionData.displayname || sessionData.email.split('@')[0],
               photoURL: null,
               role: sessionData.role || 'user',
@@ -247,6 +251,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: userData.id,
               email: userData.email,
+              username: userData.username,
               displayName: userData.displayname || userData.username || steamUserId,
               photoURL: userData.avatar_url || null,
               role: userData.role || 'user',
@@ -533,6 +538,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser({
                 id: freshUser.id,
                 email: freshUser.email || '',
+                username: freshUser.username,
                 displayName: displayName,
                 photoURL: photoURL,
                 role: freshUser.role || 'user',
@@ -573,6 +579,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           id: user.id,
           email: user.email || '',
+          username: profile?.username,
           displayName: displayName,
           photoURL: photoURL,
           role: profile?.role || 'user',

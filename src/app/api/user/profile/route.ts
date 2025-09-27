@@ -25,6 +25,17 @@ export async function GET(request: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', session.user_id);
     const itemCount = inventoryData?.length ?? 0;
+    // Get user's current rank based on XP
+    const { data: rankData, error: rankError } = await supabase
+      .from('ranks')
+      .select('id, name, image_url, tier')
+      .lte('min_xp', data.xp || 0)
+      .order('min_xp', { ascending: false })
+      .limit(1)
+      .single();
+
+    const currentRank = rankError ? null : rankData;
+
     // Placeholders for stats, achievements, referrals
     const betsWon = 0;
     const winRate = 0;
@@ -42,6 +53,12 @@ export async function GET(request: NextRequest) {
           gems: data.gems || 0,
           xp: data.xp || 0,
           level: data.level || 1,
+          rank: currentRank ? {
+            id: currentRank.id,
+            name: currentRank.name,
+            image_url: currentRank.image_url,
+            tier: currentRank.tier
+          } : null,
           createdAt: data.created_at
         },
         stats: {
@@ -99,6 +116,17 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    // Get user's current rank based on XP
+    const { data: rankData, error: rankError } = await supabase
+      .from('ranks')
+      .select('id, name, image_url, tier')
+      .lte('min_xp', data.xp || 0)
+      .order('min_xp', { ascending: false })
+      .limit(1)
+      .single();
+
+    const currentRank = rankError ? null : rankData;
+
     return NextResponse.json({
       success: true,
       user: {
@@ -110,6 +138,12 @@ export async function PUT(request: NextRequest) {
         gems: data.gems || 0,
         xp: data.xp || 0,
         level: data.level || 1,
+        rank: currentRank ? {
+          id: currentRank.id,
+          name: currentRank.name,
+          image_url: currentRank.image_url,
+          tier: currentRank.tier
+        } : null,
         createdAt: data.created_at
       }
     });

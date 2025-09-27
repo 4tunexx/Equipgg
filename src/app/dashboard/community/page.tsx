@@ -7,33 +7,7 @@ import { useAuth } from "../../../hooks/use-auth";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { supabase } from "../../../lib/supabase/client";
 
-// Define forum categories temporarily until we move to database
-const forumCategories = [
-  { id: '1', name: "General Discussion", description: "General gaming topics", posts: 1542, lastPost: "2 hours ago" },
-  { id: '2', name: "CS2 Strategy", description: "Tips and tactics", posts: 892, lastPost: "1 hour ago" },
-  { id: '3', name: "Trading", description: "Item trading", posts: 673, lastPost: "30 minutes ago" }
-];
-
-const recentTopics = [
-  { 
-    id: '1', 
-    title: "Best loadout for Dust2?", 
-    author: { id: '1', displayName: "ProGamer", avatarUrl: "/default-avatar.png" },
-    category: "CS2 Strategy",
-    replies: 23, 
-    lastActivity: "1 hour ago",
-    rep: 5
-  },
-  { 
-    id: '2', 
-    title: "Trading my Karambit", 
-    author: { id: '2', displayName: "Trader123", avatarUrl: "/default-avatar.png" },
-    category: "Trading",
-    replies: 15, 
-    lastActivity: "2 hours ago",
-    rep: 8
-  }
-];
+// No in-file mock data: always fetch forum data from the server API
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { UserProfileLink } from "../../../components/user-profile-link";
 import { Button } from "../../../components/ui/button";
@@ -88,13 +62,13 @@ export default function CommunityPage() {
           const data = await response.json();
           setForumData(data);
         } else {
-          // Fallback to mock data if API fails
-          setForumData({ categories: forumCategories, recentTopics });
+          // API returned non-ok; set empty state so UI shows helpful message
+          setForumData({ categories: [], recentTopics: [] });
         }
       } catch (error) {
         console.error('Failed to fetch forum data:', error);
-        // Fallback to mock data on error
-        setForumData({ categories: forumCategories, recentTopics });
+        // On error, set empty state
+        setForumData({ categories: [], recentTopics: [] });
       } finally {
         setLoading(false);
       }
@@ -175,7 +149,7 @@ export default function CommunityPage() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {recentTopics.map((topic) => (
+                                    {forumData.recentTopics.map((topic) => (
                                         <TableRow key={topic.id}>
                                             <TableCell>
                                                 <p className="font-semibold text-base">{topic.title}</p>

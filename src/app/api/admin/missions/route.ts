@@ -41,9 +41,9 @@ export async function POST(request: NextRequest) {
       return createForbiddenResponse('Only admins can create missions.');
     }
 
-    const { title, description, type, reward, requirement, isActive } = await request.json();
+    const { title, description, type, tier, target_value, reward_coins, reward_xp, reward_item, is_active } = await request.json();
 
-    if (!title || !description || !type || !reward || !requirement) {
+    if (!title || !description || !type || !tier) {
       return NextResponse.json({ error: 'Required fields missing' }, { status: 400 });
     }
 
@@ -55,10 +55,13 @@ export async function POST(request: NextRequest) {
       title,
       description,
       type,
-      reward,
-      requirement,
-      isActive: isActive !== false,
-      createdAt: timestamp
+      tier,
+      target_value: target_value || 1,
+      reward_coins: reward_coins || 0,
+      reward_xp: reward_xp || 0,
+      reward_item: reward_item || null,
+      is_active: is_active !== false,
+      created_at: timestamp
     });
     return NextResponse.json({
       success: true,
@@ -108,6 +111,42 @@ export async function PUT(request: NextRequest) {
 
   } catch (error) {
     console.error('Error updating mission:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getAuthSession(request);
+    if (!session) {
+      return createUnauthorizedResponse();
+    }
+
+    if (session.role !== 'admin') {
+      return createForbiddenResponse('Only admins can update mission status.');
+    }
+
+    const { missionId, isActive } = await request.json();
+
+    if (!missionId) {
+      return NextResponse.json({ error: 'Mission ID is required' }, { status: 400 });
+    }
+
+    const updatedMission = await secureDb.update('missions', { id: missionId }, {
+      is_active: isActive
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `Mission ${isActive ? 'enabled' : 'disabled'} successfully`,
+      mission: updatedMission
+    });
+
+  } catch (error) {
+    console.error('Error updating mission status:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

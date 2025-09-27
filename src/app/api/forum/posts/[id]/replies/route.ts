@@ -1,7 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '../../../../../../lib/supabase';
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: any) {
   try {
     const postId = params.id;
     const supabase = createServerSupabaseClient();
@@ -64,7 +64,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: any) {
   try {
     const postId = params.id;
     const { content } = await request.json();

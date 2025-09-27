@@ -3,32 +3,6 @@ import { getAuthSession } from '../../../../lib/auth-utils';
 import { supabase } from "../../../../lib/supabase";
 
 // User Perks System
-const PERK_DEFINITIONS = {
-  daily_bonus: { 
-    name: 'Daily Bonus', 
-    description: 'Claim free coins every 24 hours',
-    baseAmount: 100,
-    vipMultiplier: { bronze: 1.05, silver: 1.1, gold: 1.15, platinum: 1.2 }
-  },
-  level_bonus: {
-    name: 'Level Bonus',
-    description: 'Get bonus coins based on your level',
-    baseAmount: 50,
-    levelMultiplier: 10
-  },
-  referral_bonus: {
-    name: 'Referral Bonus',
-    description: 'Earn coins for successful referrals',
-    baseAmount: 500
-  },
-  streak_bonus: {
-    name: 'Login Streak',
-    description: 'Extra coins for consecutive daily logins',
-    maxStreak: 7,
-    bonusPerDay: 25
-  }
-};
-
 export async function GET(request: NextRequest) {
   try {
     // Get authenticated session
@@ -49,6 +23,17 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 });
     }
 
+    // Get all active perks from database
+    const { data: perksData, error: perksError } = await supabase
+      .from('perks')
+      .select('*')
+      .eq('is_active', true);
+
+    if (perksError) {
+      console.error('Error fetching perks:', perksError);
+      return NextResponse.json({ error: 'Failed to fetch perks' }, { status: 500 });
+    }
+
     // Get user's perk claims today
     const today = new Date().toISOString().split('T')[0];
     const { data: claimsToday, error: claimsError } = await supabase
@@ -62,51 +47,71 @@ export async function GET(request: NextRequest) {
       console.error('Error fetching perk claims:', claimsError);
     }
 
-    // Calculate available perks
+    // Calculate available perks based on database data
     const availablePerks = [];
     const claimedToday = (claimsToday || []).map(c => c.perk_type);
 
-    // Daily Bonus
-    if (!claimedToday.includes('daily_bonus')) {
-      const perk = PERK_DEFINITIONS.daily_bonus;
-      const vipMultiplier = userData.vip_tier ? perk.vipMultiplier[userData.vip_tier as keyof typeof perk.vipMultiplier] || 1 : 1;
-      const amount = Math.floor(perk.baseAmount * vipMultiplier);
-      
-      availablePerks.push({
-        type: 'daily_bonus',
-        name: perk.name,
-        description: perk.description,
-        amount,
-        available: true
-      });
-    }
+    for (const perk of perksData || []) {
+      let available = false;
+      let amount = 0;
+      let description = perk.description;
 
-    // Level Bonus (if user leveled up recently)
-    if (!claimedToday.includes('level_bonus') && userData.level > 1) {
-      const perk = PERK_DEFINITIONS.level_bonus;
-      const amount = perk.baseAmount + (userData.level * perk.levelMultiplier);
-      
-      availablePerks.push({
-        type: 'level_bonus',
-        name: perk.name,
-        description: perk.description,
-        amount,
-        available: true
-      });
-    }
+      // Check if this perk type was already claimed today
+      const alreadyClaimed = claimedToday.includes(perk.perk_type);
 
-    // Streak Bonus
-    if (!claimedToday.includes('streak_bonus') && userData.login_streak > 1) {
-      const perk = PERK_DEFINITIONS.streak_bonus;
-      const amount = Math.min(userData.login_streak, perk.maxStreak) * perk.bonusPerDay;
-      
-      availablePerks.push({
-        type: 'streak_bonus',
-        name: perk.name,
-        description: `${userData.login_streak} day streak bonus`,
-        amount,
-        available: true
-      });
+      switch (perk.perk_type) {
+        case 'daily_bonus':
+          if (!alreadyClaimed) {
+            const vipMultiplier = userData.vip_tier ?
+              (perk.effect_value * (userData.vip_tier === 'bronze' ? 1.05 :
+                                   userData.vip_tier === 'silver' ? 1.1 :
+                                   userData.vip_tier === 'gold' ? 1.15 :
+                                   userData.vip_tier === 'platinum' ? 1.2 : 1)) : perk.effect_value;
+            amount = Math.floor(vipMultiplier);
+            available = true;
+          }
+          break;
+        case 'level_bonus':
+          if (!alreadyClaimed && userData.level > 1) {
+            amount = perk.effect_value + (userData.level * 10);
+            available = true;
+          }
+          break;
+        case 'streak_bonus':
+          if (!alreadyClaimed && userData.login_streak > 1) {
+            amount = Math.min(userData.login_streak, 7) * perk.effect_value;
+            description = `${userData.login_streak} day streak bonus`;
+            available = true;
+          }
+          break;
+        case 'referral_bonus':
+          if (!alreadyClaimed) {
+            amount = perk.effect_value;
+            available = true;
+          }
+          break;
+        default:
+          // For other perks, they're available for purchase if user can afford them
+          available = true;
+          amount = perk.coin_price;
+          break;
+      }
+
+      if (available) {
+        availablePerks.push({
+          id: perk.id,
+          type: perk.perk_type,
+          name: perk.name,
+          description,
+          amount,
+          available: true,
+          category: perk.category,
+          perk_type: perk.perk_type,
+          coin_price: perk.coin_price,
+          gem_price: perk.gem_price,
+          duration_hours: perk.duration_hours
+        });
+      }
     }
 
     return NextResponse.json({
@@ -132,11 +137,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { perkType } = await request.json();
+    const { perkId } = await request.json();
 
-    if (!perkType || !PERK_DEFINITIONS[perkType as keyof typeof PERK_DEFINITIONS]) {
-      return NextResponse.json({ 
-        error: 'Invalid perk type' 
+    if (!perkId) {
+      return NextResponse.json({
+        error: 'Perk ID is required'
+      }, { status: 400 });
+    }
+
+    // Get perk data from database
+    const { data: perkData, error: perkError } = await supabase
+      .from('perks')
+      .select('*')
+      .eq('id', parseInt(perkId))
+      .eq('is_active', true)
+      .single();
+
+    if (perkError || !perkData) {
+      return NextResponse.json({
+        error: 'Invalid perk ID'
       }, { status: 400 });
     }
 
@@ -146,14 +165,14 @@ export async function POST(request: NextRequest) {
       .from('user_perk_claims')
       .select('id')
       .eq('user_id', session.user_id)
-      .eq('perk_type', perkType)
+      .eq('perk_type', perkData.perk_type)
       .gte('claimed_at', today + 'T00:00:00Z')
       .lt('claimed_at', today + 'T23:59:59Z')
       .single();
 
     if (existingClaim) {
-      return NextResponse.json({ 
-        error: 'Perk already claimed today' 
+      return NextResponse.json({
+        error: 'Perk already claimed today'
       }, { status: 400 });
     }
 
@@ -168,35 +187,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Calculate perk reward
+    // Calculate perk reward based on perk type
     let rewardAmount = 0;
-    let perkName = '';
+    let perkName = perkData.name;
 
-    switch (perkType) {
+    switch (perkData.perk_type) {
       case 'daily_bonus':
-        const dailyPerk = PERK_DEFINITIONS.daily_bonus;
-        const vipMultiplier = userData.vip_tier ? dailyPerk.vipMultiplier[userData.vip_tier as keyof typeof dailyPerk.vipMultiplier] || 1 : 1;
-        rewardAmount = Math.floor(dailyPerk.baseAmount * vipMultiplier);
-        perkName = dailyPerk.name;
+        const vipMultiplier = userData.vip_tier ? 
+          (userData.vip_tier === 'bronze' ? 1.05 : 
+           userData.vip_tier === 'silver' ? 1.1 : 
+           userData.vip_tier === 'gold' ? 1.15 : 
+           userData.vip_tier === 'platinum' ? 1.2 : 1) : 1;
+        rewardAmount = Math.floor(perkData.effect_value * vipMultiplier);
         break;
       case 'level_bonus':
-        const levelPerk = PERK_DEFINITIONS.level_bonus;
-        rewardAmount = levelPerk.baseAmount + (userData.level * levelPerk.levelMultiplier);
-        perkName = levelPerk.name;
+        rewardAmount = perkData.effect_value + (userData.level * 10);
         break;
       case 'streak_bonus':
-        const streakPerk = PERK_DEFINITIONS.streak_bonus;
-        rewardAmount = Math.min(userData.login_streak, streakPerk.maxStreak) * streakPerk.bonusPerDay;
-        perkName = streakPerk.name;
+        rewardAmount = Math.min(userData.login_streak, 7) * perkData.effect_value;
+        break;
+      case 'referral_bonus':
+        rewardAmount = perkData.effect_value;
+        break;
+      default:
+        rewardAmount = perkData.effect_value;
         break;
     }
 
     // Award the coins
     const { error: updateError } = await supabase
       .from('users')
-      .update({ 
+      .update({
         coins: userData.coins + rewardAmount,
-        last_daily_claim: perkType === 'daily_bonus' ? new Date().toISOString() : userData.last_daily_claim
+        last_daily_claim: perkData.perk_type === 'daily_bonus' ? new Date().toISOString() : userData.last_daily_claim
       })
       .eq('id', session.user_id);
 
@@ -209,7 +232,7 @@ export async function POST(request: NextRequest) {
     try {
       await supabase.from('user_perk_claims').insert([{
         user_id: session.user_id,
-        perk_type: perkType,
+        perk_type: perkData.perk_type,
         amount: rewardAmount,
         claimed_at: new Date().toISOString()
       }]);
@@ -229,7 +252,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Successfully claimed ${perkName}`,
-      perkType,
+      perkId: perkData.id,
+      perkType: perkData.perk_type,
       amount: rewardAmount,
       newBalance: userData.coins + rewardAmount
     });

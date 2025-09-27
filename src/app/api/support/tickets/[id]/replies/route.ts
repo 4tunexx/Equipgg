@@ -6,7 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 // POST - Add a reply to a ticket
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: any
 ) {
   try {
     const session = await getAuthSession(request);

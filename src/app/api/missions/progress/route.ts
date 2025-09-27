@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const missionId = searchParams.get('missionId');
 
     let query = supabase
-      .from('mission_progress')
+      .from('user_mission_progress')
       .select(`
         *,
         mission:missions(*)
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     // Upsert mission progress
     const { data, error } = await supabase
-      .from('mission_progress')
+      .from('user_mission_progress')
       .upsert({
         user_id: authSession.user_id,
         mission_id: missionId,
@@ -99,7 +99,7 @@ export async function PUT(request: NextRequest) {
 
     // Mark mission as completed
     const { error: progressError } = await supabase
-      .from('mission_progress')
+      .from('user_mission_progress')
       .upsert({
         user_id: authSession.user_id,
         mission_id: missionId,
@@ -161,7 +161,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const { error } = await supabase
-      .from('mission_progress')
+      .from('user_mission_progress')
       .delete()
       .eq('mission_id', missionId)
       .eq('user_id', userId);

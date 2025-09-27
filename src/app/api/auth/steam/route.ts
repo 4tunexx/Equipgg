@@ -292,7 +292,7 @@ export async function GET(request: NextRequest) {
                   username: steamUser.username,
                   avatar_url: steamUser.avatar,
                   role: 'user',
-                  coins: 1000, // Use correct column name
+                  coins: 50, // Use correct column name
                   xp: 0,
                   level: 1,
                   steam_id: steamUser.steamId,
@@ -341,7 +341,7 @@ export async function GET(request: NextRequest) {
       // Get user data for session
       const { data: userData, error: userDataError } = await supabase
         .from('users')
-        .select('id, email, role, username')
+        .select('id, email, role, username, avatar_url, steam_id, steam_verified, displayname')
         .eq('id', userId)
         .single();
 
@@ -355,6 +355,14 @@ export async function GET(request: NextRequest) {
         user_id: userData.id,
         email: userData.email,
         role: userData.role || 'user',
+        provider: 'steam',
+        avatarUrl: userData.avatar_url,
+        steamProfile: {
+          steamId: userData.steam_id,
+          avatar: userData.avatar_url
+        },
+        steamVerified: userData.steam_verified || true,
+        displayName: userData.username || userData.displayname,
         expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
       };
 
@@ -517,6 +525,14 @@ export async function POST(request: NextRequest) {
       user_id: userId,
       email: email,
       role: 'user',
+      provider: 'steam',
+      avatarUrl: steamUser.avatar,
+      steamProfile: {
+        steamId: steamUser.steamId,
+        avatar: steamUser.avatar
+      },
+      steamVerified: true,
+      displayName: steamUser.username,
       expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
     };
 

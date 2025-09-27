@@ -30,7 +30,7 @@ import { rarityGlow } from "../lib/constants";
 interface MiniProfileCardProps {
     user: LeaderboardPlayer & { 
         level?: number;
-        rank?: number;
+        rank?: number | { id: string; name: string; image_url?: string; tier: string };
         isVip?: boolean;
         role?: string;
         xp?: number;
@@ -186,7 +186,9 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                         <Trophy className="w-5 h-5 text-yellow-400" />
                         <div>
                             <p className="text-xs text-muted-foreground">Current Rank</p>
-                            <p className="font-semibold text-sm">{displayUser.rank}</p>
+                            <p className="font-semibold text-sm">
+                                {typeof displayUser.rank === 'object' ? displayUser.rank.name : displayUser.rank}
+                            </p>
                         </div>
                     </div>
                 )}
