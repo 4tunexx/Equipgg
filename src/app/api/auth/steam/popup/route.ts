@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { buildSteamAuthUrl, verifySteamResponse, getSteamUserInfo } from '../route';
 import { supabase } from '@/lib/supabase';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
 
 // Handle GET request - initiate Steam auth for popup
 export async function GET(request: NextRequest) {
@@ -214,8 +214,56 @@ export async function GET(request: NextRequest) {
       
       console.log('Successfully verified Steam for user:', verifyUserId);
       
-      // Return HTML that sends success message and closes popup
-      return new NextResponse(`
+      // Get user data for session
+      const { data: userData, error: userDataError } = await supabase
+        .from('users')
+        .select('id, email, role, username, steam_id, steam_verified, avatar_url')
+        .eq('id', verifyUserId)
+        .single();
+
+      if (userDataError) {
+        console.error('Failed to get user data for session:', userDataError);
+        return new NextResponse(`
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <script>
+              if (window.opener) {
+                window.opener.postMessage({
+                  type: 'steam_auth_complete',
+                  success: false,
+                  error: 'Failed to create session'
+                }, '*');
+              }
+              window.close();
+            </script>
+          </head>
+          <body>
+            <p>Failed to create session. You can close this window.</p>
+          </body>
+          </html>
+        `, {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+
+      // Create session object matching auth-utils format
+      const sessionData = {
+        user_id: userData.id,
+        email: userData.email,
+        role: userData.role || 'user',
+        expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000), // 7 days from now
+        steamProfile: userData.steam_verified ? {
+          steamId: userData.steam_id,
+          avatar: userData.avatar_url || '',
+          profileUrl: `https://steamcommunity.com/profiles/${userData.steam_id}`
+        } : undefined
+      };
+
+      console.log('Creating session data for Steam verification:', sessionData);
+
+      // Create response with session cookies
+      const response = new NextResponse(`
         <!DOCTYPE html>
         <html>
         <head>
@@ -228,6 +276,7 @@ export async function GET(request: NextRequest) {
                 success: true,
                 steamId: '${steamUser.steamId}',
                 username: '${steamUser.username}',
+                avatar: '${steamUser.avatar}',
                 redirect: '${redirectParam || ''}'
               }, '*');
               console.log('Message sent, closing popup...');
@@ -248,6 +297,26 @@ export async function GET(request: NextRequest) {
       `, {
         headers: { 'Content-Type': 'text/html' }
       });
+
+      // Set session cookies
+      response.cookies.set('equipgg_session', encodeURIComponent(JSON.stringify(sessionData)), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      });
+      
+      response.cookies.set('equipgg_session_client', encodeURIComponent(JSON.stringify(sessionData)), {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      });
+
+      console.log('Session cookies set for Steam verification');
+      return response;
       
     } catch (error) {
       console.error('Steam auth popup callback error:', error);

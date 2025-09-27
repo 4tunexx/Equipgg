@@ -6,7 +6,7 @@ const STEAM_API_KEY = process.env.STEAM_API_KEY;
 // Use localhost for development, production URL for production
 const BASE_URL = process.env.NODE_ENV === 'production' 
   ? (process.env.NEXTAUTH_URL || 'https://www.equipgg.net')
-  : 'http://localhost:3000';
+  : 'http://localhost:3001';
 
 // Create Supabase clients
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";

@@ -172,6 +172,24 @@ CREATE TABLE IF NOT EXISTS activity_feed (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Landing panels table
+CREATE TABLE IF NOT EXISTS landing_panels (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  type VARCHAR(50) NOT NULL,
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  image_url TEXT,
+  icon VARCHAR(50),
+  button_text VARCHAR(100),
+  button_url TEXT,
+  stats JSONB,
+  author VARCHAR(100),
+  is_active BOOLEAN DEFAULT true,
+  display_order INTEGER DEFAULT 999,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_achievements_category ON achievements(category);
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
@@ -184,6 +202,9 @@ CREATE INDEX IF NOT EXISTS idx_user_inventory_user_id ON user_inventory(user_id)
 CREATE INDEX IF NOT EXISTS idx_user_mission_progress_user_id ON user_mission_progress(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_feed_user_id ON activity_feed(user_id);
 CREATE INDEX IF NOT EXISTS idx_activity_feed_created_at ON activity_feed(created_at);
+CREATE INDEX IF NOT EXISTS idx_landing_panels_type ON landing_panels(type);
+CREATE INDEX IF NOT EXISTS idx_landing_panels_active ON landing_panels(is_active);
+CREATE INDEX IF NOT EXISTS idx_landing_panels_order ON landing_panels(display_order);
 `;
 
 export async function POST(request: NextRequest) {
@@ -191,8 +212,8 @@ export async function POST(request: NextRequest) {
     console.log('Creating database tables...');
     
     // Execute the SQL to create tables
-    const { data, error } = await supabase.rpc('exec_sql', { 
-      sql_query: CREATE_TABLES_SQL 
+    const { data, error } = await supabase.rpc('execute_sql', { 
+      sql: CREATE_TABLES_SQL 
     });
 
     if (error) {

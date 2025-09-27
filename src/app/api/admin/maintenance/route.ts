@@ -59,14 +59,17 @@ export async function POST(request: NextRequest) {
         const users = await secureDb.findMany('users', {});
         for (const u of users) {
           let newLevel = 1;
+          const userXp = (u as any).xp || 0;
+          const userLevel = (u as any).level || 1;
+          const userId = (u as any).id;
           for (const lvl of xpLevels) {
-            if (u.xp >= lvl.min) {
+            if (userXp >= lvl.min) {
               newLevel = lvl.level;
               break;
             }
           }
-          if (u.level !== newLevel) {
-            await secureDb.update('users', { id: u.id }, { level: newLevel });
+          if (userLevel !== newLevel) {
+            await secureDb.update('users', { id: userId }, { level: newLevel });
           }
         }
         result.message = 'User ranks re-indexed successfully';

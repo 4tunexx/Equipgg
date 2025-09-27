@@ -41,8 +41,8 @@ export const AuthContext = createContext<AuthContextValue>({
   session: null,
   loading: true,
   enabled: true,
-  async signIn() {},
-  async signUp() {},
+  async signIn() { return { session: {} as Session, user: {} as LocalUser }; },
+  async signUp() { return {}; },
   async signOutUser() {},
   async refreshUser() {},
 });
@@ -204,7 +204,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               level: 1,
               xp: 0,
               steam_verified: false,
-              account_status: 'active'
+              account_status: 'active',
+              steamProfile: sessionData.steamProfile || undefined
             });
             setLoading(false);
             return;
@@ -246,7 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: userData.id,
               email: userData.email,
-              displayName: userData.display_name || userData.email.split('@')[0],
+              displayName: userData.displayname || userData.username || steamUserId,
               photoURL: userData.avatar_url || null,
               role: userData.role || 'user',
               level: userData.level || 1,
@@ -254,10 +255,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               provider: userData.provider || 'steam',
               steam_verified: userData.steam_verified || false,
               account_status: userData.account_status || 'active',
-              steamProfile: userData.steam_profile || {
+              steamProfile: {
                 steamId: steamUserId,
                 avatar: userData.avatar_url || null,
-                profileUrl: null
+                profileUrl: `https://steamcommunity.com/profiles/${steamUserId}`
               }
             });
           } else {
@@ -266,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             setUser({
               id: steamSession,
               email: decodeURIComponent(steamEmail),
-              displayName: steamUserId, // Use Steam ID as display name
+              displayName: steamUserId, // Use Steam ID as display name - this will be fixed by /api/me refresh
               photoURL: null,
               role: 'user',
               level: 1,
@@ -277,9 +278,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               steamProfile: {
                 steamId: steamUserId,
                 avatar: null,
-                profileUrl: null
+                profileUrl: `https://steamcommunity.com/profiles/${steamUserId}`
               }
             });
+            
+            // Trigger a user data refresh to get proper Steam profile data
+            setTimeout(() => {
+              console.log('Triggering user data refresh for Steam user...');
+              refreshUser();
+            }, 1000);
           }
           setLoading(false);
         } catch {
@@ -339,6 +346,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -402,6 +410,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ email, password, displayName }),
+        credentials: 'include',
       });
 
       const data = await response.json();
@@ -508,29 +517,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (equipggMatch) {
         try {
-          JSON.parse(decodeURIComponent(equipggMatch[1]));
+          const sessionData = JSON.parse(decodeURIComponent(equipggMatch[1]));
+          console.log('Session data parsed successfully:', sessionData);
           // Fetch fresh user data from database
-          const response = await fetch('/api/me', { credentials: 'include' });
+          const response = await fetch('/api/me', { 
+            credentials: 'include' 
+          });
           if (response.ok) {
             const { user: freshUser } = await response.json();
             if (freshUser) {
+              // For Steam users, ensure we use the proper display name and avatar
+              const displayName = freshUser.displayName || freshUser.displayname || freshUser.username || '';
+              const photoURL = freshUser.avatarUrl || freshUser.photoURL || '';
+              
               setUser({
                 id: freshUser.id,
                 email: freshUser.email || '',
-                displayName: freshUser.displayName || freshUser.displayname || '',
-                photoURL: freshUser.avatarUrl || '',
+                displayName: displayName,
+                photoURL: photoURL,
                 role: freshUser.role || 'user',
                 level: freshUser.level || 1,
                 xp: freshUser.xp || 0,
-                provider: freshUser.isSteamUser ? 'steam' : 'default',
+                provider: freshUser.provider || (freshUser.isSteamUser ? 'steam' : 'default'),
                 steam_verified: freshUser.steamVerified || false,
                 account_status: freshUser.account_status || 'active',
-                steamProfile: freshUser.isSteamUser ? {
-                  avatar: freshUser.avatarUrl || '',
-                  steamId: freshUser.steamId || ''
-                } : undefined
+                steamProfile: freshUser.isSteamUser || freshUser.steamId ? {
+                  avatar: photoURL,
+                  steamId: freshUser.steamId || '',
+                  profileUrl: freshUser.steamId ? `https://steamcommunity.com/profiles/${freshUser.steamId}` : ''
+                } as any : undefined
               });
-              console.log('User data refreshed successfully');
+              console.log('User data refreshed successfully with Steam profile:', freshUser);
               return;
             }
           }
@@ -548,20 +565,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           .eq('id', user.id)
           .single();
 
+        // For Steam users, prioritize database fields over metadata
+        const displayName = profile?.displayname || profile?.username || user.user_metadata?.displayName || user.user_metadata?.displayname || user.email?.split('@')[0] || '';
+        const photoURL = profile?.avatar_url || user.user_metadata?.avatar || '';
+        const isSteamUser = profile?.steam_verified || profile?.steam_id || user.app_metadata?.provider === 'steam';
+
         setUser({
           id: user.id,
           email: user.email || '',
-          displayName: profile?.displayname || user.user_metadata?.displayName || user.user_metadata?.displayname,
-          photoURL: profile?.avatar_url || user.user_metadata?.avatar,
+          displayName: displayName,
+          photoURL: photoURL,
           role: profile?.role || 'user',
           level: profile?.level || 1,
           xp: profile?.xp || 0,
-          provider: (user.app_metadata?.provider as 'steam' | 'default') || 'default',
+          provider: (user.app_metadata?.provider as 'steam' | 'default') || (isSteamUser ? 'steam' : 'default'),
           steam_verified: profile?.steam_verified || false,
           account_status: profile?.account_status || 'active',
-          steamProfile: profile?.steam_verified || user.user_metadata?.steamProfile ? {
-            avatar: profile?.avatar_url || user.user_metadata?.avatar || '',
-            steamId: profile?.steam_id || user.user_metadata?.steamId || ''
+          steamProfile: isSteamUser ? {
+            avatar: photoURL,
+            steamId: profile?.steam_id || user.user_metadata?.steamId || '',
+            profileUrl: profile?.steam_id ? `https://steamcommunity.com/profiles/${profile.steam_id}` : user.user_metadata?.steamProfile?.profileUrl || ''
           } : undefined
         });
       }

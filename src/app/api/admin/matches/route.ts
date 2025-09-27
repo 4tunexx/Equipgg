@@ -21,10 +21,12 @@ export async function GET(request: NextRequest) {
     let matches = await secureDb.findMany('matches', undefined, { orderBy: 'match_date DESC' });
     // Secondary sort by start_time DESC (Supabase only allows one orderBy at a time)
     matches = matches.sort((a, b) => {
-      if (a.match_date === b.match_date) {
-        return (b.start_time || '').localeCompare(a.start_time || '');
+      const matchA = a as any;
+      const matchB = b as any;
+      if (matchA.match_date === matchB.match_date) {
+        return (matchB.start_time || '').localeCompare(matchA.start_time || '');
       }
-      return (b.match_date || '').localeCompare(a.match_date || '');
+      return (matchB.match_date || '').localeCompare(matchA.match_date || '');
     });
     return NextResponse.json({ matches });
   } catch (error) {

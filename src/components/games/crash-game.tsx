@@ -167,70 +167,9 @@ export function CrashGame() {
         }
 
         return () => clearInterval(interval);
-    }, [gameState, crashPoint, cashedOut, gameProcessed, handleGameCrash, hasBetThisRound]);
+    }, [gameState, crashPoint, cashedOut, gameProcessed, hasBetThisRound]);
 
     // User balance is now handled by the global balance context
-
-    const fetchGameHistory = async () => {
-        try {
-            const response = await fetch('/api/games/history?gameType=crash&limit=5');
-            if (response.ok) {
-                const data = await response.json();
-                // Remove duplicates based on game ID only
-                const uniqueHistory = data.history?.filter((game: GameHistoryItem, index: number, self: GameHistoryItem[]) => 
-                    index === self.findIndex((g: GameHistoryItem) => g.id === game.id)
-                ) || [];
-                
-                // Take only the latest 5 unique games
-                const finalHistory = uniqueHistory.slice(0, 5);
-                setGameHistory(finalHistory);
-            }
-        } catch (error) {
-            console.error('Failed to fetch game history:', error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handlePlaceBet = async () => {
-        if (!user) {
-            toast.error('Please sign in to play');
-            return;
-        }
-
-        if (gameState !== 'betting') {
-            toast.error('Betting is not available right now');
-            return;
-        }
-
-        const amount = parseFloat(betAmount);
-        if (!amount || amount <= 0) {
-            toast.error('Please enter a valid bet amount');
-            return;
-        }
-
-        // Check user balance
-        if (!balance || amount > balance.coins) {
-            toast.error(`You need ${amount.toLocaleString()} coins but only have ${balance?.coins?.toLocaleString() || 0} coins.`);
-            return;
-        }
-
-        setIsPlaying(true);
-        setHasBetThisRound(true);
-        
-        // Immediately deduct bet amount from balance for instant feedback
-        if (balance) {
-            updateBalance({
-                coins: balance.coins - amount
-            });
-        }
-        
-        // Dispatch event to update dashboard balance immediately
-        window.dispatchEvent(new CustomEvent('balanceUpdated'));
-        
-        toast.success(`Bet placed: ${amount.toLocaleString()} coins`);
-        setIsPlaying(false);
-    };
 
     const handleGameCrash = useCallback(async () => {
         if (!hasBetThisRound || cashedOut || isPlaying || gameProcessed || gameProcessedRef.current) {
@@ -285,6 +224,67 @@ export function CrashGame() {
             setIsPlaying(false);
         }
     }, [hasBetThisRound, cashedOut, isPlaying, gameProcessed, betAmount, crashPoint]);
+
+    const fetchGameHistory = useCallback(async () => {
+        try {
+            const response = await fetch('/api/games/history?gameType=crash&limit=5');
+            if (response.ok) {
+                const data = await response.json();
+                // Remove duplicates based on game ID only
+                const uniqueHistory = data.history?.filter((game: GameHistoryItem, index: number, self: GameHistoryItem[]) => 
+                    index === self.findIndex((g: GameHistoryItem) => g.id === game.id)
+                ) || [];
+                
+                // Take only the latest 5 unique games
+                const finalHistory = uniqueHistory.slice(0, 5);
+                setGameHistory(finalHistory);
+            }
+        } catch (error) {
+            console.error('Failed to fetch game history:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
+
+    const handlePlaceBet = async () => {
+        if (!user) {
+            toast.error('Please sign in to play');
+            return;
+        }
+
+        if (gameState !== 'betting') {
+            toast.error('Betting is not available right now');
+            return;
+        }
+
+        const amount = parseFloat(betAmount);
+        if (!amount || amount <= 0) {
+            toast.error('Please enter a valid bet amount');
+            return;
+        }
+
+        // Check user balance
+        if (!balance || amount > balance.coins) {
+            toast.error(`You need ${amount.toLocaleString()} coins but only have ${balance?.coins?.toLocaleString() || 0} coins.`);
+            return;
+        }
+
+        setIsPlaying(true);
+        setHasBetThisRound(true);
+        
+        // Immediately deduct bet amount from balance for instant feedback
+        if (balance) {
+            updateBalance({
+                coins: balance.coins - amount
+            });
+        }
+        
+        // Dispatch event to update dashboard balance immediately
+        window.dispatchEvent(new CustomEvent('balanceUpdated'));
+        
+        toast.success(`Bet placed: ${amount.toLocaleString()} coins`);
+        setIsPlaying(false);
+    };
 
     const handleCashOut = async () => {
         if (!hasBetThisRound || cashedOut || gameState !== 'playing' || isPlaying) {
@@ -351,7 +351,7 @@ export function CrashGame() {
         id: game.id,
         user: { 
             id: game.user.id, 
-            name: game.user.displayName || game.user.name, 
+            name: game.user.name, 
             avatar: game.user.avatar,
             role: game.user.role,
             xp: game.user.xp,

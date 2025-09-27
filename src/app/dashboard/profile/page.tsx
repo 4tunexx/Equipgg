@@ -30,7 +30,7 @@ import { XpDisplay } from "../../../components/xp-display";
 
 
 export default function ProfilePage() {
-  const { user, loading } = useAuth();
+  const { user, loading, refreshUser } = useAuth();
   const { balance } = useBalance();
   const { toast } = useToast();
   const [userStats, setUserStats] = useState({
@@ -40,6 +40,9 @@ export default function ProfilePage() {
   });
   const [achievements, setAchievements] = useState<any>({});
   const [userHistory, setUserHistory] = useState<any>(null);
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   const referralCode = "REF-4F2B9A1C";
   
   // Mock data for missing variables
@@ -110,6 +113,8 @@ export default function ProfilePage() {
               betsWon: profileData.profile.stats.betsWon || 0,
               winRate: profileData.profile.stats.winRate || 0
             });
+            // Set username from profile data
+            setUsername(profileData.profile.user.displayName || '');
           }
         }
         
@@ -132,6 +137,8 @@ export default function ProfilePage() {
     };
     
     if (user) {
+      setUsername(user.displayName || user.email?.split('@')[0] || '');
+      setEmail(user.email || '');
       fetchUserData();
     }
   }, [user]);
@@ -179,6 +186,164 @@ export default function ProfilePage() {
       title: "Copied to clipboard!",
       description: "Your referral code has been copied.",
     });
+  };
+
+  // Refresh user data after avatar/profile updates
+  const refreshUserData = async () => {
+    if (refreshUser) {
+      await refreshUser();
+    }
+    // Also refresh profile data
+    const profileResponse = await fetch('/api/user/profile', { credentials: 'include' });
+    if (profileResponse.ok) {
+      const profileData = await profileResponse.json();
+      if (profileData.success && profileData.profile) {
+        setUsername(profileData.profile.user.displayName || '');
+      }
+    }
+  };
+
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a JPG, PNG, GIF, or WebP image.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate file size (1MB max)
+    if (file.size > 1 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Maximum file size is 1MB.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await fetch('/api/user/avatar', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Avatar updated!",
+          description: "Your avatar has been successfully updated.",
+        });
+        // Refresh user data instead of reloading the page
+        await refreshUserData();
+      } else {
+        toast({
+          title: "Upload failed",
+          description: result.error || "Failed to upload avatar.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Avatar upload error:', error);
+      toast({
+        title: "Upload failed",
+        description: "An error occurred while uploading your avatar.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAvatarRemove = async () => {
+    try {
+      const response = await fetch('/api/user/avatar', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Avatar removed!",
+          description: "Your avatar has been reset to default.",
+        });
+        // Refresh user data instead of reloading the page
+        await refreshUserData();
+      } else {
+        toast({
+          title: "Removal failed",
+          description: result.error || "Failed to remove avatar.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Avatar removal error:', error);
+      toast({
+        title: "Removal failed",
+        description: "An error occurred while removing your avatar.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleProfileUpdate = async () => {
+    if (!username.trim()) {
+      toast({
+        title: "Invalid input",
+        description: "Please enter a valid username.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ displayName: username }),
+        credentials: 'include',
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Profile updated!",
+          description: "Your profile has been successfully updated.",
+        });
+        // Refresh user data instead of reloading the page
+        await refreshUserData();
+      } else {
+        toast({
+          title: "Update failed",
+          description: result.error || "Failed to update profile.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Profile update error:', error);
+      toast({
+        title: "Update failed",
+        description: "An error occurred while updating your profile.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -511,25 +676,62 @@ export default function ProfilePage() {
                 <CardContent className="space-y-6">
                     <div className="flex items-center gap-6">
                         <Avatar className="w-20 h-20">
-                            <AvatarImage src="https://picsum.photos/id/237/80/80" data-ai-hint="male avatar" />
-                            <AvatarFallback>U</AvatarFallback>
+                            <AvatarImage src={user.photoURL || user.steamProfile?.avatar || 'https://picsum.photos/id/237/80/80'} data-ai-hint="user avatar" />
+                            <AvatarFallback>{(user.displayName || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="space-y-2">
-                             <Button>
+                             <input
+                                type="file"
+                                id="avatar-upload"
+                                accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                                onChange={handleAvatarUpload}
+                                className="hidden"
+                            />
+                             <Button
+                                onClick={() => document.getElementById('avatar-upload')?.click()}
+                            >
                                 <Upload className="mr-2 h-4 w-4" />
                                 Change Avatar
                             </Button>
+                            {user.photoURL && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleAvatarRemove}
+                                >
+                                    Remove Avatar
+                                </Button>
+                            )}
                             <p className="text-xs text-muted-foreground">JPG, GIF or PNG. 1MB max.</p>
                         </div>
                     </div>
                   <div className="space-y-2">
                     <Label htmlFor="username">Username</Label>
-                    <Input id="username" defaultValue="Username" />
+                    <Input 
+                      id="username" 
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      placeholder="Enter your username"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input id="email" type="email" defaultValue="user@email.com" />
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed. Contact support if needed.</p>
                   </div>
+                  <Button 
+                    onClick={handleProfileUpdate} 
+                    disabled={isSaving}
+                    className="w-full"
+                  >
+                    {isSaving ? "Saving..." : "Save Profile Changes"}
+                  </Button>
                    <div className="space-y-2">
                         <Label>Connect Account</Label>
                          <Button variant="outline" className="w-full justify-start">

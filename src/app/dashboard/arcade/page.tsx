@@ -122,12 +122,12 @@ const TableCell = ({ children, className = '', colSpan }: { children: React.Reac
 );
 
 // Simplified UserProfileLink component
-const UserProfileLink = ({ user }: { user: any }) => (
+const UserProfileLink = ({ user }: { user: GameUser }) => (
   <div className="flex items-center gap-2">
     <div className="w-6 h-6 rounded-full bg-gray-300 flex items-center justify-center text-xs">
-      {(user?.displayName || user?.name)?.[0] || '?'}
+      {(user?.name)?.[0] || '?'}
     </div>
-    <span className="font-semibold">{user?.displayName || user?.name || 'Unknown'}</span>
+    <span className="font-semibold">{user?.name || 'Unknown'}</span>
   </div>
 );
 
@@ -187,7 +187,7 @@ export default function ArcadePage() {
                 const formattedPlays = data.history.map((game: ApiGameData) => ({
                     id: game.id,
                     user: {
-                        name: game.user.displayName || game.user.name,
+                        name: game.user.name,
                         avatar: game.user.avatar,
                         dataAiHint: "user avatar",
                         xp: game.user.xp || 0,
@@ -272,7 +272,7 @@ export default function ArcadePage() {
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex items-center gap-2">
-                                                <play.icon className="w-4 h-4 text-primary" />
+                                                {React.createElement(play.icon, { className: "w-4 h-4 text-primary" })}
                                                 <span>{play.game}</span>
                                             </div>
                                         </TableCell>

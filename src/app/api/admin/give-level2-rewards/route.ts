@@ -16,12 +16,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Admin user not found' }, { status: 404 });
     }
     const userId = user.id;
-    console.log('Giving level 2 rewards to user:', userId, 'Current level:', user.level);
-    if (user.level >= 2) {
+    const userLevel = (user as any).level;
+    const userCoins = (user as any).coins || 0;
+    console.log('Giving level 2 rewards to user:', userId, 'Current level:', userLevel);
+    if (userLevel >= 2) {
       // Give level-up crate key
       const existingKey = await secureDb.findOne('user_keys', { user_id: userId, crate_id: 'level-up' });
       if (existingKey) {
-        await secureDb.update('user_keys', { user_id: userId, crate_id: 'level-up' }, { keys_count: (existingKey.keys_count || 0) + 1 });
+        const existingKeysCount = (existingKey as any).keys_count || 0;
+        await secureDb.update('user_keys', { user_id: userId, crate_id: 'level-up' }, { keys_count: existingKeysCount + 1 });
         console.log('Updated existing level-up key count');
       } else {
         await secureDb.create('user_keys', {
@@ -46,7 +49,7 @@ export async function POST(request: NextRequest) {
       });
       console.log('Created level-up notification');
       // Give level-up bonus coins
-      await secureDb.update('users', { id: userId }, { coins: (user.coins || 0) + 200 });
+      await secureDb.update('users', { id: userId }, { coins: userCoins + 200 });
       console.log('Added 200 level-up bonus coins');
       // Record the transaction
       await secureDb.create('user_transactions', {

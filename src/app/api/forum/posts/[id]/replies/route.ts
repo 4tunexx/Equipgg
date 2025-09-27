@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '../../../../../../lib/supabase';
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -43,12 +43,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       isEdited: reply.is_edited,
       editedAt: reply.edited_at,
       author: {
-        id: reply.users.id,
-        displayName: reply.users.username,
-        avatarUrl: reply.users.avatar_url,
-        role: reply.users.role,
-        xp: reply.users.xp,
-        level: reply.users.level
+        id: (reply.users as any[])[0]?.id,
+        displayName: (reply.users as any[])[0]?.username,
+        avatarUrl: (reply.users as any[])[0]?.avatar_url,
+        role: (reply.users as any[])[0]?.role,
+        xp: (reply.users as any[])[0]?.xp,
+        level: (reply.users as any[])[0]?.level
       },
       likes: [] // Placeholder for likes data
     }));

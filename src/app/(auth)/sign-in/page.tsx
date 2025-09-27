@@ -236,8 +236,11 @@ function SignInForm() {
         
         if (event.data.success) {
           console.log('Steam authentication successful, redirecting to:', event.data.redirect || redirectTo);
-          // Redirect to the intended page (use redirect from popup if available)
-          window.location.href = event.data.redirect || redirectTo;
+          // Add a small delay to ensure cookies are properly set
+          setTimeout(() => {
+            // Redirect to the intended page (use redirect from popup if available)
+            window.location.href = event.data.redirect || redirectTo;
+          }, 500);
         } else {
           console.log('Steam authentication failed:', event.data.error);
           alert(`Steam authentication failed: ${event.data.error || 'Unknown error'}`);

@@ -117,7 +117,17 @@ export async function getNextNonce(userId: string): Promise<number> {
   }
 }
 
-export async function getGameVerificationData(gameId: string): Promise<unknown> {
+interface GameVerificationData {
+  gameId: string;
+  userId: string;
+  serverSeedHash: string;
+  clientSeed: string;
+  nonce: number;
+  result: unknown;
+  timestamp: string;
+}
+
+export async function getGameVerificationData(gameId: string): Promise<GameVerificationData | null> {
   try {
     const { data, error } = await supabase
       .from('game_results')

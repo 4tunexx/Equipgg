@@ -30,6 +30,10 @@ export class SocketFallback {
     }
   }
 
+  getConnectionStatus(): boolean {
+    return this.isConnected;
+  }
+
   async request<T>(
     requestId: string,
     socketRequest: () => Promise<T>,
@@ -223,7 +227,7 @@ export function showFallbackNotification(message: string, type: 'success' | 'err
 // Connection status hook
 export function useSocketFallback() {
   return {
-    isConnected: socketFallback.isConnected,
+    isConnected: socketFallback.getConnectionStatus(),
     request: socketFallback.request.bind(socketFallback),
     retry: socketFallback.retry.bind(socketFallback),
     showNotification: socketFallback.showNotification.bind(socketFallback)

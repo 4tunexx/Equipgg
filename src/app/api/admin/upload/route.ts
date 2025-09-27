@@ -44,8 +44,8 @@ export async function POST(request: NextRequest) {
     const filename = `upload_${timestamp}_${randomString}.${extension}`;
     const filepath = join(uploadsDir, filename);
 
-    // Save file
-    await writeFile(filepath, buffer);
+    // Save file - convert Buffer to Uint8Array for writeFile compatibility
+    await writeFile(filepath, new Uint8Array(buffer));
 
     // Return the public URL
     const publicUrl = `/uploads/${filename}`;

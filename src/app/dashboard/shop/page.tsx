@@ -465,7 +465,7 @@ export default function ShopPage() {
 
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-      <Tabs defaultValue="items" onValueChange={setActiveTab}>
+      <Tabs defaultValue="items">
         <div className='flex justify-center mb-8'>
           <TabsList className='grid grid-cols-3 w-full max-w-lg'>
             <TabsTrigger value="items">Items</TabsTrigger>

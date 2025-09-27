@@ -24,19 +24,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Verify the result
-    const isValid = await verifyGameResult(gameId, verificationData.serverSeed);
+    const isValid = await verifyGameResult(gameId, verificationData.serverSeedHash);
 
     return NextResponse.json({
       success: true,
       verification: {
         gameId: verificationData.gameId,
-        gameType: verificationData.gameType,
-        serverSeed: verificationData.serverSeed,
+        serverSeedHash: verificationData.serverSeedHash,
         clientSeed: verificationData.clientSeed,
         nonce: verificationData.nonce,
         result: verificationData.result,
         isValid,
-        hmac: require('crypto').createHmac('sha256', verificationData.serverSeed)
+        hmac: require('crypto').createHmac('sha256', verificationData.serverSeedHash)
           .update(`${verificationData.clientSeed}:${verificationData.nonce}`)
           .digest('hex')
       }

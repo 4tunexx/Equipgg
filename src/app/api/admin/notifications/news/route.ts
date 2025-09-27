@@ -46,13 +46,13 @@ export async function POST(request: NextRequest) {
     // Get target user IDs based on selection
     if (targetUsers === 'all') {
       const result = await secureDb.select('users');
-      users = result || [];
+      users = (result as any[]) || [];
     } else {
       // For specific roles, we need to use raw query since secureDb.select doesn't support WHERE clauses directly
       const result = await secureDb.raw(`
         SELECT id, role FROM users WHERE role = '${targetUsers}'
       `);
-      users = result || [];
+      users = (result as any[]) || [];
     }
 
     if (users.length === 0) {

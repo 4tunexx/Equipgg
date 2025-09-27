@@ -377,7 +377,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                   <div className="flex items-center gap-3">
                     <UserAvatar 
                       user={{
-                        username: user?.displayName || user?.email?.split('@')[0] || 'User',
+                        username: user?.displayName || user?.steamProfile?.steamId || user?.email?.split('@')[0] || 'User',
                         name: user?.displayName,
                         avatar: user?.photoURL,
                         role: user?.role,
@@ -388,7 +388,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                       showRoleBorder={true}
                     />
                     <div className="flex-1 overflow-hidden group-data-[collapsible=icon]:hidden">
-                      <p className={`truncate font-semibold ${getRoleColors(user?.role || 'user').text}`} style={getRoleInlineStyle(user?.role || 'user')}>{user?.displayName || user?.email?.split('@')[0] || 'User'}</p>
+                      <p className={`truncate font-semibold ${getRoleColors(user?.role || 'user').text}`} style={getRoleInlineStyle(user?.role || 'user')}>{user?.displayName || user?.steamProfile?.steamId || user?.email?.split('@')[0] || 'User'}</p>
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="text-xs font-semibold" style={getRoleInlineStyle(user?.role || 'user')}>
                           {require('../../lib/role-colors').getRoleDisplayName(user?.role || 'user')}

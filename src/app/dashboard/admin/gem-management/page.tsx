@@ -3,28 +3,48 @@
 // This is a simplified version of the gem-management page without UI component imports
 // to fix the deployment issue. The actual functionality is preserved.
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 // Inline UI Components to avoid import issues
-const Card = ({ className = '', children, ...props }) => (
+const Card = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`} {...props}>
     {children}
   </div>
 );
 
-const CardHeader = ({ className = '', children, ...props }) => (
+const CardHeader = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div className={`flex flex-col space-y-1.5 p-6 ${className}`} {...props}>{children}</div>
 );
 
-const CardTitle = ({ className = '', children, ...props }) => (
+const CardTitle = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`} {...props}>{children}</h3>
 );
 
-const CardDescription = ({ className = '', children, ...props }) => (
+const CardDescription = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <p className={`text-sm text-muted-foreground ${className}`} {...props}>{children}</p>
 );
 
-const CardContent = ({ className = '', children, ...props }) => (
+const CardContent = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div className={`p-6 pt-0 ${className}`} {...props}>{children}</div>
 );
 
@@ -37,6 +57,15 @@ const Button = ({
   disabled = false,
   onClick,
   ...props 
+}: {
+  className?: string;
+  children: React.ReactNode;
+  type?: 'button' | 'submit' | 'reset';
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  disabled?: boolean;
+  onClick?: () => void;
+  [key: string]: any;
 }) => {
   const variantStyles = {
     default: "bg-primary text-primary-foreground hover:bg-primary/90",
@@ -67,14 +96,22 @@ const Button = ({
   );
 };
 
-const Input = ({ className = '', ...props }) => (
+const Input = ({ className = '', ...props }: {
+  className?: string;
+  [key: string]: any;
+}) => (
   <input
     className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
     {...props}
   />
 );
 
-const Label = ({ className = '', htmlFor, children, ...props }) => (
+const Label = ({ className = '', htmlFor, children, ...props }: {
+  className?: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <label
     htmlFor={htmlFor}
     className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}
@@ -84,14 +121,18 @@ const Label = ({ className = '', htmlFor, children, ...props }) => (
   </label>
 );
 
-const Tabs = ({ defaultValue, children, ...props }) => {
+const Tabs = ({ defaultValue = 'settings', children, ...props }: {
+  defaultValue?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => {
   const [value, setValue] = useState(defaultValue);
 
   return (
     <div {...props} data-value={value}>
       {React.Children.map(children, (child) => {
         if (React.isValidElement(child)) {
-          return React.cloneElement(child, { value, onChange: setValue });
+          return React.cloneElement(child, { value, onChange: setValue } as any);
         }
         return child;
       })}
@@ -99,7 +140,11 @@ const Tabs = ({ defaultValue, children, ...props }) => {
   );
 };
 
-const TabsList = ({ className = '', children, ...props }) => (
+const TabsList = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div 
     className={`inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground ${className}`}
     role="tablist" 
@@ -109,19 +154,34 @@ const TabsList = ({ className = '', children, ...props }) => (
   </div>
 );
 
-const TabsTrigger = ({ className = '', value, children, onChange, ...props }) => (
+const TabsTrigger = ({ className = '', value, children, onChange, onClick, ...props }: {
+  className?: string;
+  value: string;
+  children: React.ReactNode;
+  onChange?: (value: string) => void;
+  onClick?: () => void;
+  [key: string]: any;
+}) => (
   <button
     className={`inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm ${className} ${props['data-state'] === 'active' ? 'bg-background text-foreground shadow-sm' : ''}`}
     role="tab"
     data-state={value === props.value ? 'active' : 'inactive'}
-    onClick={() => onChange && onChange(props.value)}
+    onClick={() => {
+      if (onChange) onChange(value);
+      if (onClick) onClick();
+    }}
     {...props}
   >
     {children}
   </button>
 );
 
-const TabsContent = ({ className = '', value, children, ...props }) => (
+const TabsContent = ({ className = '', value, children, ...props }: {
+  className?: string;
+  value: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div
     className={`mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${className}`}
     role="tabpanel"
@@ -133,8 +193,12 @@ const TabsContent = ({ className = '', value, children, ...props }) => (
   </div>
 );
 
-const Switch = ({ checked, onCheckedChange, ...props }) => {
-  const [isChecked, setIsChecked] = useState(checked);
+const Switch = ({ checked, onCheckedChange, ...props }: {
+  checked?: boolean;
+  onCheckedChange?: (checked: boolean) => void;
+  [key: string]: any;
+}) => {
+  const [isChecked, setIsChecked] = useState(checked || false);
   
   const handleChange = () => {
     const newValue = !isChecked;
@@ -158,7 +222,12 @@ const Switch = ({ checked, onCheckedChange, ...props }) => {
   );
 };
 
-const Badge = ({ className = '', variant = 'default', children, ...props }) => {
+const Badge = ({ className = '', variant = 'default', children, ...props }: {
+  className?: string;
+  variant?: 'default' | 'secondary' | 'destructive' | 'outline';
+  children: React.ReactNode;
+  [key: string]: any;
+}) => {
   const variantStyles = {
     default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
     secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
@@ -177,7 +246,11 @@ const Badge = ({ className = '', variant = 'default', children, ...props }) => {
 };
 
 // Dialog components
-const Dialog = ({ children, open, onOpenChange }) => {
+const Dialog = ({ children, open, onOpenChange }: {
+  children: React.ReactNode;
+  open: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) => {
   return open ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div 
@@ -189,11 +262,19 @@ const Dialog = ({ children, open, onOpenChange }) => {
   ) : null;
 };
 
-const DialogTrigger = ({ children, onClick }) => {
+const DialogTrigger = ({ children, onClick }: {
+  children: React.ReactElement;
+  onClick?: () => void;
+}) => {
   return React.cloneElement(children, { onClick });
 };
 
-const DialogContent = ({ className = '', children, onClose, ...props }) => (
+const DialogContent = ({ className = '', children, onClose, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  onClose?: () => void;
+  [key: string]: any;
+}) => (
   <div 
     className={`fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-6 shadow-lg sm:rounded-lg ${className}`}
     onClick={(e) => e.stopPropagation()}
@@ -203,7 +284,11 @@ const DialogContent = ({ className = '', children, onClose, ...props }) => (
   </div>
 );
 
-const DialogHeader = ({ className = '', children, ...props }) => (
+const DialogHeader = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div
     className={`flex flex-col space-y-1.5 text-center sm:text-left ${className}`}
     {...props}
@@ -212,7 +297,11 @@ const DialogHeader = ({ className = '', children, ...props }) => (
   </div>
 );
 
-const DialogFooter = ({ className = '', children, ...props }) => (
+const DialogFooter = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div
     className={`flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 ${className}`}
     {...props}
@@ -221,7 +310,11 @@ const DialogFooter = ({ className = '', children, ...props }) => (
   </div>
 );
 
-const DialogTitle = ({ className = '', children, ...props }) => (
+const DialogTitle = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <h3
     className={`text-lg font-semibold leading-none tracking-tight ${className}`}
     {...props}
@@ -230,7 +323,11 @@ const DialogTitle = ({ className = '', children, ...props }) => (
   </h3>
 );
 
-const DialogDescription = ({ className = '', children, ...props }) => (
+const DialogDescription = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <p
     className={`text-sm text-muted-foreground ${className}`}
     {...props}
@@ -240,7 +337,11 @@ const DialogDescription = ({ className = '', children, ...props }) => (
 );
 
 // Table components
-const Table = ({ className = '', children, ...props }) => (
+const Table = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <div className="relative w-full overflow-auto">
     <table
       className={`w-full caption-bottom text-sm ${className}`}
@@ -251,13 +352,21 @@ const Table = ({ className = '', children, ...props }) => (
   </div>
 );
 
-const TableHeader = ({ className = '', children, ...props }) => (
+const TableHeader = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <thead className={`[&_tr]:border-b ${className}`} {...props}>
     {children}
   </thead>
 );
 
-const TableBody = ({ className = '', children, ...props }) => (
+const TableBody = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <tbody
     className={`[&_tr:last-child]:border-0 ${className}`}
     {...props}
@@ -266,7 +375,11 @@ const TableBody = ({ className = '', children, ...props }) => (
   </tbody>
 );
 
-const TableHead = ({ className = '', children, ...props }) => (
+const TableHead = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <th
     className={`h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 ${className}`}
     {...props}
@@ -275,7 +388,11 @@ const TableHead = ({ className = '', children, ...props }) => (
   </th>
 );
 
-const TableRow = ({ className = '', children, ...props }) => (
+const TableRow = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <tr
     className={`border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted ${className}`}
     {...props}
@@ -284,7 +401,11 @@ const TableRow = ({ className = '', children, ...props }) => (
   </tr>
 );
 
-const TableCell = ({ className = '', children, ...props }) => (
+const TableCell = ({ className = '', children, ...props }: {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}) => (
   <td
     className={`p-4 align-middle [&:has([role=checkbox])]:pr-0 ${className}`}
     {...props}
@@ -311,7 +432,7 @@ const IconWrapper = ({ children, ...props }) => (
   </svg>
 );
 
-const Gem = (props) => (
+const Gem = (props: any) => (
   <IconWrapper {...props}>
     <path d="M6 3h12l4 6-10 13L2 9Z" />
     <path d="M11 3 8 9l4 13 4-13-3-6" />
@@ -319,21 +440,21 @@ const Gem = (props) => (
   </IconWrapper>
 );
 
-const Settings = (props) => (
+const Settings = (props: any) => (
   <IconWrapper {...props}>
     <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
     <circle cx="12" cy="12" r="3" />
   </IconWrapper>
 );
 
-const CreditCard = (props) => (
+const CreditCard = (props: any) => (
   <IconWrapper {...props}>
     <rect width="20" height="14" x="2" y="5" rx="2" />
     <line x1="2" x2="22" y1="10" y2="10" />
   </IconWrapper>
 );
 
-const Gamepad2 = (props) => (
+const Gamepad2 = (props: any) => (
   <IconWrapper {...props}>
     <line x1="6" x2="10" y1="11" y2="11" />
     <line x1="8" x2="8" y1="9" y2="13" />
@@ -343,28 +464,28 @@ const Gamepad2 = (props) => (
   </IconWrapper>
 );
 
-const ArrowRightLeft = (props) => (
+const ArrowRightLeft = (props: any) => (
   <IconWrapper {...props}>
     <path d="m21 7-5-5v3h-4v4h4v3Z" />
     <path d="m3 17 5 5v-3h4v-4H8v-3Z" />
   </IconWrapper>
 );
 
-const Plus = (props) => (
+const Plus = (props: any) => (
   <IconWrapper {...props}>
     <path d="M12 5v14" />
     <path d="M5 12h14" />
   </IconWrapper>
 );
 
-const Edit = (props) => (
+const Edit = (props: any) => (
   <IconWrapper {...props}>
     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
   </IconWrapper>
 );
 
-const Trash2 = (props) => (
+const Trash2 = (props: any) => (
   <IconWrapper {...props}>
     <path d="M3 6h18" />
     <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
@@ -374,7 +495,7 @@ const Trash2 = (props) => (
   </IconWrapper>
 );
 
-const Save = (props) => (
+const Save = (props: any) => (
   <IconWrapper {...props}>
     <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
     <polyline points="17 21 17 13 7 13 7 21" />
@@ -382,7 +503,7 @@ const Save = (props) => (
   </IconWrapper>
 );
 
-const AlertTriangle = (props) => (
+const AlertTriangle = (props: any) => (
   <IconWrapper {...props}>
     <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
     <line x1="12" x2="12" y1="9" y2="13" />
@@ -392,9 +513,13 @@ const AlertTriangle = (props) => (
 
 // Toast component
 const useToast = () => {
-  const [toasts, setToasts] = useState([]);
+  const [toasts, setToasts] = useState<any[]>([]);
   
-  const toast = ({ title, description, variant = 'default' }) => {
+  const toast = ({ title, description, variant = 'default' }: {
+    title: string;
+    description: string;
+    variant?: string;
+  }) => {
     const id = Math.random().toString(36).substring(2, 9);
     setToasts([...toasts, { id, title, description, variant }]);
     setTimeout(() => {

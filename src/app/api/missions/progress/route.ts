@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
         *,
         mission:missions(*)
       `)
-      .eq('user_id', authSession.id);
+      .eq('user_id', authSession.user_id);
 
     if (missionId) {
       query = query.eq('mission_id', missionId);
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('mission_progress')
       .upsert({
-        user_id: authSession.id,
+        user_id: authSession.user_id,
         mission_id: missionId,
         progress,
         completed,
@@ -101,7 +101,7 @@ export async function PUT(request: NextRequest) {
     const { error: progressError } = await supabase
       .from('mission_progress')
       .upsert({
-        user_id: authSession.id,
+        user_id: authSession.user_id,
         mission_id: missionId,
         progress: mission.target_value || 1,
         completed: true,
@@ -111,14 +111,23 @@ export async function PUT(request: NextRequest) {
 
     if (progressError) throw progressError;
 
+    // Get current user data first
+    const { data: currentUser, error: fetchError } = await supabase
+      .from('users')
+      .select('xp, coins')
+      .eq('id', authSession.user_id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
     // Award XP and coins to user
     const { error: userError } = await supabase
       .from('users')
       .update({
-        xp: supabase.raw(`xp + ${mission.xp_reward || 0}`),
-        coins: supabase.raw(`coins + ${mission.coin_reward || 0}`)
+        xp: (currentUser.xp || 0) + (mission.xp_reward || 0),
+        coins: (currentUser.coins || 0) + (mission.coin_reward || 0)
       })
-      .eq('id', authSession.id);
+      .eq('id', authSession.user_id);
 
     if (userError) throw userError;
 

@@ -7,9 +7,25 @@ import { Gamepad2, LogIn, UserPlus } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useSiteSettings } from "../../hooks/use-site-settings";
 
+interface LandingPanel {
+  id: string;
+  type: string;
+  title: string;
+  content: string;
+  image_url?: string;
+  button_text?: string;
+  button_url?: string;
+  icon?: string;
+  stats?: any;
+  author?: string;
+  is_active: boolean;
+  display_order: number;
+}
+
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
   const [logoKey, setLogoKey] = useState(0);
+  const [heroPanel, setHeroPanel] = useState<LandingPanel | null>(null);
   const { siteSettings } = useSiteSettings();
 
   useEffect(() => {
@@ -25,6 +41,26 @@ export function HeroSection() {
     };
     window.addEventListener('logoUpdated', handleLogoUpdate);
     return () => window.removeEventListener('logoUpdated', handleLogoUpdate);
+  }, []);
+
+  // Fetch hero panel data from admin-managed content
+  useEffect(() => {
+    const fetchHeroPanel = async () => {
+      try {
+        const response = await fetch('/api/landing/panels');
+        if (response.ok) {
+          const data = await response.json();
+          const heroPanelData = data.panels?.find((panel: LandingPanel) => panel.type === 'hero');
+          if (heroPanelData) {
+            setHeroPanel(heroPanelData);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch hero panel:', error);
+      }
+    };
+
+    fetchHeroPanel();
   }, []);
 
   return (
@@ -121,7 +157,7 @@ export function HeroSection() {
               }`}
               style={{ transitionDelay: '0.2s' }}
             >
-              Level Up Your Game
+              {heroPanel?.title || 'Level Up Your Game'}
             </h1>
 
             {/* Subtext */}
@@ -131,7 +167,7 @@ export function HeroSection() {
               }`}
               style={{ transitionDelay: '0.4s' }}
             >
-              The ultimate CS2 virtual betting and gaming platform. Bet, craft, and conquer the leaderboards.
+              {heroPanel?.content || 'The ultimate CS2 virtual betting and gaming platform. Bet, craft, and conquer the leaderboards.'}
             </p>
 
             {/* Auth Buttons */}
@@ -144,19 +180,19 @@ export function HeroSection() {
               <AuthModal defaultTab="register">
                 <Button
                   size="lg"
-                  className="w-full sm:w-40 justify-center bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-primary/25"
+                  className="w-full sm:w-40 justify-center bg-primary font-bold text-primary-foreground hover:bg-primary/90 transition-all duration-300 hover:shadow-lg hover:shadow-primary/25"
                 >
-                  <UserPlus className="mr-2" />
-                  REGISTER
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  {heroPanel?.button_text || 'REGISTER'}
                 </Button>
               </AuthModal>
               <AuthModal defaultTab="login">
                 <Button 
                   size="lg" 
                   variant="secondary" 
-                  className="w-full sm:w-40 justify-center transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/10"
+                  className="w-full sm:w-40 justify-center transition-all duration-300 hover:shadow-lg hover:shadow-white/10"
                 >
-                  <LogIn className="mr-2" />
+                  <LogIn className="w-5 h-5 mr-2" />
                   LOGIN
                 </Button>
               </AuthModal>

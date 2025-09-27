@@ -45,7 +45,6 @@ export function DashboardTutorialOverlayWrapper() {
       onComplete={handleComplete}
       onSkip={handleSkip}
       onStepChange={handleStepChange}
-      highlightStep={highlightStep}
     />
   );
 }

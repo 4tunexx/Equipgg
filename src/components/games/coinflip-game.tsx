@@ -87,19 +87,6 @@ export function CoinflipGame() {
             betAmount: number;
         };
     } | null>(null);
-    
-    useEffect(() => {
-        fetchGameHistory();
-        fetchLobbies();
-        
-        // Refresh lobbies every 1 second to catch expired lobbies immediately
-        const interval = setInterval(fetchLobbies, 1000);
-        return () => clearInterval(interval);
-    }, [user, fetchGameHistory, fetchLobbies]);
-
-    // No more frontend timer - let backend handle everything
-
-    // User balance is now handled by the global balance context
 
     const fetchGameHistory = useCallback(async () => {
         try {
@@ -144,6 +131,19 @@ export function CoinflipGame() {
             setIsLoadingLobbies(false);
         }
     }, [repairSession]);
+
+    useEffect(() => {
+        fetchGameHistory();
+        fetchLobbies();
+        
+        // Refresh lobbies every 1 second to catch expired lobbies immediately
+        const interval = setInterval(fetchLobbies, 1000);
+        return () => clearInterval(interval);
+    }, [user, fetchGameHistory, fetchLobbies]);
+
+    // No more frontend timer - let backend handle everything
+
+    // User balance is now handled by the global balance context
 
     const handleCreateLobby = async () => {
         if (!user) {
@@ -284,8 +284,8 @@ export function CoinflipGame() {
 
     const recentPlaysFromHistory = gameHistory.map(game => ({
         id: game.id,
-        winner: game.profit > 0 ? { name: game.user.displayName || game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
-        loser: game.profit <= 0 ? { name: game.user.displayName || game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
+        winner: game.profit > 0 ? { name: game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
+        loser: game.profit <= 0 ? { name: game.user.name, avatar: game.user.avatar || '', dataAiHint: "user avatar", xp: game.user.xp || 0, rank: 1 } : null,
         amount: game.betAmount,
         result: game.result?.result || 'heads',
         playerSide: game.result?.playerSide || 'heads'
@@ -295,7 +295,6 @@ export function CoinflipGame() {
         <>
             {activeGame && (
                 <CoinflipGamePanel
-                    lobbyId={activeGame.lobbyId}
                     creator={activeGame.creator}
                     joiner={activeGame.joiner}
                     betAmount={activeGame.betAmount}

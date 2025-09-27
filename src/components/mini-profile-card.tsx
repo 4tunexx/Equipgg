@@ -62,7 +62,14 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
             }
 
             const username = displayUser.name || displayUser.username;
-            if (!username) {
+            if (!username || username === 'Test User' || username === 'Anonymous') {
+                // Skip API call for test/anonymous users, use provided data
+                if (displayUser.xp !== undefined && displayUser.level !== undefined) {
+                    setUserStats({
+                        xp: displayUser.xp,
+                        level: displayUser.level
+                    });
+                }
                 setIsLoading(false);
                 return;
             }
@@ -105,9 +112,9 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
     const xp = userStats?.xp || displayUser.xp || 0;
 
     
-    // Safely handle name property
-    const displayName = displayUser.name || displayUser.username || 'Anonymous';
-    const userAvatar = displayUser.avatar || 'https://picsum.photos/40/40?random=1';
+    // Safely handle name property - prioritize Steam displayname
+    const displayName = displayUser.name || displayUser.username || (displayUser as any).steamProfile?.steamId || 'Anonymous';
+    const userAvatar = displayUser.avatar || (displayUser as any).steamProfile?.avatar || 'https://picsum.photos/40/40?random=1';
     
     // Role-based name coloring
     const roleColors = getRoleColors(displayUser.role || 'user');

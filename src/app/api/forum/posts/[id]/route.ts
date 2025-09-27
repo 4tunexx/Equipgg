@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { secureDb } from "../../../../../lib/secure-db";
+import secureDb from "../../../../../lib/secureDb";
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       LIMIT 1
     `;
 
-    const posts = await secureDb.rawQuery(query, [postId]);
+    const posts = await secureDb.raw(query, [postId]);
 
     if (posts.length === 0) {
       return NextResponse.json(

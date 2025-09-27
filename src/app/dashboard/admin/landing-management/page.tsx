@@ -4,7 +4,14 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 
 // Inline UI components to avoid import resolution issues
-const Button = React.forwardRef(({ className, variant, size, asChild = false, ...props }, ref) => {
+const Button = React.forwardRef<any, {
+  className?: string;
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+  asChild?: boolean;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, variant, size, asChild = false, ...props }, ref) => {
   const Comp = asChild ? 'slot' : 'button';
   return (
     <Comp
@@ -36,7 +43,11 @@ const Button = React.forwardRef(({ className, variant, size, asChild = false, ..
 });
 Button.displayName = "Button";
 
-const Card = React.forwardRef(({ className, ...props }, ref) => (
+const Card = React.forwardRef<HTMLDivElement, {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}
@@ -45,7 +56,11 @@ const Card = React.forwardRef(({ className, ...props }, ref) => (
 ));
 Card.displayName = "Card";
 
-const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
+const CardHeader = React.forwardRef<HTMLDivElement, {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={`flex flex-col space-y-1.5 p-6 ${className}`}
@@ -54,7 +69,11 @@ const CardHeader = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardHeader.displayName = "CardHeader";
 
-const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
+const CardTitle = React.forwardRef<HTMLHeadingElement, {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <h3
     ref={ref}
     className={`text-2xl font-semibold leading-none tracking-tight ${className}`}
@@ -63,7 +82,11 @@ const CardTitle = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardTitle.displayName = "CardTitle";
 
-const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
+const CardDescription = React.forwardRef<HTMLParagraphElement, {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <p
     ref={ref}
     className={`text-sm text-muted-foreground ${className}`}
@@ -72,12 +95,20 @@ const CardDescription = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardDescription.displayName = "CardDescription";
 
-const CardContent = React.forwardRef(({ className, ...props }, ref) => (
+const CardContent = React.forwardRef<HTMLDivElement, {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <div ref={ref} className={`p-6 pt-0 ${className}`} {...props} />
 ));
 CardContent.displayName = "CardContent";
 
-const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
+const CardFooter = React.forwardRef<HTMLDivElement, {
+  className?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <div
     ref={ref}
     className={`flex items-center p-6 pt-0 ${className}`}
@@ -86,19 +117,30 @@ const CardFooter = React.forwardRef(({ className, ...props }, ref) => (
 ));
 CardFooter.displayName = "CardFooter";
 
-const Input = React.forwardRef(({ className, type, ...props }, ref) => {
-  return (
-    <input
-      type={type}
-      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      ref={ref}
-      {...props}
-    />
-  );
-});
+const Input = React.forwardRef<HTMLInputElement, {
+  className?: string;
+  type?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  id?: string;
+  [key: string]: any;
+}>(({ className, type, ...props }, ref) => (
+  <input
+    type={type}
+    className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    ref={ref}
+    {...props}
+  />
+));
 Input.displayName = "Input";
 
-const Label = React.forwardRef(({ className, ...props }, ref) => (
+const Label = React.forwardRef<HTMLLabelElement, {
+  className?: string;
+  htmlFor?: string;
+  children: React.ReactNode;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
   <label
     ref={ref}
     className={`text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 ${className}`}
@@ -107,19 +149,34 @@ const Label = React.forwardRef(({ className, ...props }, ref) => (
 ));
 Label.displayName = "Label";
 
-const Textarea = React.forwardRef(({ className, ...props }, ref) => {
-  return (
-    <textarea
-      className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
-      ref={ref}
-      {...props}
-    />
-  );
-});
+const Textarea = React.forwardRef<HTMLTextAreaElement, {
+  className?: string;
+  value?: string;
+  onChange?: (e: React.ChangeEvent<HTMLTextAreaElement>) => void;
+  placeholder?: string;
+  id?: string;
+  [key: string]: any;
+}>(({ className, ...props }, ref) => (
+  <textarea
+    className={`flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 ${className}`}
+    ref={ref}
+    {...props}
+  />
+));
 Textarea.displayName = "Textarea";
 
 export default function LandingManagement() {
-  const [sections, setSections] = useState([
+  type Section = {
+    id: string;
+    title: string;
+    subtitle?: string;
+    description?: string;
+    buttonText?: string;
+    imagePath?: string;
+    items?: { title: string; description: string }[];
+  };
+
+  const [sections, setSections] = useState<Section[]>([
     {
       id: 'hero',
       title: 'Hero Section',
@@ -139,26 +196,67 @@ export default function LandingManagement() {
     }
   ]);
   
-  const [currentSection, setCurrentSection] = useState(null);
-  const [editingSection, setEditingSection] = useState(null);
+  const [currentSection, setCurrentSection] = useState<Section | null>(null);
+  const [editingSection, setEditingSection] = useState<Section | null>(null);
   
-  const handleSectionSelect = (section) => {
+  const handleSectionSelect = (section: Section) => {
     setCurrentSection(section);
     setEditingSection({...section});
   };
   
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!editingSection) return;
     
-    setSections(sections.map(s => 
-      s.id === editingSection.id ? editingSection : s
-    ));
-    
-    setCurrentSection(editingSection);
+    try {
+      // Determine if this is a hero or features section
+      const sectionType = editingSection.id === 'hero' ? 'hero' : 'features';
+      
+      // Prepare the panel data
+      const panelData = {
+        type: sectionType,
+        title: editingSection.title,
+        content: editingSection.description || editingSection.subtitle || '',
+        image_url: editingSection.imagePath,
+        button_text: editingSection.buttonText,
+        button_url: sectionType === 'hero' ? '/auth' : undefined,
+        is_active: true,
+        display_order: sectionType === 'hero' ? 1 : 2
+      };
+      
+      // Check if we need to create or update
+      const response = await fetch('/api/landing/panels', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(panelData)
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to save panel');
+      }
+      
+      const result = await response.json();
+      console.log('Panel saved successfully:', result);
+      
+      // Update local state
+      setSections(sections.map(s => 
+        s.id === editingSection.id ? editingSection : s
+      ));
+      
+      setCurrentSection(editingSection);
+      
+      // Show success message
+      alert('Section saved successfully!');
+      
+    } catch (error) {
+      console.error('Error saving panel:', error);
+      alert('Failed to save section. Please try again.');
+    }
   };
   
   const handleAddSection = () => {
-    const newSection = {
+    const newSection: Section = {
       id: `section-${Date.now()}`,
       title: 'New Section',
       description: 'Section description here'

@@ -12,13 +12,15 @@ export async function GET(request: NextRequest) {
       .eq('is_active', true)
       .order('display_order', { ascending: true });
 
-    if (error && error.code !== 'PGRST116') {
+    // If table doesn't exist, return default panels
+    if (error && (error.code === 'PGRST116' || error.code === 'PGRST205')) {
+      // Table doesn't exist, return default panels
+    } else if (error) {
       console.error('Error fetching panels:', error);
       return NextResponse.json({ error: 'Failed to fetch panels' }, { status: 500 });
     }
 
-    // If table doesn't exist, return default panels
-    if (error && error.code === 'PGRST116') {
+    if (error && (error.code === 'PGRST116' || error.code === 'PGRST205')) {
       const defaultPanels = [
         {
           id: '1',
@@ -139,7 +141,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === 'PGRST116' || error.code === 'PGRST205') {
         return NextResponse.json({
           error: 'Panel management not yet available - database tables pending'
         }, { status: 503 });
@@ -221,7 +223,7 @@ export async function PUT(request: NextRequest) {
       .single();
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === 'PGRST116' || error.code === 'PGRST205') {
         return NextResponse.json({
           error: 'Panel management not yet available'
         }, { status: 503 });
@@ -276,7 +278,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', panelId);
 
     if (error) {
-      if (error.code === 'PGRST116') {
+      if (error.code === 'PGRST116' || error.code === 'PGRST205') {
         return NextResponse.json({
           error: 'Panel management not yet available'
         }, { status: 503 });

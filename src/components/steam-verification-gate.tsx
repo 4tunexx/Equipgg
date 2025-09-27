@@ -49,15 +49,39 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
      })();
    }, [user]);
 
-  // Check for verification success from URL params
+  // Check verification on mount and when returning from Steam auth
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    // Check if we just returned from Steam auth
+    const urlParams = new URLSearchParams(window.location.search);
+    const steamVerified = urlParams.get('steam_verified');
+    
+    if (steamVerified === 'true') {
+      console.log('Detected Steam verification completion, refreshing user data...');
+      refreshUser();
+    }
+  }, []);
+
+  // Check for verification success from URL params and session storage
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    
+    // Check if verification was just completed to prevent flash
+    const verificationCompleted = sessionStorage.getItem('steam_verification_in_progress');
+    if (verificationCompleted === 'completed') {
+      sessionStorage.removeItem('steam_verification_in_progress');
+      // Don't show verification gate during refresh after successful verification
+      return;
+    }
+    
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('steam_verified') === 'success') {
       toast({
         title: "🎉 Steam Verification Successful!",
         description: "Your account is now fully activated and ready to use.",
       });
+      // Set flag to prevent verification gate from showing
+      sessionStorage.setItem('steam_verification_in_progress', 'completed');
       window.history.replaceState({}, '', '/dashboard');
       refreshUser();
     } else if (urlParams.get('error') === 'steam_already_linked') {
@@ -79,6 +103,11 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
 
   // If user is Steam verified, or provider is steam, or skip is set, or still checking, show dashboard
   if (user?.steam_verified || user?.provider === 'steam' || skip || checkingVerification || !needsVerification) {
+    return <>{children}</>;
+  }
+
+  // Check if verification was just completed to prevent showing the gate
+  if (typeof window !== 'undefined' && sessionStorage.getItem('steam_verification_in_progress') === 'completed') {
     return <>{children}</>;
   }
 
@@ -124,7 +153,7 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
     }, 1000);
     
     // Also listen for messages from the popup
-    const handleMessage = (event: MessageEvent) => {
+    const handleMessage = async (event: MessageEvent) => {
       console.log('Received message from popup:', event.data);
       if (event.data.type === 'steam_auth_complete') {
         console.log('Steam auth complete message received:', event.data);
@@ -143,14 +172,14 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
             title: "🎉 Steam Verification Successful!",
             description: "Your account is now fully activated and ready to use.",
           });
-          // Force refresh user data after a short delay to allow DB updates
-          setTimeout(async () => {
-            await refreshUser();
-            // Re-check verification status after refresh
-            setTimeout(() => {
-              window.location.reload();
-            }, 500);
-          }, 1000);
+          // Set a flag to prevent the verification gate from showing during refresh
+          sessionStorage.setItem('steam_verification_in_progress', 'completed');
+          // Force refresh user data immediately to get updated Steam profile
+          await refreshUser();
+          // Small delay to ensure UI updates, then redirect
+          setTimeout(() => {
+            window.location.replace('/dashboard');
+          }, 1000); // Increased delay to ensure data is fully refreshed
         } else {
           console.log('Steam verification failed:', event.data.error);
           toast({

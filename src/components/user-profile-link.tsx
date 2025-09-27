@@ -9,6 +9,7 @@ import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
 import { useState } from "react";
 import { useIsMobile } from "../hooks/use-mobile";
 import { Dialog, DialogContent, DialogTrigger } from "./ui/dialog";
+import { Rarity } from "../lib/supabase/queries";
 
 // Local type definition for LeaderboardPlayer
 type LeaderboardPlayer = {
@@ -28,7 +29,7 @@ type LeaderboardPlayer = {
     equippedItem?: { 
         name: string; 
         image: string; 
-        rarity: string; 
+        rarity: Rarity; 
         dataAiHint: string; 
     };
 };
@@ -41,7 +42,7 @@ interface UserProfileLinkProps {
         role?: string;
         xp?: number;
         achievement?: { title: string, icon: React.ComponentType<React.SVGProps<SVGSVGElement>> };
-        equippedItem?: { name: string, image: string, rarity: string, dataAiHint: string };
+        equippedItem?: { name: string, image: string, rarity: Rarity, dataAiHint: string };
     };
     avatarOnly?: boolean;
     hideAvatar?: boolean;
@@ -53,8 +54,9 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
     const [mobileDialogOpen, setMobileDialogOpen] = useState(false);
     
     // Handle 'displayName', 'name', and 'username' properties safely
-    const displayName = user.name || user.username || 'Anonymous';
-    const userAvatar = user.avatar || 'https://picsum.photos/40/40?random=1';
+    // Prioritize Steam profile data for display name
+    const displayName = user.name || user.username || (user as any).steamProfile?.steamId || 'Anonymous';
+    const userAvatar = user.avatar || (user as any).steamProfile?.avatar || 'https://picsum.photos/40/40?random=1';
     
     // Role-based name coloring
     const roleColors = getRoleColors(user.role || 'user');

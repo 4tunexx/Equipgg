@@ -45,7 +45,7 @@ interface PandaScoreMatch {
 }
 
 // Fetch matches from PandaScore API
-async function fetchFromPandaScore(endpoint: string): Promise<unknown> {
+async function fetchFromPandaScore(endpoint: string): Promise<PandaScoreMatch[]> {
   if (!PANDASCORE_API_KEY) {
     throw new Error('PANDASCORE_API_KEY environment variable is not set');
   }
@@ -110,15 +110,18 @@ export async function syncMatchesFromPandaScore(): Promise<unknown[]> {
           await createNewMatch(match);
         }
 
+        const opponents = (match as any).opponents;
+        const tournament = (match as any).tournament;
+        
         syncedMatches.push({
-          id: match.id,
-          status: match.status,
-          tournament: match.tournament?.name,
-          teams: match.opponents?.map((o: { opponent: { name: string } }) => o.opponent.name).join(' vs ')
+          id: (match as any).id,
+          status: (match as any).status,
+          tournament: tournament?.name,
+          teams: opponents?.map((o: { opponent: { name: string } }) => o.opponent.name).join(' vs ')
         });
 
       } catch (error) {
-        console.error(`Error processing match ${match.id}:`, error);
+        console.error(`Error processing match ${(match as any).id}:`, error);
       }
     }
 
@@ -133,38 +136,40 @@ export async function syncMatchesFromPandaScore(): Promise<unknown[]> {
 
 // Create new match from PandaScore data
 async function createNewMatch(match: PandaScoreMatch) {
-  if (!match.opponents || match.opponents.length < 2) {
-    console.log(`Skipping match ${match.id}: insufficient opponents`);
+  const matchData = match as any;
+  
+  if (!matchData.opponents || matchData.opponents.length < 2) {
+    console.log(`Skipping match ${matchData.id}: insufficient opponents`);
     return;
   }
 
-  const teamA = match.opponents[0]?.opponent;
-  const teamB = match.opponents[1]?.opponent;
+  const teamA = matchData.opponents[0]?.opponent;
+  const teamB = matchData.opponents[1]?.opponent;
 
   if (!teamA || !teamB) {
-    console.log(`Skipping match ${match.id}: missing team data`);
+    console.log(`Skipping match ${matchData.id}: missing team data`);
     return;
   }
 
   // Get main stream URL
-  const mainStream = match.streams?.find(s => s.main && s.official);
+  const mainStream = matchData.streams?.find((s: any) => s.main && s.official);
   const streamUrl = mainStream?.raw_url || null;
 
   // Create match record
-  const matchData = {
-    id: `pandascore-${match.id}`,
-    pandascore_id: match.id,
+  const newMatchData = {
+    id: `pandascore-${matchData.id}`,
+    pandascore_id: matchData.id,
     team_a_name: teamA.name,
     team_a_logo: teamA.image_url || null,
     team_a_odds: 1.5, // Default odds - would need betting API for real odds
     team_b_name: teamB.name,
     team_b_logo: teamB.image_url || null,
     team_b_odds: 2.5, // Default odds
-    event_name: match.tournament?.name || match.serie?.name || 'Unknown Tournament',
-    start_time: match.begin_at,
-    match_date: new Date(match.begin_at).toISOString().split('T')[0],
+    event_name: matchData.tournament?.name || matchData.serie?.name || 'Unknown Tournament',
+    start_time: matchData.begin_at,
+    match_date: new Date(matchData.begin_at).toISOString().split('T')[0],
     stream_url: streamUrl,
-    status: convertMatchStatus(match.status),
+    status: convertMatchStatus(matchData.status),
     winner: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -172,7 +177,7 @@ async function createNewMatch(match: PandaScoreMatch) {
 
   const { error } = await supabase
     .from('matches')
-    .insert(matchData);
+    .insert(newMatchData);
 
   if (error) {
     console.error(`Error creating match ${match.id}:`, error);
@@ -184,20 +189,22 @@ async function createNewMatch(match: PandaScoreMatch) {
 
 // Update existing match
 async function updateExistingMatch(match: PandaScoreMatch) {
+  const matchData = match as any;
+  
   const updateData: {
     status: 'upcoming' | 'live' | 'finished';
     start_time: string;
     updated_at: string;
     winner?: 'team_a' | 'team_b' | null;
   } = {
-    status: convertMatchStatus(match.status),
-    start_time: match.begin_at,
+    status: convertMatchStatus(matchData.status),
+    start_time: matchData.begin_at,
     updated_at: new Date().toISOString()
   };
 
   // If match is finished, try to get winner
-  if (match.status === 'finished' && match.results) {
-    const results = match.results;
+  if (matchData.status === 'finished' && matchData.results) {
+    const results = matchData.results;
     if (results.length >= 2) {
       const team1Score = results[0]?.score || 0;
       const team2Score = results[1]?.score || 0;
@@ -213,14 +220,14 @@ async function updateExistingMatch(match: PandaScoreMatch) {
   const { error } = await supabase
     .from('matches')
     .update(updateData)
-    .eq('pandascore_id', match.id);
+    .eq('pandascore_id', matchData.id);
 
   if (error) {
-    console.error(`Error updating match ${match.id}:`, error);
+    console.error(`Error updating match ${matchData.id}:`, error);
     throw error;
   }
 
-  console.log(`Updated match ${match.id} status: ${match.status}`);
+  console.log(`Updated match ${matchData.id} status: ${matchData.status}`);
 }
 
 // Process completed match results
@@ -247,10 +254,11 @@ export async function processMatchResults(): Promise<unknown[]> {
       try {
         // Fetch detailed match results from PandaScore
         const matchDetails = await fetchFromPandaScore(`/csgo/matches/${match.pandascore_id}`);
+        const matchDetailsData = matchDetails as any;
         
-        if (matchDetails.results && matchDetails.results.length >= 2) {
-          const team1Score = matchDetails.results[0]?.score || 0;
-          const team2Score = matchDetails.results[1]?.score || 0;
+        if (matchDetailsData.results && matchDetailsData.results.length >= 2) {
+          const team1Score = matchDetailsData.results[0]?.score || 0;
+          const team2Score = matchDetailsData.results[1]?.score || 0;
           
           let winner = null;
           if (team1Score > team2Score) {

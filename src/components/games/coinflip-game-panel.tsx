@@ -72,6 +72,23 @@ export function CoinflipGamePanel({
     } | null>(null);
     const [isSpinning, setIsSpinning] = useState(false);
 
+    const startCoinSpin = useCallback(() => {
+        setIsSpinning(true);
+        
+        // Show spinning animation for 3 seconds, then show the actual result
+        setTimeout(() => {
+            if (gameResult) {
+                setCoinResult(gameResult.flipResult);
+                setWinner(gameResult.winner);
+                setGameState('result');
+                setIsSpinning(false);
+                
+                // Call onGameComplete with the result
+                onGameComplete(gameResult);
+            }
+        }, 3000);
+    }, [gameResult, onGameComplete]);
+
     useEffect(() => {
         if (gameResult) {
             // If we have a game result, show the animation and then the result
@@ -90,23 +107,6 @@ export function CoinflipGamePanel({
             return () => clearInterval(timer);
         }
     }, [gameResult, startCoinSpin]);
-
-    const startCoinSpin = useCallback(() => {
-        setIsSpinning(true);
-        
-        // Show spinning animation for 3 seconds, then show the actual result
-        setTimeout(() => {
-            if (gameResult) {
-                setCoinResult(gameResult.flipResult);
-                setWinner(gameResult.winner);
-                setGameState('result');
-                setIsSpinning(false);
-                
-                // Call onGameComplete with the result
-                onGameComplete(gameResult);
-            }
-        }, 3000);
-    }, [gameResult, onGameComplete]);
 
     const getCoinIcon = () => {
         if (isSpinning) {

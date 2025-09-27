@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { secureDb } from "../../../../lib/secure-db";
+import secureDb from "../../../../lib/secureDb";
 
 export async function GET(request: Request) {
   try {
@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 
     query += ' LIMIT 50';
 
-    const posts = await secureDb.rawQuery(query);
+    const posts = await secureDb.raw(query);
 
     // Transform the data to match the expected interface
     const transformedPosts = posts.map((post: any) => ({

@@ -55,8 +55,8 @@ export async function GET(req: NextRequest) {
     }
     
     if (user) {
-      // For Steam users, use username (Steam nickname) as displayName, fallback to displayname
-      const displayName = user.username || user.displayname || 'Player';
+      // For Steam users, use displayname (Steam nickname) as displayName, fallback to username
+      const displayName = user.displayname || user.username || 'Player';
       const isSteamUser = !!user.steam_id;
       
       // Build Steam profile data if user is a Steam user
@@ -66,13 +66,15 @@ export async function GET(req: NextRequest) {
         profileUrl: user.steam_id ? `https://steamcommunity.com/profiles/${user.steam_id}` : ''
       } : undefined;
       
-      // Map to expected frontend fields
+      // Map to expected frontend fields with proper Steam profile data
       return NextResponse.json({
         user: {
           id: user.id,
           email: user.email,
           displayName: displayName,
-          avatarUrl: user.avatar_url,
+          username: user.username,
+          photoURL: user.avatar_url,
+          avatarUrl: user.avatar_url, // Keep both for compatibility
           xp: user.xp || 0,
           level: user.level || 1,
           role: user.role || 'user',
@@ -82,6 +84,7 @@ export async function GET(req: NextRequest) {
           steamId: user.steam_id,
           isSteamUser: isSteamUser,
           steamProfile: steamProfile,
+          provider: isSteamUser ? 'steam' : 'default'
         }
       });
     }

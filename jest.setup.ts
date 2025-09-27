@@ -1,5 +1,5 @@
 // Jest setup file
-require('@testing-library/jest-dom');
+import '@testing-library/jest-dom';
 
 // Mock Next.js router
 jest.mock('next/navigation', () => ({
@@ -48,10 +48,10 @@ const localStorageMock = {
   length: 0,
   key: jest.fn(),
 };
-global.localStorage = localStorageMock;
+(global as any).localStorage = localStorageMock;
 
 // Mock sessionStorage
-global.sessionStorage = {
+(global as any).sessionStorage = {
   getItem: jest.fn(),
   setItem: jest.fn(),
   removeItem: jest.fn(),
@@ -61,7 +61,7 @@ global.sessionStorage = {
 };
 
 // Suppress console errors during tests
-global.console = {
+(global as any).console = {
   ...console,
   error: jest.fn(),
   warn: jest.fn(),

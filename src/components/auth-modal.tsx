@@ -84,6 +84,8 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
     setLoading(true);
     setError(null);
     try {
+      // Close modal immediately before redirect
+      setOpen(false);
       // Redirect to Steam OAuth
       window.location.href = '/api/auth/steam';
     } catch (err: unknown) {
