@@ -148,9 +148,40 @@ async function createNewMatch(match: PandaScoreMatch) {
     return;
   }
 
-  // Get main stream URL
-  const mainStream = matchData.streams?.find((s: any) => s.main && s.official);
-  const streamUrl = mainStream?.raw_url || null;
+  // Get stream URL - try multiple sources
+  let streamUrl = null;
+
+  // First try to find main official stream
+  const mainOfficialStream = matchData.streams?.find((s: any) => s.main && s.official);
+  if (mainOfficialStream?.raw_url) {
+    streamUrl = mainOfficialStream.raw_url;
+  }
+
+  // If no main official stream, try any official stream
+  if (!streamUrl) {
+    const officialStream = matchData.streams?.find((s: any) => s.official);
+    if (officialStream?.raw_url) {
+      streamUrl = officialStream.raw_url;
+    }
+  }
+
+  // If still no stream, try any main stream
+  if (!streamUrl) {
+    const mainStream = matchData.streams?.find((s: any) => s.main);
+    if (mainStream?.raw_url) {
+      streamUrl = mainStream.raw_url;
+    }
+  }
+
+  // As last resort, try live streaming URL
+  if (!streamUrl && matchData.live?.url) {
+    streamUrl = matchData.live.url;
+  }
+
+  // Log stream finding for debugging
+  if (matchData.streams && matchData.streams.length > 0) {
+    console.log(`Found ${matchData.streams.length} streams for match ${matchData.id}, using: ${streamUrl || 'none'}`);
+  }
 
   // Create match record
   const newMatchData = {
@@ -177,16 +208,41 @@ async function createNewMatch(match: PandaScoreMatch) {
 async function updateExistingMatch(match: PandaScoreMatch) {
   const matchData = match as any;
   
+  // Get stream URL for existing matches too
+  let streamUrl = null;
+  const mainOfficialStream = matchData.streams?.find((s: any) => s.main && s.official);
+  if (mainOfficialStream?.raw_url) {
+    streamUrl = mainOfficialStream.raw_url;
+  } else {
+    const officialStream = matchData.streams?.find((s: any) => s.official);
+    if (officialStream?.raw_url) {
+      streamUrl = officialStream.raw_url;
+    } else {
+      const mainStream = matchData.streams?.find((s: any) => s.main);
+      if (mainStream?.raw_url) {
+        streamUrl = mainStream.raw_url;
+      } else if (matchData.live?.url) {
+        streamUrl = matchData.live.url;
+      }
+    }
+  }
+  
   const updateData: {
     status: 'upcoming' | 'live' | 'finished';
     start_time: string | null;
     updated_at: string;
+    stream_url?: string | null;
     winner?: 'team_a' | 'team_b' | null;
   } = {
     status: convertMatchStatus(matchData.status),
     start_time: matchData.begin_at ? new Date(matchData.begin_at).toTimeString().split(' ')[0] : null,
     updated_at: new Date().toISOString()
   };
+
+  // Update stream URL if we found one and it's different
+  if (streamUrl) {
+    updateData.stream_url = streamUrl;
+  }
 
   // If match is finished, try to get winner
   if (matchData.status === 'finished' && matchData.results) {

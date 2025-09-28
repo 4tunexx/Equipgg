@@ -150,9 +150,9 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
         },
         body: JSON.stringify({
           matchId: match.id,
-          teamId: teamId,
+          team: teamId,
           amount: amount,
-          odds: odds
+          betType: 'match_winner'
         })
       });
 
@@ -250,7 +250,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
         },
         body: JSON.stringify({
           matchId: match.id,
-          teamId: selectedVoteTeam,
+          prediction: selectedVoteTeam === match.team1.name ? 'team1_win' : 'team2_win',
         }),
       });
 

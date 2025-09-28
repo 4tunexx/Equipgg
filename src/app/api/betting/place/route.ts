@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../../lib/supabase/client";
 import { createClient } from '@supabase/supabase-js';
 import { getAuthSession } from "../../../../lib/auth-utils";
+import { addXP } from "../../../../lib/xp-service";
 
 // Create Supabase admin client for secure operations
 const supabaseAdmin = createClient(
@@ -48,34 +49,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Insufficient coins" }, { status: 400 });
     }
 
-    // Get match details (using mock data for now)
-    const matchData = {
-      id: matchId,
-      team1: "Team A",
-      team2: "Team B",
-      status: "upcoming",
-      startTime: new Date(Date.now() + 30 * 60 * 1000).toISOString(), // 30 minutes from now
-      odds: {
-        team1: 1.8,
-        team2: 2.2
-      }
-    };
+    // Get match details from database
+    const { data: matchData, error: matchError } = await supabaseAdmin
+      .from('matches')
+      .select('id, team_a_name, team_b_name, team_a_odds, team_b_odds, status, match_date, start_time')
+      .eq('id', matchId)
+      .single();
 
-    // Calculate potential winnings
-    const odds = team === 'team1' ? matchData.odds.team1 : matchData.odds.team2;
-    const potentialWinnings = Math.floor(amount * odds);
+    if (matchError || !matchData) {
+      return NextResponse.json({ error: "Match not found" }, { status: 404 });
+    }
 
-    // Create bet record
+    if (matchData.status !== 'upcoming') {
+      return NextResponse.json({ error: "Betting is closed for this match" }, { status: 400 });
+    }
+
+    // Calculate odds and potential payout
+    const odds = team === 'team_a' ? matchData.team_a_odds : matchData.team_b_odds;
+    const potentialPayout = Math.floor(amount * odds);
+
+    // Create bet record with correct column names
     const betData = {
       user_id: session.user_id,
       match_id: matchId,
+      team_choice: team,
       amount: amount,
-      team: team,
-      bet_type: betType,
       odds: odds,
-      potential_winnings: potentialWinnings,
-      status: 'pending',
-      placed_at: new Date().toISOString()
+      potential_payout: potentialPayout,
+      status: 'active'
     };
 
     // Start transaction: deduct coins and create bet
@@ -90,47 +91,54 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to update balance" }, { status: 500 });
     }
 
-    // Insert bet record (mock table structure)
-    try {
-      const { data: betRecord, error: betError } = await supabaseAdmin
-        .from('bets')
-        .insert(betData)
-        .select()
-        .single();
+    // Insert bet record into user_bets table
+    const { data: betRecord, error: betError } = await supabaseAdmin
+      .from('user_bets')
+      .insert(betData)
+      .select()
+      .single();
 
-      if (betError) {
-        // Rollback: restore user's coins
-        await supabaseAdmin
-          .from('users')
-          .update({
-            coins: userData.coins
-          })
-          .eq('id', session.user_id);
-        
-        throw betError;
-      }
+    if (betError) {
+      // Rollback: restore user's coins
+      await supabaseAdmin
+        .from('users')
+        .update({
+          coins: userData.coins
+        })
+        .eq('id', session.user_id);
 
-      return NextResponse.json({
-        success: true,
-        bet: betRecord,
-        newBalance: userData.coins - amount,
-        match: matchData
-      });
-
-    } catch (error) {
-      // If bets table doesn't exist, still deduct coins but return mock bet
-      console.warn('Bets table may not exist, returning mock bet data');
-      
-      return NextResponse.json({
-        success: true,
-        bet: {
-          id: Math.random().toString(36).substr(2, 9),
-          ...betData
-        },
-        newBalance: userData.coins - amount,
-        match: matchData
-      });
+      console.error('Bet insertion error:', betError);
+      return NextResponse.json({ error: "Failed to place bet" }, { status: 500 });
     }
+
+    // Award XP for placing a bet
+    try {
+      await addXP(
+        session.user_id,
+        10, // 10 XP for placing a bet
+        'betting',
+        `Placed bet on ${matchData.team_a_name} vs ${matchData.team_b_name}`
+      );
+    } catch (xpError) {
+      console.warn('Failed to award XP for bet placement:', xpError);
+      // Don't fail the bet if XP award fails
+    }
+
+    return NextResponse.json({
+      success: true,
+      bet: betRecord,
+      newBalance: userData.coins - amount,
+      match: {
+        id: matchData.id,
+        team_a_name: matchData.team_a_name,
+        team_b_name: matchData.team_b_name,
+        team_a_odds: matchData.team_a_odds,
+        team_b_odds: matchData.team_b_odds,
+        status: matchData.status,
+        match_date: matchData.match_date,
+        start_time: matchData.start_time
+      }
+    });
 
   } catch (error) {
     console.error('Error placing bet:', error);

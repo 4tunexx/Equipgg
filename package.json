@@ -15,7 +15,7 @@
     "build": "next build",
     "build:vercel": "node scripts/vercel-build.js",
     "build:production": "NODE_ENV=production node scripts/ensure-components.js && node scripts/fix-auth-pages.js && NODE_ENV=production next build",
-    "start": "node server.js",
+    "start": "next start",
     "start:next": "next start",
     "start:socket": "node socket-server.js",
     "start:production": "NODE_ENV=production node server.js",

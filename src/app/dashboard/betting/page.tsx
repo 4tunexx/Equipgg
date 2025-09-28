@@ -155,8 +155,8 @@ export default function BettingPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-4 h-full">
-      <main className="lg:col-span-3 p-4 sm:p-6 lg:p-8 overflow-y-auto">
+    <div className="flex flex-col lg:grid lg:grid-cols-4 h-full">
+      <main className="flex-1 lg:col-span-3 p-4 sm:p-6 lg:p-8 overflow-y-auto">
         {/* Header with Load Test Matches Button */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-4">
@@ -186,11 +186,11 @@ export default function BettingPage() {
 
 
         <Tabs defaultValue="upcoming" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="upcoming">Upcoming</TabsTrigger>
-            <TabsTrigger value="live">Live</TabsTrigger>
-            <TabsTrigger value="finished">Finished</TabsTrigger>
-            <TabsTrigger value="all">All Matches</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 h-auto p-1">
+            <TabsTrigger value="upcoming" className="text-xs sm:text-sm py-2">Upcoming</TabsTrigger>
+            <TabsTrigger value="live" className="text-xs sm:text-sm py-2">Live</TabsTrigger>
+            <TabsTrigger value="finished" className="text-xs sm:text-sm py-2">Finished</TabsTrigger>
+            <TabsTrigger value="all" className="text-xs sm:text-sm py-2">All</TabsTrigger>
           </TabsList>
           <TabsContent value="upcoming" className="mt-6">
             {renderMatches(upcomingMatches)}

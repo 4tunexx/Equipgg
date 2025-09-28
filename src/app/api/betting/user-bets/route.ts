@@ -17,11 +17,13 @@ export async function GET(request: NextRequest) {
         id,
         user_id,
         match_id,
-        team_bet,
+        team_choice,
         amount,
         odds,
-        potential_winnings,
+        potential_payout,
         status,
+        placed_at,
+        settled_at,
         created_at,
         updated_at,
         matches (
@@ -61,14 +63,14 @@ export async function GET(request: NextRequest) {
         id: bet.id,
         matchTitle: match?.event_name || 'Match',
         team: {
-          name: bet.team_bet === 'team1' ? match?.team_a_name : match?.team_b_name,
-          logo: bet.team_bet === 'team1' ? match?.team_a_logo : match?.team_b_logo,
-          dataAiHint: bet.team_bet === 'team1' ? match?.team_a_name : match?.team_b_name
+          name: bet.team_choice === 'team_a' ? match?.team_a_name : match?.team_b_name,
+          logo: bet.team_choice === 'team_a' ? match?.team_a_logo : match?.team_b_logo,
+          dataAiHint: bet.team_choice === 'team_a' ? match?.team_a_name : match?.team_b_name
         },
         amount: bet.amount,
         odds: bet.odds,
-        potentialWin: bet.potential_winnings,
-        potentialWinnings: bet.potential_winnings,
+        potentialWin: bet.potential_payout,
+        potentialWinnings: bet.potential_payout,
         status: bet.status,
         timestamp: bet.created_at,
         match: {
@@ -93,6 +95,92 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in user-bets API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getAuthSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { betId } = await request.json();
+
+    if (!betId) {
+      return NextResponse.json({ error: 'Bet ID required' }, { status: 400 });
+    }
+
+    // Get the bet details
+    const { data: bet, error: betError } = await supabase
+      .from('user_bets')
+      .select('id, user_id, amount, status')
+      .eq('id', betId)
+      .eq('user_id', session.user_id)
+      .single();
+
+    if (betError || !bet) {
+      return NextResponse.json({ error: 'Bet not found' }, { status: 404 });
+    }
+
+    if (bet.status !== 'active') {
+      return NextResponse.json({ error: 'Only active bets can be cancelled' }, { status: 400 });
+    }
+
+    // Update bet status to cancelled
+    const { error: updateBetError } = await supabase
+      .from('user_bets')
+      .update({ status: 'cancelled' })
+      .eq('id', betId);
+
+    if (updateBetError) {
+      console.error('Error cancelling bet:', updateBetError);
+      return NextResponse.json({ error: 'Failed to cancel bet' }, { status: 500 });
+    }
+
+    // Get current user balance
+    const { data: userData, error: userError } = await supabase
+      .from('users')
+      .select('coins')
+      .eq('id', session.user_id)
+      .single();
+
+    if (userError || !userData) {
+      // Rollback bet status
+      await supabase
+        .from('user_bets')
+        .update({ status: 'active' })
+        .eq('id', betId);
+      return NextResponse.json({ error: 'User not found' }, { status: 500 });
+    }
+
+    // Refund coins to user
+    const { error: refundError } = await supabase
+      .from('users')
+      .update({
+        coins: userData.coins + bet.amount
+      })
+      .eq('id', session.user_id);
+
+    if (refundError) {
+      console.error('Error refunding coins:', refundError);
+      // Rollback bet status
+      await supabase
+        .from('user_bets')
+        .update({ status: 'active' })
+        .eq('id', betId);
+      return NextResponse.json({ error: 'Failed to refund coins' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Bet cancelled and coins refunded',
+      refundedAmount: bet.amount
+    });
+
+  } catch (error) {
+    console.error('Error cancelling bet:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

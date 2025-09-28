@@ -79,10 +79,9 @@ export async function GET(request: NextRequest) {
           prediction,
           matches (
             id,
-            title,
-            team1_name,
-            team2_name,
-            result,
+            event_name,
+            team_a_name,
+            team_b_name,
             status
           )
         `)
@@ -94,12 +93,13 @@ export async function GET(request: NextRequest) {
             success: true,
             match: {
               id: matchId,
-              title: 'Sample Match',
-              team1_name: 'Team A',
-              team2_name: 'Team B',
+              event_name: 'Sample Match',
+              team_a_name: 'Team A',
+              team_b_name: 'Team B',
               predictions: {
-                team1: 0,
-                team2: 0,
+                team1_win: 0,
+                team2_win: 0,
+                draw: 0,
                 total: 0
               }
             }
@@ -110,9 +110,10 @@ export async function GET(request: NextRequest) {
       }
 
       // Count predictions
-      const team1Predictions = predictions?.filter(p => p.prediction === 'team1').length || 0;
-      const team2Predictions = predictions?.filter(p => p.prediction === 'team2').length || 0;
-      const totalPredictions = team1Predictions + team2Predictions;
+      const team1Predictions = predictions?.filter(p => p.prediction === 'team_a').length || 0;
+      const team2Predictions = predictions?.filter(p => p.prediction === 'team_b').length || 0;
+      const drawPredictions = predictions?.filter(p => p.prediction === 'draw').length || 0;
+      const totalPredictions = team1Predictions + team2Predictions + drawPredictions;
 
       const match = predictions?.[0]?.matches;
 
@@ -121,11 +122,13 @@ export async function GET(request: NextRequest) {
         match: {
           ...match,
           predictions: {
-            team1: team1Predictions,
-            team2: team2Predictions,
+            team1_win: team1Predictions,
+            team2_win: team2Predictions,
+            draw: drawPredictions,
             total: totalPredictions,
             team1Percentage: totalPredictions > 0 ? (team1Predictions / totalPredictions * 100).toFixed(1) : '0.0',
-            team2Percentage: totalPredictions > 0 ? (team2Predictions / totalPredictions * 100).toFixed(1) : '0.0'
+            team2Percentage: totalPredictions > 0 ? (team2Predictions / totalPredictions * 100).toFixed(1) : '0.0',
+            drawPercentage: totalPredictions > 0 ? (drawPredictions / totalPredictions * 100).toFixed(1) : '0.0'
           }
         }
       });

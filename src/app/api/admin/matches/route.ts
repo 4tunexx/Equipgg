@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { secureDb } from "../../../../lib/secure-db";
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
 import { parse } from 'cookie';
+import { addXP } from "../../../../lib/xp-service";
 
 // GET /api/admin/matches - Get all matches for admin management
 export async function GET(request: NextRequest) {
@@ -130,7 +131,8 @@ export async function PUT(request: NextRequest) {
     const allowedFields = [
       'team_a_name', 'team_a_logo', 'team_a_odds',
       'team_b_name', 'team_b_logo', 'team_b_odds',
-      'event_name', 'map', 'start_time', 'match_date', 'stream_url', 'status'
+      'event_name', 'map', 'start_time', 'match_date', 'stream_url', 'status',
+      'winner', 'team_a_score', 'team_b_score', 'completed_at'
     ];
     const filteredUpdates: Record<string, any> = {};
     for (const [field, value] of Object.entries(updates)) {
@@ -141,7 +143,64 @@ export async function PUT(request: NextRequest) {
     if (Object.keys(filteredUpdates).length === 0) {
       return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
     }
+
+    // Update the match
     const updated = await secureDb.update('matches', { id: matchId }, filteredUpdates);
+
+    // If match status is being set to 'completed' and winner is specified, process bet payouts
+    if (filteredUpdates.status === 'completed' && (filteredUpdates.winner || updated.winner)) {
+      const winner = filteredUpdates.winner || updated.winner;
+
+      try {
+        // Get all active bets for this match
+        const bets = await secureDb.findMany('user_bets', {
+          match_id: matchId,
+          status: 'active'
+        });
+
+        if (bets && bets.length > 0) {
+          // Process each bet
+          for (const bet of bets) {
+            const isWinner = bet.team_choice === winner;
+            const newStatus = isWinner ? 'won' : 'lost';
+
+            // Update bet status
+            await secureDb.update('user_bets', { id: bet.id }, {
+              status: newStatus,
+              settled_at: new Date().toISOString()
+            });
+
+            // If winner, payout the winnings
+            if (isWinner) {
+              // Get current user balance
+              const user = await secureDb.findOne('users', { id: bet.user_id });
+              if (user) {
+                const currentCoins = Number(user.coins || 0);
+                const payoutAmount = Number(bet.potential_payout || 0);
+                const newBalance = currentCoins + payoutAmount;
+                await secureDb.update('users', { id: bet.user_id }, { coins: newBalance });
+
+                // Award XP for winning a bet
+                try {
+                  await addXP(
+                    String(bet.user_id),
+                    25, // 25 XP for winning a bet
+                    'betting',
+                    `Won bet on ${updated.team_a_name} vs ${updated.team_b_name} (+${payoutAmount} coins)`
+                  );
+                } catch (xpError) {
+                  console.warn('Failed to award XP for winning bet:', xpError);
+                }
+              }
+            }
+          }
+        }
+      } catch (payoutError) {
+        console.error('Error processing bet payouts:', payoutError);
+        // Don't fail the entire request if payouts fail, just log it
+      }
+    }
+
     return NextResponse.json({ success: true, message: 'Match updated successfully', match: updated });
   } catch (error) {
     console.error('Error updating match:', error);

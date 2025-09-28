@@ -1684,6 +1684,7 @@ export default function AdminDashboardPage() {
                               <TableHead>Map</TableHead>
                               <TableHead>Date/Time</TableHead>
                               <TableHead>Odds</TableHead>
+                              <TableHead>Stream</TableHead>
                               <TableHead>Status</TableHead>
                               <TableHead>Visible</TableHead>
                               <TableHead>Actions</TableHead>
@@ -1721,6 +1722,13 @@ export default function AdminDashboardPage() {
                                   <div className="text-sm">
                                     <div>{match.team_a_odds?.toFixed(2)} : {match.team_b_odds?.toFixed(2)}</div>
                                   </div>
+                                </TableCell>
+                                <TableCell>
+                                  {match.stream_url ? (
+                                    <span className="text-green-600 text-sm">✓ Has Stream</span>
+                                  ) : (
+                                    <span className="text-red-500 text-sm">No Stream</span>
+                                  )}
                                 </TableCell>
                                 <TableCell>
                                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
@@ -5402,158 +5410,7 @@ export default function AdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Edit match dialog */}
-        <Dialog open={showEditMatch} onOpenChange={setShowEditMatch}>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Edit Match</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Team A Name *</Label>
-                <Input
-                  value={newMatch.team_a_name}
-                  onChange={(e) => setNewMatch({ ...newMatch, team_a_name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Team A Logo URL</Label>
-                <Input
-                  value={newMatch.team_a_logo}
-                  onChange={(e) => setNewMatch({ ...newMatch, team_a_logo: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Team A Odds</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={newMatch.team_a_odds}
-                  onChange={(e) => setNewMatch({ ...newMatch, team_a_odds: parseFloat(e.target.value) || 1.0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Team B Name *</Label>
-                <Input
-                  value={newMatch.team_b_name}
-                  onChange={(e) => setNewMatch({ ...newMatch, team_b_name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Team B Logo URL</Label>
-                <Input
-                  value={newMatch.team_b_logo}
-                  onChange={(e) => setNewMatch({ ...newMatch, team_b_logo: e.target.value })}
-                  placeholder="https://..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Team B Odds</Label>
-                <Input
-                  type="number"
-                  step="0.01"
-                  value={newMatch.team_b_odds}
-                  onChange={(e) => setNewMatch({ ...newMatch, team_b_odds: parseFloat(e.target.value) || 1.0 })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Event Name *</Label>
-                <Input
-                  value={newMatch.event_name}
-                  onChange={(e) => setNewMatch({ ...newMatch, event_name: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Map</Label>
-                <Input
-                  value={newMatch.map}
-                  onChange={(e) => setNewMatch({ ...newMatch, map: e.target.value })}
-                  placeholder="e.g., Dust2, Mirage, etc."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Match Date *</Label>
-                <Input
-                  type="date"
-                  value={newMatch.match_date}
-                  onChange={(e) => setNewMatch({ ...newMatch, match_date: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Start Time</Label>
-                <Input
-                  type="time"
-                  value={newMatch.start_time}
-                  onChange={(e) => setNewMatch({ ...newMatch, start_time: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Stream URL</Label>
-                <Input
-                  value={newMatch.stream_url}
-                  onChange={(e) => setNewMatch({ ...newMatch, stream_url: e.target.value })}
-                  placeholder="https://twitch.tv/..."
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <select
-                  className="w-full px-3 py-2 border rounded"
-                  value={newMatch.status}
-                  onChange={(e) => setNewMatch({ ...newMatch, status: e.target.value })}
-                >
-                  <option value="upcoming">Upcoming</option>
-                  <option value="live">Live</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={async () => {
-                if (!editingMatch) return;
-                if (!newMatch.team_a_name || !newMatch.team_b_name || !newMatch.event_name || !newMatch.match_date) {
-                  alert('Please fill in required fields (Team A Name, Team B Name, Event Name, Match Date)');
-                  return;
-                }
-                const updateData = {
-                  matchId: editingMatch.id,
-                  updates: {
-                    team_a_name: newMatch.team_a_name,
-                    team_a_logo: newMatch.team_a_logo,
-                    team_a_odds: newMatch.team_a_odds,
-                    team_b_name: newMatch.team_b_name,
-                    team_b_logo: newMatch.team_b_logo,
-                    team_b_odds: newMatch.team_b_odds,
-                    event_name: newMatch.event_name,
-                    map: newMatch.map,
-                    start_time: newMatch.start_time,
-                    match_date: newMatch.match_date,
-                    stream_url: newMatch.stream_url,
-                    status: newMatch.status
-                  }
-                };
-                const res = await fetch('/api/admin/matches', {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(updateData)
-                });
-                if (res.ok) {
-                  const data = await res.json();
-                  setMatches(matches.map((m: any) => m.id === editingMatch.id ? { ...m, ...data.match } : m));
-                  setShowEditMatch(false);
-                  setEditingMatch(null);
-                  alert('Match updated successfully');
-                } else {
-                  const data = await res.json();
-                  alert(data.error || 'Update failed');
-                }
-              }}>Update</Button>
-              <Button variant="ghost" onClick={() => setShowEditMatch(false)}>Cancel</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+
 
         {/* Create reward dialog */}
         <Dialog open={showCreateReward} onOpenChange={setShowCreateReward}>

@@ -4,10 +4,12 @@ import { supabase } from "../../../../lib/supabase";
 
 // Voting system for community polls and match predictions
 export async function POST(request: NextRequest) {
+  console.log('=== VOTING CAST API CALLED ===');
   try {
     // Get authenticated session
     const session = await getAuthSession(request);
     if (!session) {
+      console.log('No session found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
