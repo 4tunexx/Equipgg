@@ -73,3 +73,83 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+export async function PUT(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { id, name, description, category, rarity, requirement_type, requirement_value, image_url } = body;
+
+    if (!id || !name || !description || !category) {
+      return NextResponse.json({ error: 'ID, name, description, and category are required' }, { status: 400 });
+    }
+
+    const supabase = createServerSupabaseClient();
+
+    const { data, error } = await supabase
+      .from('badges')
+      .update({
+        name,
+        description,
+        category,
+        rarity,
+        requirement_type,
+        requirement_value,
+        image_url
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating badge:', error);
+      return NextResponse.json({ error: 'Failed to update badge' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      badge: data
+    });
+
+  } catch (error) {
+    console.error('Error updating badge:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const id = searchParams.get('id');
+
+    if (!id) {
+      return NextResponse.json({ error: 'Badge ID is required' }, { status: 400 });
+    }
+
+    const supabase = createServerSupabaseClient();
+
+    const { error } = await supabase
+      .from('badges')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting badge:', error);
+      return NextResponse.json({ error: 'Failed to delete badge' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Badge deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Error deleting badge:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
+}

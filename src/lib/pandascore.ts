@@ -1,5 +1,5 @@
 // PandaScore API Integration for CS:GO matches
-import { supabase } from './supabase';
+import { secureDb } from './secure-db';
 
 const PANDASCORE_API_KEY = process.env.PANDASCORE_API_KEY;
 const PANDASCORE_BASE_URL = 'https://api.pandascore.co';
@@ -96,11 +96,8 @@ export async function syncMatchesFromPandaScore(): Promise<unknown[]> {
     for (const match of allMatches) {
       try {
         // Check if match already exists
-        const { data: existingMatch } = await supabase
-          .from('matches')
-          .select('id')
-          .eq('pandascore_id', match.id)
-          .single();
+        const existingMatches = await secureDb.findMany('matches', { pandascore_id: match.id });
+        const existingMatch = existingMatches[0];
 
         if (existingMatch) {
           // Update existing match
@@ -157,7 +154,6 @@ async function createNewMatch(match: PandaScoreMatch) {
 
   // Create match record
   const newMatchData = {
-    id: `pandascore-${matchData.id}`,
     pandascore_id: matchData.id,
     team_a_name: teamA.name,
     team_a_logo: teamA.image_url || null,
@@ -166,23 +162,13 @@ async function createNewMatch(match: PandaScoreMatch) {
     team_b_logo: teamB.image_url || null,
     team_b_odds: 2.5, // Default odds
     event_name: matchData.tournament?.name || matchData.serie?.name || 'Unknown Tournament',
-    start_time: matchData.begin_at,
-    match_date: new Date(matchData.begin_at).toISOString().split('T')[0],
+    start_time: matchData.begin_at ? new Date(matchData.begin_at).toTimeString().split(' ')[0] : null,
+    match_date: matchData.begin_at ? new Date(matchData.begin_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
     stream_url: streamUrl,
-    status: convertMatchStatus(matchData.status),
-    winner: null,
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    status: convertMatchStatus(matchData.status)
   };
 
-  const { error } = await supabase
-    .from('matches')
-    .insert(newMatchData);
-
-  if (error) {
-    console.error(`Error creating match ${match.id}:`, error);
-    throw error;
-  }
+  await secureDb.create('matches', newMatchData);
 
   console.log(`Created new match: ${teamA.name} vs ${teamB.name}`);
 }
@@ -193,12 +179,12 @@ async function updateExistingMatch(match: PandaScoreMatch) {
   
   const updateData: {
     status: 'upcoming' | 'live' | 'finished';
-    start_time: string;
+    start_time: string | null;
     updated_at: string;
     winner?: 'team_a' | 'team_b' | null;
   } = {
     status: convertMatchStatus(matchData.status),
-    start_time: matchData.begin_at,
+    start_time: matchData.begin_at ? new Date(matchData.begin_at).toTimeString().split(' ')[0] : null,
     updated_at: new Date().toISOString()
   };
 
@@ -208,7 +194,7 @@ async function updateExistingMatch(match: PandaScoreMatch) {
     if (results.length >= 2) {
       const team1Score = results[0]?.score || 0;
       const team2Score = results[1]?.score || 0;
-      
+
       if (team1Score > team2Score) {
         updateData.winner = 'team_a';
       } else if (team2Score > team1Score) {
@@ -217,15 +203,7 @@ async function updateExistingMatch(match: PandaScoreMatch) {
     }
   }
 
-  const { error } = await supabase
-    .from('matches')
-    .update(updateData)
-    .eq('pandascore_id', matchData.id);
-
-  if (error) {
-    console.error(`Error updating match ${matchData.id}:`, error);
-    throw error;
-  }
+  await secureDb.update('matches', { pandascore_id: matchData.id }, updateData);
 
   console.log(`Updated match ${matchData.id} status: ${matchData.status}`);
 }
@@ -236,17 +214,11 @@ export async function processMatchResults(): Promise<unknown[]> {
     console.log('Processing completed match results...');
 
     // Get recently finished matches that haven't been processed
-    const { data: finishedMatches, error } = await supabase
-      .from('matches')
-      .select('*')
-      .eq('status', 'finished')
-      .is('winner', null)
-      .not('pandascore_id', 'is', null);
-
-    if (error) {
-      console.error('Error fetching finished matches:', error);
-      return [];
-    }
+    const finishedMatches = await secureDb.findMany('matches', {
+      status: 'finished',
+      winner: null,
+      pandascore_id: { not: null }
+    });
 
     const processedMatches = [];
 
@@ -269,24 +241,19 @@ export async function processMatchResults(): Promise<unknown[]> {
 
           if (winner) {
             // Update match with winner
-            const { error: updateError } = await supabase
-              .from('matches')
-              .update({ 
-                winner,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', match.id);
+            await secureDb.update('matches', { id: match.id }, {
+              winner,
+              updated_at: new Date().toISOString()
+            });
 
-            if (!updateError) {
-              processedMatches.push({
-                id: match.id,
-                winner,
-                score: `${team1Score}-${team2Score}`
-              });
+            processedMatches.push({
+              id: match.id,
+              winner,
+              score: `${team1Score}-${team2Score}`
+            });
 
-              // TODO: Process user bets and payouts here
-              console.log(`Processed match result: ${match.team_a_name} vs ${match.team_b_name} - Winner: ${winner}`);
-            }
+            // TODO: Process user bets and payouts here
+            console.log(`Processed match result: ${match.team_a_name} vs ${match.team_b_name} - Winner: ${winner}`);
           }
         }
 

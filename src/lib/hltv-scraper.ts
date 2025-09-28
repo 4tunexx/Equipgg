@@ -1,6 +1,7 @@
 
 
 import axios from 'axios';
+import { secureDb } from './secure-db';
 
 export interface HLTVMatchOdds {
   matchId: string;
@@ -42,8 +43,53 @@ export async function scrapeHLTVOdds(matchId: string): Promise<HLTVMatchOdds | n
 // Sync odds from HLTV for all matches
 export async function syncOddsFromHLTV(): Promise<void> {
   try {
-    // TODO: Implement syncing odds for all active matches
     console.log('Syncing odds from HLTV...');
+
+    // Get all matches
+    const allMatches = await secureDb.findMany('matches');
+
+    // Filter for matches that have a pandascore_id
+    const matches = allMatches.filter(match => match.pandascore_id != null);
+
+    if (matches.length === 0) {
+      console.log('No matches found with pandascore_id');
+      return;
+    }
+
+    console.log(`Found ${matches.length} matches to sync odds for`);
+
+    let updatedCount = 0;
+
+    for (const match of matches) {
+      try {
+        console.log(`Scraping odds for match ${match.pandascore_id} (${match.team_a_name} vs ${match.team_b_name})`);
+
+        const oddsData = await scrapeHLTVOdds(match.pandascore_id.toString());
+
+        if (oddsData && oddsData.odds.team1 && oddsData.odds.team2) {
+          // Update the match with scraped odds
+          await secureDb.update('matches', { id: match.id }, {
+            team_a_odds: oddsData.odds.team1,
+            team_b_odds: oddsData.odds.team2
+          });
+
+          console.log(`Updated odds for match ${match.pandascore_id}: ${oddsData.odds.team1} / ${oddsData.odds.team2} (${oddsData.bookmaker})`);
+          updatedCount++;
+        } else {
+          console.log(`No odds found for match ${match.pandascore_id}`);
+        }
+
+        // Add a small delay to avoid overwhelming HLTV
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+      } catch (matchError) {
+        console.error(`Error processing match ${match.pandascore_id}:`, matchError);
+        // Continue with other matches
+      }
+    }
+
+    console.log(`Successfully updated odds for ${updatedCount} out of ${matches.length} matches`);
+
   } catch (error) {
     console.error('Failed to sync odds from HLTV:', error);
     throw error;

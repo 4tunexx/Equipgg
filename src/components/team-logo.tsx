@@ -25,6 +25,9 @@ export function TeamLogo({
 
   // Use proxy for external images (especially HLTV)
   const getProxiedSrc = (originalSrc: string) => {
+    if (!originalSrc || typeof originalSrc !== 'string') {
+      return fallbackSrc;
+    }
     if (originalSrc.includes('hltv.org') || originalSrc.includes('img-cdn.hltv.org')) {
       return `/api/proxy/image?url=${encodeURIComponent(originalSrc)}`;
     }

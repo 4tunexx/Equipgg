@@ -26,13 +26,14 @@ export async function GET(request: NextRequest) {
         updated_at,
         matches (
           id,
-          title,
-          team1_name,
-          team1_logo,
-          team2_name,
-          team2_logo,
+          team_a_name,
+          team_a_logo,
+          team_b_name,
+          team_b_logo,
           status,
-          scheduled_at
+          match_date,
+          start_time,
+          event_name
         )
       `)
       .eq('user_id', session.user_id)
@@ -58,11 +59,11 @@ export async function GET(request: NextRequest) {
       
       return {
         id: bet.id,
-        matchTitle: match?.title || 'Match',
+        matchTitle: match?.event_name || 'Match',
         team: {
-          name: bet.team_bet === 'team1' ? match?.team1_name : match?.team2_name,
-          logo: bet.team_bet === 'team1' ? match?.team1_logo : match?.team2_logo,
-          dataAiHint: bet.team_bet === 'team1' ? match?.team1_name : match?.team2_name
+          name: bet.team_bet === 'team1' ? match?.team_a_name : match?.team_b_name,
+          logo: bet.team_bet === 'team1' ? match?.team_a_logo : match?.team_b_logo,
+          dataAiHint: bet.team_bet === 'team1' ? match?.team_a_name : match?.team_b_name
         },
         amount: bet.amount,
         odds: bet.odds,
@@ -72,14 +73,14 @@ export async function GET(request: NextRequest) {
         timestamp: bet.created_at,
         match: {
           team1: {
-            name: match?.team1_name || 'Team 1',
-            logo: match?.team1_logo || '/default-team-logo.png',
-            dataAiHint: match?.team1_name || 'Team 1'
+            name: match?.team_a_name || 'Team 1',
+            logo: match?.team_a_logo || '/default-team-logo.png',
+            dataAiHint: match?.team_a_name || 'Team 1'
           },
           team2: {
-            name: match?.team2_name || 'Team 2', 
-            logo: match?.team2_logo || '/default-team-logo.png',
-            dataAiHint: match?.team2_name || 'Team 2'
+            name: match?.team_b_name || 'Team 2', 
+            logo: match?.team_b_logo || '/default-team-logo.png',
+            dataAiHint: match?.team_b_name || 'Team 2'
           }
         }
       };

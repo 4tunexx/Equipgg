@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     } else if (matchId) {
       // Get match prediction results
       const { data: predictions, error: predError } = await supabase
-        .from('match_predictions')
+        .from('match_votes')
         .select(`
           prediction,
           matches (

@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
       existingVote = data;
     } else {
       const { data } = await supabase
-        .from('match_predictions')
+        .from('match_votes')
         .select('id')
         .eq('user_id', session.user_id)
         .eq('match_id', matchId)
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     } else {
       // Match prediction
       const { data: newPrediction, error } = await supabase
-        .from('match_predictions')
+        .from('match_votes')
         .insert([{
           user_id: session.user_id,
           match_id: matchId,

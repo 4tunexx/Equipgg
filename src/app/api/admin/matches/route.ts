@@ -191,3 +191,38 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
+
+// PATCH /api/admin/matches - Update match visibility
+export async function PATCH(request: NextRequest) {
+  try {
+    const session = await getAuthSession(request);
+    
+    if (!session) {
+      return createUnauthorizedResponse();
+    }
+    
+    // Check if user is admin
+    if (session.role !== 'admin') {
+      return createForbiddenResponse('Admin access required');
+    }
+
+    const body = await request.json();
+    const { matchId, is_visible } = body;
+
+    if (!matchId) {
+      return NextResponse.json({ error: 'Missing matchId' }, { status: 400 });
+    }
+
+    if (typeof is_visible !== 'boolean') {
+      return NextResponse.json({ error: 'is_visible must be a boolean' }, { status: 400 });
+    }
+
+    // Update match visibility
+    await secureDb.update('matches', { id: matchId }, { is_visible });
+    
+    return NextResponse.json({ success: true, message: 'Match visibility updated successfully' });
+  } catch (error) {
+    console.error('Error updating match visibility:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}

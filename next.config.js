@@ -13,6 +13,16 @@ const nextConfig = {
   experimental: {
     forceSwcTransforms: true,
   },
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'cdn.pandascore.co',
+        port: '',
+        pathname: '/images/**',
+      },
+    ],
+  },
 }
 
 module.exports = nextConfig

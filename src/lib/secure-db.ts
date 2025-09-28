@@ -23,7 +23,8 @@ export class SecureDatabase {
     'user_achievements', 'cs2_skin_deliveries', 'gem_settings',
     'exchange_rates', 'gem_packages', 'cs2_skins', 'payment_settings',
     'gem_transactions', 'payment_intents', 'site_settings',
-    'admin_logs', 'server_seeds', 'client_seeds', 'game_results'
+    'admin_logs', 'server_seeds', 'client_seeds', 'game_results',
+    'matches', 'user_rewards', 'user_reward_claims'
   ]);
 
   // Allowed column names for security
@@ -60,7 +61,12 @@ export class SecureDatabase {
     'gems_paid', 'stripe_payment_intent_id', 'paypal_order_id',
     'completed_at', 'setting_key', 'setting_value', 'setting_type',
     'admin_id', 'details', 'target_id', 'seed', 'hashed_seed',
-    'is_revealed', 'revealed_at', 'nonce', 'result'
+    'is_revealed', 'revealed_at', 'nonce', 'result',
+    'team_a_name', 'team_a_logo', 'team_a_odds', 'team_b_name',
+    'team_b_logo', 'team_b_odds', 'event_name', 'map', 'match_date',
+    'start_time', 'stream_url', 'pandascore_id', 'is_visible', 'trigger_condition',
+    'reward_coins', 'reward_xp', 'reward_gems', 'reward_item',
+    'max_claims_per_user', 'cooldown_hours', 'claimed_at'
   ]);
 
   private validateTableName(table: string): boolean {
