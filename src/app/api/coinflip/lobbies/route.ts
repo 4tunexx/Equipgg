@@ -34,47 +34,22 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1);
 
     if (gamesError) {
-      if (gamesError.code === 'PGRST116') {
-        // Return mock data when tables don't exist
-        const mockGames = [
-          {
-            id: 'cf_mock_1',
-            creator: { username: 'Player1', level: 25, vip_tier: 'bronze' },
-            bet_amount: 100,
-            creator_side: 'heads',
-            available_side: 'tails',
-            status: 'waiting',
-            created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'cf_mock_2',
-            creator: { username: 'ProGamer', level: 50, vip_tier: 'gold' },
-            bet_amount: 250,
-            creator_side: 'tails',
-            available_side: 'heads',
-            status: 'waiting',
-            created_at: new Date(Date.now() - 10 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'cf_mock_3',
-            creator: { username: 'HighRoller', level: 75, vip_tier: 'platinum' },
-            bet_amount: 500,
-            creator_side: 'heads',
-            available_side: 'tails',
-            status: 'waiting',
-            created_at: new Date(Date.now() - 15 * 60 * 1000).toISOString()
-          }
-        ];
-
+      if (gamesError.code === 'PGRST116' || gamesError.code === '42P01') {
+        // Tables don't exist yet - return empty state
         return NextResponse.json({
           success: true,
-          games: status === 'waiting' ? mockGames : [],
-          total: status === 'waiting' ? mockGames.length : 0,
-          message: 'Coinflip system in development - using mock data'
+          games: [],
+          total: 0,
+          message: 'Coinflip feature not yet configured. Please set up the database tables.'
         });
       }
       console.error('Error fetching coinflip games:', gamesError);
-      return NextResponse.json({ error: 'Failed to fetch games' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Failed to fetch coinflip games',
+        success: false,
+        games: [],
+        total: 0
+      }, { status: 500 });
     }
 
     // Format the response

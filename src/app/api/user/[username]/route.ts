@@ -60,7 +60,7 @@ export async function GET(
         role: user.role || 'user',
         xp: user.xp || 0,
         level: user.level || 1,
-        avatar: user.avatar_url || `https://picsum.photos/40/40?random=${user.id}`,
+        avatar: user.avatar_url || null,
         avatarUrl: user.avatar_url,
         createdAt: user.created_at,
         dataAiHint: 'user avatar'

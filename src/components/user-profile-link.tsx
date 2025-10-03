@@ -56,7 +56,7 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
     // Handle 'displayName', 'name', and 'username' properties safely
     // Prioritize Steam profile data for display name
     const displayName = user.name || user.username || (user as any).steamProfile?.steamId || 'Anonymous';
-    const userAvatar = user.avatar || (user as any).steamProfile?.avatar || 'https://picsum.photos/40/40?random=1';
+    const userAvatar = (user as any).avatar_url || user.avatar || (user as any).steamProfile?.avatar;
     
     // Role-based name coloring
     const roleColors = getRoleColors(user.role || 'user');

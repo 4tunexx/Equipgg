@@ -50,12 +50,12 @@ export function LeaderboardPreview() {
           players.map((player) => (
             <div key={player.id} className="flex flex-col items-center gap-2">
               <div className="relative">
-                  <UserProfileLink user={{...player, avatar: player.avatar || 'https://picsum.photos/40/40?random=99', dataAiHint: player.dataAiHint || 'leaderboard player avatar'}} avatarOnly={true} />
+                  <UserProfileLink user={{...player, avatar: (player as any).avatar_url || player.avatar, dataAiHint: player.dataAiHint || 'leaderboard player avatar'}} avatarOnly={true} />
                   <div className="absolute -top-2 -right-2 bg-secondary text-secondary-foreground rounded-full h-8 w-8 flex items-center justify-center text-xs font-bold border-2 border-primary">
                       {player.rank}
                   </div>
               </div>
-              <UserProfileLink user={{...player, avatar: player.avatar || 'https://picsum.photos/40/40?random=99', dataAiHint: player.dataAiHint || 'leaderboard player avatar'}} />
+              <UserProfileLink user={{...player, avatar: (player as any).avatar_url || player.avatar, dataAiHint: player.dataAiHint || 'leaderboard player avatar'}} />
               <div className="flex items-center gap-2 text-muted-foreground">
                   <Trophy className="w-4 h-4 text-primary"/>
                   <span>{(player.xp || 0).toLocaleString?.() || '0'}</span>

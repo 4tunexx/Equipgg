@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession } from '../../../../lib/auth-utils';
-import { supabase } from "../../../../lib/supabase";
+import { getAuthSessionWithToken } from '../../../../lib/auth-utils';
+import { createRequestSupabaseClient, createServerSupabaseClient } from "../../../../lib/supabase";
+import { secureDb } from '../../../../lib/secure-db';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated session
-    const session = await getAuthSession(request);
-    if (!session) {
+    // Get authenticated session and token
+    const auth = await getAuthSessionWithToken(request);
+    if (!auth || !auth.session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fetch user bets from Supabase
-    const { data: bets, error } = await supabase
+    const session = auth.session;
+    // Use a request-scoped client bound to the user's token so RLS policies allow selecting user rows
+    const reqClient = createRequestSupabaseClient(auth.token || undefined);
+
+    // Fetch user bets from Supabase as the user
+    const { data: bets, error } = await reqClient
       .from('user_bets')
       .select(`
         id,
@@ -43,9 +48,8 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('Error fetching user bets:', error);
-      console.error('Error details:', error.code, error.message);
       // If table doesn't exist, return empty array
-      if (error.code === 'PGRST116' || error.message.includes('does not exist') || error.message.includes('relation') || error.code === '42P01') {
+      if (error.code === 'PGRST116' || String(error.message).includes('does not exist') || String(error.message).includes('relation') || error.code === '42P01') {
         console.log('user_bets table does not exist, returning empty array');
         return NextResponse.json({ 
           bets: [],
@@ -101,23 +105,24 @@ export async function GET(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
-    if (!session) {
+    const auth = await getAuthSessionWithToken(request);
+    if (!auth || !auth.session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    const session = auth.session;
     const { betId } = await request.json();
 
     if (!betId) {
       return NextResponse.json({ error: 'Bet ID required' }, { status: 400 });
     }
 
-    // Get the bet details
-    const { data: bet, error: betError } = await supabase
+    // Use request-scoped client (user identity) to fetch their bet (RLS will enforce ownership)
+    const reqClient = createRequestSupabaseClient(auth.token || undefined);
+    const { data: bet, error: betError } = await reqClient
       .from('user_bets')
-      .select('id, user_id, amount, status')
+      .select('id, user_id, amount, status, match_id')
       .eq('id', betId)
-      .eq('user_id', session.user_id)
       .single();
 
     if (betError || !bet) {
@@ -128,10 +133,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Only active bets can be cancelled' }, { status: 400 });
     }
 
-    // Update bet status to cancelled
-    const { error: updateBetError } = await supabase
+    // Use server admin client to perform refund and status update atomically-ish
+    const server = createServerSupabaseClient();
+
+    // Begin: update bet status
+    const { error: updateBetError } = await server
       .from('user_bets')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled', settled_at: new Date().toISOString() })
       .eq('id', betId);
 
     if (updateBetError) {
@@ -139,37 +147,25 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to cancel bet' }, { status: 500 });
     }
 
-    // Get current user balance
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('coins')
-      .eq('id', session.user_id)
-      .single();
-
-    if (userError || !userData) {
+    // Refund coins to user
+    // Fetch current user balance via secureDb (server-side)
+    const user = await secureDb.findOne('users', { id: session.user_id });
+    if (!user) {
       // Rollback bet status
-      await supabase
-        .from('user_bets')
-        .update({ status: 'active' })
-        .eq('id', betId);
+      await server.from('user_bets').update({ status: 'active', settled_at: null }).eq('id', betId);
       return NextResponse.json({ error: 'User not found' }, { status: 500 });
     }
 
-    // Refund coins to user
-    const { error: refundError } = await supabase
+    const newCoins = Number(user.coins || 0) + Number(bet.amount || 0);
+    const { error: refundError } = await server
       .from('users')
-      .update({
-        coins: userData.coins + bet.amount
-      })
+      .update({ coins: newCoins })
       .eq('id', session.user_id);
 
     if (refundError) {
       console.error('Error refunding coins:', refundError);
       // Rollback bet status
-      await supabase
-        .from('user_bets')
-        .update({ status: 'active' })
-        .eq('id', betId);
+      await server.from('user_bets').update({ status: 'active', settled_at: null }).eq('id', betId);
       return NextResponse.json({ error: 'Failed to refund coins' }, { status: 500 });
     }
 
@@ -187,11 +183,12 @@ export async function DELETE(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authenticated session
-    const session = await getAuthSession(request);
-    if (!session) {
+    // Get authenticated session and token
+    const auth = await getAuthSessionWithToken(request);
+    if (!auth || !auth.session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const session = auth.session;
 
     const { match_id, team_bet, amount, odds } = await request.json();
 
@@ -201,8 +198,9 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate that user has sufficient balance
-    const { data: userData, error: userError } = await supabase
+    // Validate that user has sufficient balance (server-side)
+    const server = createServerSupabaseClient();
+    const { data: userData, error: userError } = await server
       .from('users')
       .select('coins')
       .eq('id', session.user_id)
@@ -221,16 +219,16 @@ export async function POST(request: NextRequest) {
 
     const potential_winnings = amount * odds;
 
-    // Create the bet
-    const { data: bet, error: betError } = await supabase
+  // Create the bet
+    const { data: bet, error: betError } = await server
       .from('user_bets')
       .insert([{
         user_id: session.user_id,
         match_id,
-        team_bet,
+        team_choice: team_bet,
         amount,
         odds,
-        potential_winnings,
+        potential_payout: potential_winnings,
         status: 'pending'
       }])
       .select()
@@ -247,16 +245,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create bet' }, { status: 500 });
     }
 
-    // Deduct amount from user balance
-    const { error: updateError } = await supabase
+    // Deduct amount from user balance (server-side)
+    const serverUpdate = await server
       .from('users')
-      .update({ coins: userData.coins - amount })
+      .update({ coins: Number(userData.coins) - Number(amount) })
       .eq('id', session.user_id);
+
+    const updateError = serverUpdate.error;
 
     if (updateError) {
       console.error('Error updating user balance:', updateError);
       // Rollback the bet if balance update fails
-      await supabase.from('user_bets').delete().eq('id', bet.id);
+      await server.from('user_bets').delete().eq('id', bet.id);
       return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });
     }
 
@@ -268,6 +268,71 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Error in create bet API:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH: edit an active bet (change team_choice) before match starts
+export async function PATCH(request: NextRequest) {
+  try {
+    const auth = await getAuthSessionWithToken(request);
+    if (!auth || !auth.session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const session = auth.session;
+    const { betId, new_team_choice } = await request.json();
+
+    if (!betId || !new_team_choice) {
+      return NextResponse.json({ error: 'betId and new_team_choice required' }, { status: 400 });
+    }
+
+    const reqClient = createRequestSupabaseClient(auth.token || undefined);
+    // Ensure bet belongs to user and is active
+    const { data: bet, error: betError } = await reqClient
+      .from('user_bets')
+      .select('id, user_id, match_id, status')
+      .eq('id', betId)
+      .single();
+
+    if (betError || !bet) {
+      return NextResponse.json({ error: 'Bet not found' }, { status: 404 });
+    }
+
+    if (bet.status !== 'active' && bet.status !== 'pending') {
+      return NextResponse.json({ error: 'Only active/pending bets can be edited' }, { status: 400 });
+    }
+
+    // Check match status to ensure betting still allowed
+    const server = createServerSupabaseClient();
+    const { data: match, error: matchError } = await server
+      .from('matches')
+      .select('id, status')
+      .eq('id', bet.match_id)
+      .single();
+
+    if (matchError || !match) {
+      return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+    }
+
+    if (match.status !== 'upcoming') {
+      return NextResponse.json({ error: 'Cannot edit bet after match has started' }, { status: 400 });
+    }
+
+    // Perform update via server (admin) client
+    const { error: updateError } = await server
+      .from('user_bets')
+      .update({ team_choice: new_team_choice, updated_at: new Date().toISOString() })
+      .eq('id', betId);
+
+    if (updateError) {
+      console.error('Error updating bet:', updateError);
+      return NextResponse.json({ error: 'Failed to update bet' }, { status: 500 });
+    }
+
+    return NextResponse.json({ success: true, message: 'Bet updated' });
+  } catch (error) {
+    console.error('Error editing bet:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

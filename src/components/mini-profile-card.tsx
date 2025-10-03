@@ -114,7 +114,7 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
     
     // Safely handle name property - prioritize Steam displayname
     const displayName = displayUser.name || displayUser.username || (displayUser as any).steamProfile?.steamId || 'Anonymous';
-    const userAvatar = displayUser.avatar || (displayUser as any).steamProfile?.avatar || 'https://picsum.photos/40/40?random=1';
+    const userAvatar = (displayUser as any).avatar_url || displayUser.avatar || (displayUser as any).steamProfile?.avatar;
     
     // Role-based name coloring
     const roleColors = getRoleColors(displayUser.role || 'user');

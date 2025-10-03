@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { supabase } from './supabase';
 
 export interface AuthSession {
   user_id: string;
@@ -7,10 +7,12 @@ export interface AuthSession {
   role: string;
 }
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+export interface AuthSessionWithToken {
+  session: AuthSession | null;
+  token: string | null;
+}
+
+// use shared supabase client from `src/lib/supabase` which handles env presence
 
 export function createUnauthorizedResponse() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -20,14 +22,14 @@ export function createForbiddenResponse(message: string = 'Forbidden') {
   return NextResponse.json({ error: message }, { status: 403 });
 }
 
-export async function getAuthSession(request: NextRequest): Promise<AuthSession | null> {
+export async function getAuthSessionWithToken(request: NextRequest): Promise<AuthSessionWithToken> {
   try {
     console.log('=== AUTH SESSION DEBUG ===');
     
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
-    let token = null;
-    let sessionData = null;
+  let token: string | null = null;
+  let sessionData = null;
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
@@ -69,13 +71,16 @@ export async function getAuthSession(request: NextRequest): Promise<AuthSession 
           if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
             console.log('Session is valid, returning session');
             return {
-              user_id: sessionData.user_id,
-              email: sessionData.email,
-              role: sessionData.role
+              session: {
+                user_id: sessionData.user_id,
+                email: sessionData.email,
+                role: sessionData.role
+              },
+              token: sessionData.access_token || null
             };
           } else {
             console.log('Session expired');
-            return null;
+            return { session: null, token: null };
           }
         } catch (parseError) {
           console.log('JSON parse error:', parseError);
@@ -121,13 +126,16 @@ export async function getAuthSession(request: NextRequest): Promise<AuthSession 
               if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
                 console.log('Session is valid, returning session');
                 return {
-                  user_id: sessionData.user_id,
-                  email: sessionData.email,
-                  role: sessionData.role
+                  session: {
+                    user_id: sessionData.user_id,
+                    email: sessionData.email,
+                    role: sessionData.role
+                  },
+                  token: sessionData.access_token || null
                 };
               } else {
                 console.log('Session expired');
-                return null;
+                return { session: null, token: null };
               }
             } catch (parseError) {
               console.log('JSON parse error:', parseError);
@@ -146,17 +154,17 @@ export async function getAuthSession(request: NextRequest): Promise<AuthSession 
     }
     
     if (!token) {
-      console.log('No token found, returning null');
-      return null;
+      console.log('No token found, returning null session+token');
+      return { session: null, token: null };
     }
-    
-    console.log('Proceeding to token verification with token:', token);
+
+    console.log('Proceeding to token verification with token: [REDACTED]');
     // Verify the token with Supabase (fallback for raw tokens)
     const { data: { user }, error } = await supabase.auth.getUser(token);
-    
+
     if (error || !user) {
       console.log('Token verification failed:', error?.message);
-      return null;
+      return { session: null, token: null };
     }
     
     // Get user profile to include role
@@ -171,12 +179,21 @@ export async function getAuthSession(request: NextRequest): Promise<AuthSession 
     }
     
     return {
-      user_id: user.id,
-      email: user.email || '',
-      role: profile?.role || 'user'
+      session: {
+        user_id: user.id,
+        email: user.email || '',
+        role: profile?.role || 'user'
+      },
+      token
     };
   } catch (error) {
     console.error('Auth session error:', error);
-    return null;
+    return { session: null, token: null };
   }
+}
+
+// Backwards-compatible wrapper: returns only the AuthSession (or null)
+export async function getAuthSession(request: NextRequest): Promise<AuthSession | null> {
+  const res = await getAuthSessionWithToken(request);
+  return res.session;
 }

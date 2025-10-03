@@ -206,37 +206,14 @@ export async function GET(request: NextRequest) {
         upcomingMatches = matches || [];
       }
 
-      // If no data from database, return mock data
+      // If no data from database, return empty arrays
       if (activePolls.length === 0 && completedPolls.length === 0 && upcomingMatches.length === 0) {
         return NextResponse.json({
           success: true,
-          activePolls: [
-            {
-              id: '1',
-              title: 'Favorite CS2 Map',
-              description: 'Vote for your favorite competitive map',
-              status: 'active',
-              ends_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-              options: [
-                { id: '1', text: 'Dust2', votes: 45 },
-                { id: '2', text: 'Mirage', votes: 38 },
-                { id: '3', text: 'Inferno', votes: 32 }
-              ],
-              totalVotes: 115
-            }
-          ],
+          activePolls: [],
           completedPolls: [],
-          upcomingMatches: [
-            {
-              id: '1',
-              title: 'Team A vs Team B',
-              team1_name: 'Team A',
-              team2_name: 'Team B',
-              scheduled_at: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
-              status: 'upcoming'
-            }
-          ],
-          message: 'Voting system in beta - using sample data'
+          upcomingMatches: [],
+          message: 'No voting data available. Please configure polls and matches.'
         });
       }
 

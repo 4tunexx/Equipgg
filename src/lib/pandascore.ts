@@ -308,8 +308,51 @@ export async function processMatchResults(): Promise<unknown[]> {
               score: `${team1Score}-${team2Score}`
             });
 
-            // TODO: Process user bets and payouts here
-            console.log(`Processed match result: ${match.team_a_name} vs ${match.team_b_name} - Winner: ${winner}`);
+            // Process user bets and payouts here
+            try {
+              // Fetch active bets for this match
+              const bets = await secureDb.findMany('user_bets', { match_id: match.id, status: 'active' });
+
+              if (bets && bets.length > 0) {
+                // Use server-side supabase client to perform updates and payouts
+                const { createServerSupabaseClient } = await import('./supabase');
+                const server = createServerSupabaseClient();
+
+                for (const bet of bets) {
+                  const isWinner = bet.team_choice === winner;
+                  const newStatus = isWinner ? 'won' : 'lost';
+
+                  // Update bet status and settled_at
+                  await secureDb.update('user_bets', { id: bet.id }, {
+                    status: newStatus,
+                    settled_at: new Date().toISOString()
+                  });
+
+                  if (isWinner) {
+                    // Payout
+                    const user = await secureDb.findOne('users', { id: bet.user_id });
+                    if (user) {
+                      const currentCoins = Number(user.coins || 0);
+                      const payoutAmount = Number(bet.potential_payout || 0);
+                      const newBalance = currentCoins + payoutAmount;
+                      await secureDb.update('users', { id: bet.user_id }, { coins: newBalance });
+
+                      // Award XP for winning a bet
+                      try {
+                        const { addXP } = await import('./xp-service');
+                        await addXP(String(bet.user_id), 25, 'betting', `Won bet on ${match.team_a_name} vs ${match.team_b_name} (+${payoutAmount} coins)`);
+                      } catch (xpError) {
+                        console.warn('Failed to award XP for winning bet (scheduler):', xpError);
+                      }
+                    }
+                  }
+                }
+              }
+
+              console.log(`Processed match result: ${match.team_a_name} vs ${match.team_b_name} - Winner: ${winner}`);
+            } catch (payoutError) {
+              console.error('Error processing payouts in scheduler for match', match.id, payoutError);
+            }
           }
         }
 
@@ -319,6 +362,32 @@ export async function processMatchResults(): Promise<unknown[]> {
     }
 
     console.log(`Processed ${processedMatches.length} match results`);
+    // Cleanup: delete matches that finished more than 2 days ago (and their bets)
+    try {
+      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString();
+      // Find matches finished and older than 2 days
+      const oldMatches = await secureDb.findMany('matches', { status: 'finished' });
+      for (const m of oldMatches || []) {
+        const completedAt = m.completed_at || m.updated_at || m.match_date;
+  if (!completedAt) continue;
+  const completedAtStr = String(completedAt);
+  const completedDate = new Date(completedAtStr);
+  if (isNaN(completedDate.getTime())) continue;
+  if (completedDate.getTime() < Date.now() - 2 * 24 * 60 * 60 * 1000) {
+          try {
+            // Delete related bets first
+            await secureDb.delete('user_bets', { match_id: m.id });
+            await secureDb.delete('matches', { id: m.id });
+            console.log(`Deleted old match ${m.id} and its bets`);
+          } catch (delErr) {
+            console.warn('Failed to delete old match', m.id, delErr);
+          }
+        }
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up old matches:', cleanupError);
+    }
+
     return processedMatches;
 
   } catch (error) {

@@ -51,7 +51,7 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
                         user: {
                             rank: Number(msg.rank) || 0,
                             name: String(msg.username) || 'Unknown',
-                            avatar: String(msg.avatar) || 'https://picsum.photos/32/32?random=99',
+                            avatar: String(msg.avatar) || null,
                             role: String(msg.role) || 'user',
                             dataAiHint: 'user avatar',
                             xp: Number(msg.level) || 0,
@@ -103,7 +103,7 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
                         user: {
                             rank: data.message.rank || 0,
                             name: data.message.username,
-                            avatar: data.message.avatar || 'https://picsum.photos/32/32?random=99',
+                            avatar: data.message.avatar || null,
                             role: data.message.role || 'user',
                             dataAiHint: 'user avatar',
                             xp: data.message.level || 0,
@@ -119,7 +119,7 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
                     user: user ? {
                         rank: 0,
                         name: user.displayName || user.email,
-                        avatar: user.photoURL || 'https://picsum.photos/32/32?random=99',
+                        avatar: user.photoURL || (user as any).avatar_url || null,
                         role: user.role || 'user',
                         dataAiHint: 'user avatar',
                         xp: 0,

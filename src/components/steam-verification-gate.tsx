@@ -19,185 +19,191 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
   const [skip, setSkip] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
   const [checkingVerification, setCheckingVerification] = useState(true);
+  const [hasHandledUrlParams, setHasHandledUrlParams] = useState(false);
 
-  // Check for skip flag on mount (client only)
+  // Initialize skip flag and handle URL parameters on mount
   useEffect(() => {
-    if (typeof window !== 'undefined' && localStorage.getItem('equipgg_skip_steam_verification') === 'true') {
+    if (typeof window === 'undefined') return;
+    
+    // Check for skip flag
+    if (localStorage.getItem('equipgg_skip_steam_verification') === 'true') {
       setSkip(true);
-    }
-  }, []);
-
-  // Check if user needs Steam verification - fetch fresh data from database
-   useEffect(() => {
-     if (!user) return;
-     (async () => {
-       setCheckingVerification(true);
-       try {
-         const res = await fetch(`/api/steam-verification/check?userId=${user.id}`);
-         if (!res.ok) {
-           throw new Error('Failed to check verification status');
-         }
-         const data = await res.json();
-         setNeedsVerification(data.needsVerification);
-       } catch (error) {
-         console.error('Error checking Steam verification status:', error);
-         // Fallback to local user data if API call fails
-         setNeedsVerification(!user.steam_verified && user.provider !== 'steam');
-       } finally {
-         setCheckingVerification(false);
-       }
-     })();
-   }, [user]);
-
-  // Check verification on mount and when returning from Steam auth
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // Check if we just returned from Steam auth
-    const urlParams = new URLSearchParams(window.location.search);
-    const steamVerified = urlParams.get('steam_verified');
-    
-    if (steamVerified === 'true') {
-      console.log('Detected Steam verification completion, refreshing user data...');
-      refreshUser();
-    }
-  }, []);
-
-  // Check for verification success from URL params and session storage
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    // Check if verification was just completed to prevent flash
-    const verificationCompleted = sessionStorage.getItem('steam_verification_in_progress');
-    if (verificationCompleted === 'completed') {
-      sessionStorage.removeItem('steam_verification_in_progress');
-      // Don't show verification gate during refresh after successful verification
+      setCheckingVerification(false);
       return;
     }
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('steam_verified') === 'success') {
-      toast({
-        title: "🎉 Steam Verification Successful!",
-        description: "Your account is now fully activated and ready to use.",
-      });
-      // Set flag to prevent verification gate from showing
-      sessionStorage.setItem('steam_verification_in_progress', 'completed');
-      window.history.replaceState({}, '', '/dashboard');
-      refreshUser();
-    } else if (urlParams.get('error') === 'steam_already_linked') {
-      toast({
-        title: "Steam Account Already Linked",
-        description: "This Steam account is already linked to another EquipGG account.",
-        variant: "destructive"
-      });
-      window.history.replaceState({}, '', '/dashboard');
-    } else if (urlParams.get('error') === 'steam_verification_failed') {
-      toast({
-        title: "Steam Verification Failed",
-        description: "There was an error linking your Steam account. Please try again.",
-        variant: "destructive"
-      });
-      window.history.replaceState({}, '', '/dashboard');
+
+    // Handle URL parameters once
+    if (!hasHandledUrlParams) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const steamVerified = urlParams.get('steam_verified');
+      const error = urlParams.get('error');
+      
+      if (steamVerified === 'success') {
+        toast({
+          title: "🎉 Steam Verification Successful!",
+          description: "Your account is now fully activated and ready to use.",
+        });
+        window.history.replaceState({}, '', '/dashboard');
+        refreshUser();
+      } else if (error === 'steam_already_linked') {
+        toast({
+          title: "Steam Account Already Linked",
+          description: "This Steam account is already linked to another EquipGG account.",
+          variant: "destructive"
+        });
+        window.history.replaceState({}, '', '/dashboard');
+      } else if (error === 'steam_verification_failed') {
+        toast({
+          title: "Steam Verification Failed",
+          description: "There was an error linking your Steam account. Please try again.",
+          variant: "destructive"
+        });
+        window.history.replaceState({}, '', '/dashboard');
+      }
+      
+      setHasHandledUrlParams(true);
     }
-  }, [toast, refreshUser]);
+  }, [hasHandledUrlParams, toast, refreshUser]);
 
-  // If user is Steam verified, or provider is steam, or skip is set, or still checking, show dashboard
-  if (user?.steam_verified || user?.provider === 'steam' || skip || checkingVerification || !needsVerification) {
-    return <>{children}</>;
-  }
+  // Check verification status when user data is available
+  useEffect(() => {
+    if (!user || skip) {
+      setCheckingVerification(false);
+      return;
+    }
 
-  // Check if verification was just completed to prevent showing the gate
-  if (typeof window !== 'undefined' && sessionStorage.getItem('steam_verification_in_progress') === 'completed') {
-    return <>{children}</>;
-  }
+    // Check locally first for better UX
+    if (user.steam_verified || user.provider === 'steam') {
+      setNeedsVerification(false);
+      setCheckingVerification(false);
+      return;
+    }
 
-  // Show loading state while checking verification status
-  if (checkingVerification) {
-    return (
+    // If user exists but isn't Steam verified, check if verification is required
+    const checkVerificationStatus = async () => {
+      try {
+        const res = await fetch(`/api/steam-verification/check?userId=${user.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          setNeedsVerification(data.needsVerification);
+        } else {
+          // Fallback: require verification for non-Steam users
+          setNeedsVerification(true);
+        }
+      } catch (error) {
+        console.error('Error checking Steam verification status:', error);
+        // Fallback: require verification for non-Steam users
+        setNeedsVerification(true);
+      } finally {
+        setCheckingVerification(false);
+      }
+    };
+
+    checkVerificationStatus();
+  }, [user, skip]);
+
+  // Early returns for when verification gate should not be shown
+  if (skip || checkingVerification) {
+    return checkingVerification ? (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-500 mx-auto mb-4"></div>
           <p className="text-muted-foreground">Checking verification status...</p>
         </div>
       </div>
-    );
+    ) : <>{children}</>;
   }
- 
+
+  // Show dashboard if user doesn't need verification
+  if (!needsVerification || user?.steam_verified || user?.provider === 'steam') {
+    return <>{children}</>;
+  }
   // If user needs Steam verification, show the verification gate
-  const handleSteamVerification = () => {
+  const handleSteamVerification = async () => {
+    if (isVerifying) return; // Prevent multiple clicks
+    
     setIsVerifying(true);
     
-    // Open Steam auth in a popup window using the new popup endpoint
-    const steamAuthUrl = `/api/auth/steam/popup?verify_user=${user?.id}`;
-    const popup = window.open(
-      steamAuthUrl,
-      'steamAuth',
-      'width=800,height=600,scrollbars=yes,resizable=yes'
-    );
-    
-    if (!popup) {
-      // Fallback to redirect if popup is blocked
-      console.warn('Popup blocked, falling back to redirect');
-      window.location.href = `/api/auth/steam?verify_user=${user?.id}`;
-      return;
-    }
-    
-    // Listen for the popup to close or complete
-    const checkPopup = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(checkPopup);
-        setIsVerifying(false);
-        // Refresh user data to check if verification was successful
-        refreshUser();
+    try {
+      // Use popup authentication for better UX
+      const steamAuthUrl = `/api/auth/steam/popup?verify_user=${user?.id}`;
+      const popup = window.open(
+        steamAuthUrl,
+        'steamAuth',
+        'width=800,height=600,scrollbars=yes,resizable=yes'
+      );
+      
+      if (!popup) {
+        // Fallback to redirect if popup is blocked
+        console.warn('Popup blocked, falling back to redirect');
+        window.location.href = `/api/auth/steam?verify_user=${user?.id}`;
+        return;
       }
-    }, 1000);
-    
-    // Also listen for messages from the popup
-    const handleMessage = async (event: MessageEvent) => {
-      console.log('Received message from popup:', event.data);
-      if (event.data.type === 'steam_auth_complete') {
-        console.log('Steam auth complete message received:', event.data);
-        clearInterval(checkPopup);
-        
-        // Close popup immediately
-        if (popup && !popup.closed) {
-          popup.close();
-        }
-        
-        setIsVerifying(false);
-        
-        if (event.data.success) {
-          console.log('Steam verification successful, refreshing user data...');
-          toast({
-            title: "🎉 Steam Verification Successful!",
-            description: "Your account is now fully activated and ready to use.",
-          });
-          // Set a flag to prevent the verification gate from showing during refresh
-          sessionStorage.setItem('steam_verification_in_progress', 'completed');
-          // Force refresh user data immediately to get updated Steam profile
-          await refreshUser();
-          // Small delay to ensure UI updates, then redirect
+      
+      // Handle popup completion
+      const handlePopupCompletion = () => {
+        return new Promise<boolean>((resolve) => {
+          // Listen for popup messages
+          const handleMessage = (event: MessageEvent) => {
+            if (event.data.type === 'steam_auth_complete') {
+              window.removeEventListener('message', handleMessage);
+              popup.close();
+              resolve(event.data.success);
+              
+              if (event.data.success) {
+                toast({
+                  title: "🎉 Steam Verification Successful!",
+                  description: "Your account is now fully activated and ready to use.",
+                });
+              } else {
+                toast({
+                  title: "Steam Verification Failed",
+                  description: event.data.error || "There was an error linking your Steam account.",
+                  variant: "destructive"
+                });
+              }
+            }
+          };
+          
+          // Monitor popup closure
+          const checkClosed = setInterval(() => {
+            if (popup.closed) {
+              clearInterval(checkClosed);
+              window.removeEventListener('message', handleMessage);
+              resolve(false); // Assume failed if closed without message
+            }
+          }, 1000);
+          
+          window.addEventListener('message', handleMessage);
+          
+          // Timeout after 5 minutes
           setTimeout(() => {
-            window.location.replace('/dashboard');
-          }, 1000); // Increased delay to ensure data is fully refreshed
-        } else {
-          console.log('Steam verification failed:', event.data.error);
-          toast({
-            title: "Steam Verification Failed",
-            description: event.data.error || "There was an error linking your Steam account.",
-            variant: "destructive"
-          });
-        }
+            clearInterval(checkClosed);
+            window.removeEventListener('message', handleMessage);
+            if (!popup.closed) popup.close();
+            resolve(false);
+          }, 300000);
+        });
+      };
+      
+      const success = await handlePopupCompletion();
+      
+      if (success) {
+        // Refresh user data and redirect
+        await refreshUser();
+        window.location.replace('/dashboard');
       }
-    };
-    
-    window.addEventListener('message', handleMessage);
-    
-    // Cleanup
-    setTimeout(() => {
-      window.removeEventListener('message', handleMessage);
-      clearInterval(checkPopup);
-    }, 300000); // 5 minutes timeout
+      
+    } catch (error) {
+      console.error('Steam verification error:', error);
+      toast({
+        title: "Verification Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   return (
@@ -272,19 +278,18 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
               className="w-full mt-2"
               onClick={() => {
                 localStorage.setItem('equipgg_skip_steam_verification', 'true');
-                window.location.reload();
+                setSkip(true);
               }}
             >
               Skip for now
             </Button>
             
             {(process.env.NODE_ENV === 'development' || process.env.NEXT_PUBLIC_DEV_MODE === 'true') && (
-              <button
+              <Button
+                variant="outline"
+                className="w-full mt-2 bg-yellow-50 border-yellow-300 hover:bg-yellow-100"
                 onClick={async () => {
                   try {
-                    console.log('Dev bypass clicked - starting verification...');
-                    console.log('User ID:', user?.id);
-                    
                     if (!user?.id) {
                       toast({
                         title: "Error",
@@ -300,28 +305,16 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
                       body: JSON.stringify({ userId: user.id, force: true })
                     });
                     
-                    console.log('Steam verification API response:', response.status);
-                    
                     if (response.ok) {
-                      const result = await response.json();
-                      console.log('Steam verification result:', result);
-                      
                       toast({
                         title: "✅ Development Bypass",
                         description: "Steam verification bypassed for development.",
                       });
                       
-                      // Force refresh user data
-                      console.log('Refreshing user data...');
                       await refreshUser();
-                      
-                      // Small delay then reload the page to ensure state updates
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 1000);
+                      setNeedsVerification(false);
                     } else {
                       const errorData = await response.json();
-                      console.error('Steam verification API error:', errorData);
                       toast({
                         title: "Dev Bypass Failed",
                         description: errorData.error || 'Unknown error occurred',
@@ -337,10 +330,9 @@ export function SteamVerificationGate({ children }: SteamVerificationGateProps) 
                     });
                   }
                 }}
-                className="w-full px-4 py-2 text-xs border rounded-md hover:bg-gray-50 bg-yellow-50 border-yellow-300"
               >
                 🚀 [DEV] Bypass Steam Verification
-              </button>
+              </Button>
             )}
             
             <p className="text-xs text-center text-muted-foreground">

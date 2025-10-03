@@ -25,150 +25,78 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50');
     const before = searchParams.get('before'); // For pagination
     const lobby = searchParams.get('lobby') || 'dashboard';
-    // Get recent chat messages from Supabase with pagination and lobby filter
-    let query = supabase.from('chat_messages').select('*').eq('lobby', lobby);
+    
+    // Get recent chat messages from Supabase with user data joined
+    let query = supabase
+      .from('chat_messages')
+      .select(`
+        id,
+        content,
+        created_at,
+        user_id,
+        lobby,
+        users!inner (
+          id,
+          username,
+          displayname,
+          avatar_url,
+          level,
+          role,
+          steam_verified
+        )
+      `)
+      .eq('lobby', lobby);
+      
     if (before) {
       query = query.lt('created_at', before);
     }
+    
     query = query.order('created_at', { ascending: false }).limit(limit);
+    
     const { data: messages, error } = await query;
-    if (error || !messages) {
-      // ...existing code for mockMessages...
-      const mockMessages = [
-        {
-          id: '1',
-          content: 'Welcome to the chat! 🎉',
-          username: 'Admin',
-          avatar: 'https://picsum.photos/40/40?random=1',
-          level: 100,
-          role: 'admin',
-          timestamp: new Date(Date.now() - 300000).toISOString()
-        },
-        {
-          id: '2',
-          content: 'Just won a big bet! 💰',
-          username: 'LuckyPlayer',
-          avatar: 'https://picsum.photos/40/40?random=2',
-          level: 45,
-          role: 'user',
-          timestamp: new Date(Date.now() - 240000).toISOString()
-        },
-        {
-          id: '3',
-          content: 'Anyone know when the next tournament starts?',
-          username: 'GameFan2024',
-          avatar: 'https://picsum.photos/40/40?random=3',
-          level: 23,
-          role: 'user',
-          timestamp: new Date(Date.now() - 180000).toISOString()
-        },
-        {
-          id: '4',
-          content: 'Good luck everyone! 🍀',
-          username: 'BettingPro',
-          avatar: 'https://picsum.photos/40/40?random=4',
-          level: 67,
-          role: 'moderator',
-          timestamp: new Date(Date.now() - 120000).toISOString()
-        },
-        {
-          id: '5',
-          content: 'The new update looks amazing!',
-          username: 'TechEnthusiast',
-          avatar: 'https://picsum.photos/40/40?random=5',
-          level: 34,
-          role: 'user',
-          timestamp: new Date(Date.now() - 60000).toISOString()
-        }
-      ];
-      return NextResponse.json({ messages: mockMessages.reverse() });
+    
+    if (error) {
+      console.error('Error fetching chat messages:', error);
+      
+      // Return empty chat instead of mock data to encourage real usage
+      return NextResponse.json({ 
+        messages: [],
+        error: 'Chat is temporarily unavailable'
+      });
     }
-    // Attach user info
-      const messagesWithUser = await Promise.all(
-        (messages as any[]).map(async (m) => {
-          const user = await secureDb.findOne('users', { id: m.user_id });
-          return {
-            id: m.id,
-            content: m.content,
-            created_at: m.created_at,
-            user_id: m.user_id,
-            username: user?.displayname || user?.username || 'Unknown',
-            avatar: user?.avatar_url || null,
-            level: user?.level || 1,
-            role: user?.role || 'user',
-          };
-        })
-      );
-    if (messagesWithUser.length === 0) {
-      // ...existing code for mockMessages...
-      const mockMessages = [
-        {
-          id: '1',
-          content: 'Welcome to the chat! 🎉',
-          username: 'Admin',
-          avatar: 'https://picsum.photos/40/40?random=1',
-          level: 100,
-          role: 'admin',
-          timestamp: new Date(Date.now() - 300000).toISOString()
-        },
-        {
-          id: '2',
-          content: 'Just won a big bet! 💰',
-          username: 'LuckyPlayer',
-          avatar: 'https://picsum.photos/40/40?random=2',
-          level: 45,
-          role: 'user',
-          timestamp: new Date(Date.now() - 240000).toISOString()
-        },
-        {
-          id: '3',
-          content: 'Anyone know when the next tournament starts?',
-          username: 'GameFan2024',
-          avatar: 'https://picsum.photos/40/40?random=3',
-          level: 23,
-          role: 'user',
-          timestamp: new Date(Date.now() - 180000).toISOString()
-        },
-        {
-          id: '4',
-          content: 'Good luck everyone! 🍀',
-          username: 'BettingPro',
-          avatar: 'https://picsum.photos/40/40?random=4',
-          level: 67,
-          role: 'moderator',
-          timestamp: new Date(Date.now() - 120000).toISOString()
-        },
-        {
-          id: '5',
-          content: 'The new update looks amazing!',
-          username: 'TechEnthusiast',
-          avatar: 'https://picsum.photos/40/40?random=5',
-          level: 34,
-          role: 'user',
-          timestamp: new Date(Date.now() - 60000).toISOString()
-        }
-      ];
-      return NextResponse.json({ messages: mockMessages.reverse() });
+    
+    if (!messages || messages.length === 0) {
+      // Return empty chat if no messages exist yet
+      return NextResponse.json({ messages: [] });
     }
-    return NextResponse.json({ messages: messagesWithUser.reverse() });
+    
+    // Format the messages with user data
+    const formattedMessages = messages.map((m: any) => {
+      const user = m.users;
+      return {
+        id: m.id,
+        content: m.content,
+        created_at: m.created_at,
+        user_id: m.user_id,
+        username: user.displayname || user.username || 'Anonymous',
+        avatar: user.avatar_url || null,
+        level: user.level || 1,
+        role: user.role || 'user',
+        rank: user.role || 'user',
+        timestamp: m.created_at
+      };
+    });
+
+    return NextResponse.json({ messages: formattedMessages.reverse() });
     
   } catch (error) {
     console.error('Error fetching chat messages:', error);
     
-    // Return fallback mock messages on error
-    const fallbackMessages = [
-      {
-        id: '1',
-        content: 'Chat is temporarily unavailable',
-        username: 'System',
-        avatar: 'https://picsum.photos/40/40?random=6',
-        level: 0,
-        rank: 'System',
-        timestamp: new Date().toISOString()
-      }
-    ];
-    
-    return NextResponse.json({ messages: fallbackMessages });
+    // Return empty chat on error to encourage fixing the issue
+    return NextResponse.json({ 
+      messages: [],
+      error: 'Chat is temporarily unavailable. Please try again later.'
+    });
   }
 }
 

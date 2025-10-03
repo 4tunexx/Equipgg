@@ -168,10 +168,10 @@ export default function DashboardPage() {
               </p>
             </div>
             {/* Add user avatar display */}
-            {user && (user.photoURL || user.steamProfile?.avatar) && (
+            {user && ((user as any).avatar_url || user.photoURL || user.steamProfile?.avatar) && (
               <div className="flex items-center gap-3">
                 <img 
-                  src={user.steamProfile?.avatar || user.photoURL} 
+                  src={(user as any).avatar_url || user.steamProfile?.avatar || user.photoURL} 
                   alt="Profile" 
                   className="w-12 h-12 rounded-full border-2 border-primary"
                   onError={(e) => {

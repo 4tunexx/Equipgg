@@ -150,7 +150,9 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
         },
         body: JSON.stringify({
           matchId: match.id,
-          team: teamId,
+          // send normalized team tag to match DB check constraint ('team_a' | 'team_b')
+          team: isTeam1 ? 'team_a' : 'team_b',
+          teamName: teamId,
           amount: amount,
           betType: 'match_winner'
         })

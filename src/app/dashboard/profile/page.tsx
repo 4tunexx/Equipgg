@@ -61,26 +61,8 @@ export default function ProfilePage() {
         }
       } catch (error) {
         console.error('Error fetching ranks:', error);
-        // Fallback to mock ranks for testing
-        setRanks([
-          { id: 1, name: 'Silver I', min_xp: 0, max_xp: 100, tier: 1 },
-          { id: 2, name: 'Silver II', min_xp: 100, max_xp: 200, tier: 1 },
-          { id: 3, name: 'Silver III', min_xp: 200, max_xp: 300, tier: 1 },
-          { id: 4, name: 'Silver IV', min_xp: 300, max_xp: 400, tier: 1 },
-          { id: 5, name: 'Silver Elite', min_xp: 400, max_xp: 500, tier: 2 },
-          { id: 6, name: 'Silver Elite Master', min_xp: 500, max_xp: 600, tier: 2 },
-          { id: 7, name: 'Gold Nova I', min_xp: 600, max_xp: 700, tier: 3 },
-          { id: 8, name: 'Gold Nova II', min_xp: 700, max_xp: 800, tier: 3 },
-          { id: 9, name: 'Gold Nova III', min_xp: 800, max_xp: 900, tier: 3 },
-          { id: 10, name: 'Gold Nova Master', min_xp: 900, max_xp: 1000, tier: 3 },
-          { id: 11, name: 'Master Guardian I', min_xp: 1000, max_xp: 1100, tier: 4 },
-          { id: 12, name: 'Master Guardian II', min_xp: 1100, max_xp: 1200, tier: 4 },
-          { id: 13, name: 'Master Guardian Elite', min_xp: 1200, max_xp: 1300, tier: 4 },
-          { id: 14, name: 'Distinguished Master Guardian', min_xp: 1300, max_xp: 1400, tier: 4 },
-          { id: 15, name: 'Legendary Eagle', min_xp: 1400, max_xp: 1500, tier: 5 },
-          { id: 16, name: 'Legendary Eagle Master', min_xp: 1500, max_xp: 1600, tier: 5 },
-          { id: 17, name: 'Supreme', min_xp: 1600, max_xp: null, tier: 6 },
-        ]);
+        // Set empty ranks array instead of mock data
+        setRanks([]);
       }
     };
 
@@ -217,16 +199,19 @@ export default function ProfilePage() {
   
   const isVip = user.role === 'vip';
   const displayName = user.displayName || user.email?.split('@')[0] || 'User';
-  const avatarUrl = user.photoURL || user.steamProfile?.avatar || 'https://picsum.photos/id/237/96/96';
+  const avatarUrl = (user as any).avatar_url || user.photoURL || user.steamProfile?.avatar;
   const roleColors = getRoleColors(user.role || 'user');
   const roleInlineStyle = getRoleInlineStyle(user.role || 'user');
 
   // Fix the UserAvatar props to use the correct field mapping
   const userAvatarProps = {
     username: displayName,
+    avatar_url: (user as any).avatar_url,
     avatar: user.photoURL,
     role: user.role,
     provider: user.provider,
+    steam_verified: (user as any).steam_verified,
+    steam_id: (user as any).steam_id,
     steamProfile: user.steamProfile
   };
 
@@ -656,7 +641,7 @@ export default function ProfilePage() {
                     <div className="flex items-center justify-center p-4 bg-secondary/30 rounded-lg">
                          <MiniProfileCard user={{
                            name: user?.displayName || 'User',
-                           avatar: user?.photoURL || `https://picsum.photos/40/40?random=99`,
+                           avatar: (user as any)?.avatar_url || user?.photoURL,
                            dataAiHint: 'user profile',
                            xp: balance?.xp || 0,
                            level: balance?.level || 1,
@@ -794,7 +779,7 @@ export default function ProfilePage() {
                 <CardContent className="space-y-6">
                     <div className="flex items-center gap-6">
                         <Avatar className="w-20 h-20">
-                            <AvatarImage src={user.photoURL || user.steamProfile?.avatar || 'https://picsum.photos/id/237/80/80'} data-ai-hint="user avatar" />
+                            <AvatarImage src={(user as any).avatar_url || user.photoURL || user.steamProfile?.avatar} data-ai-hint="user avatar" />
                             <AvatarFallback>{(user.displayName || 'U').charAt(0).toUpperCase()}</AvatarFallback>
                         </Avatar>
                         <div className="space-y-2">

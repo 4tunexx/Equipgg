@@ -57,19 +57,16 @@ export async function POST(request: NextRequest) {
       .select();
 
     if (createError) {
+      console.error('Error creating test users:', createError);
+      
       if (createError.code === 'PGRST116') {
         return NextResponse.json({
-          success: true,
-          message: `Would create ${count} test users (users table not found)`,
-          users: testUsers.map(u => ({ 
-            id: u.id, 
-            username: u.username, 
-            email: u.email,
-            balance: u.balance 
-          }))
+          success: false,
+          message: 'Users table not found. Please set up the database tables first.',
+          users: []
         });
       }
-      console.error('Error creating test users:', createError);
+      
       return NextResponse.json({ error: 'Failed to create test users' }, { status: 500 });
     }
 
@@ -156,27 +153,17 @@ export async function GET(request: NextRequest) {
     const { data: users, error: usersError } = await query;
 
     if (usersError) {
+      console.error('Error fetching users:', usersError);
+      
       if (usersError.code === 'PGRST116') {
         return NextResponse.json({
           success: true,
-          users: [
-            {
-              id: 'test_example_1',
-              username: 'testuser1',
-              email: 'testuser1@example.com',
-              role: 'user',
-              balance: 500,
-              level: 25,
-              xp: 5000,
-              vip_tier: 'none',
-              created_at: new Date().toISOString()
-            }
-          ],
-          total: 1,
-          message: 'Users table not found - showing example data'
+          users: [],
+          total: 0,
+          message: 'Users table not found. Please set up the database.'
         });
       }
-      console.error('Error fetching users:', usersError);
+      
       return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
     }
 

@@ -320,17 +320,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       
-      // No session at all - set loading to false first, then redirect
+      // No session at all - set loading to false first, then handle redirect
       setLoading(false);
       
-      // Only redirect if on protected route, not already on sign-in, AND no session cookies exist
+      // Only redirect if on protected route and no session cookies exist
       const hasAnySessionCookie = equipggSessionCookie || mainSessionCookie;
-      if (!hasAnySessionCookie && window.location.pathname.startsWith('/dashboard') && !window.location.pathname.includes('/sign-in')) {
+      const isProtectedRoute = window.location.pathname.startsWith('/dashboard');
+      const isAuthRoute = window.location.pathname.includes('/sign-in') || window.location.pathname.includes('/sign-up');
+      
+      if (!hasAnySessionCookie && isProtectedRoute && !isAuthRoute) {
         console.log('No valid session found, redirecting to sign-in');
-        window.location.href = `/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`;
+        // Use replace to avoid back button issues
+        window.location.replace(`/sign-in?redirect=${encodeURIComponent(window.location.pathname)}`);
       }
-    }).catch(() => {
-      console.error('Error checking session');
+    }).catch((error) => {
+      console.error('Error checking session:', error);
       setLoading(false);
     });
 
@@ -516,22 +520,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Refreshing user data...');
       
-      // For now, let's use our custom session approach
+      // Check if we have a session first
       const cookies = document.cookie;
       const equipggMatch = cookies.match(/equipgg_session=([^;]+)/);
       
       if (equipggMatch) {
         try {
           const sessionData = JSON.parse(decodeURIComponent(equipggMatch[1]));
-          console.log('Session data parsed successfully:', sessionData);
-          // Fetch fresh user data from database
+          
+          // Fetch fresh user data from our API endpoint
           const response = await fetch('/api/me', { 
-            credentials: 'include' 
+            credentials: 'include',
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
           });
+          
           if (response.ok) {
             const { user: freshUser } = await response.json();
             if (freshUser) {
-              // For Steam users, ensure we use the proper display name and avatar
               const displayName = freshUser.displayName || freshUser.displayname || freshUser.username || '';
               const photoURL = freshUser.avatarUrl || freshUser.photoURL || '';
               
@@ -545,58 +552,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 level: freshUser.level || 1,
                 xp: freshUser.xp || 0,
                 provider: freshUser.provider || (freshUser.isSteamUser ? 'steam' : 'default'),
-                steam_verified: freshUser.steamVerified || false,
+                steam_verified: freshUser.steamVerified || freshUser.steam_verified || false,
                 account_status: freshUser.account_status || 'active',
-                steamProfile: freshUser.isSteamUser || freshUser.steamId ? {
+                steamProfile: (freshUser.isSteamUser || freshUser.steamId) ? {
                   avatar: photoURL,
                   steamId: freshUser.steamId || '',
                   profileUrl: freshUser.steamId ? `https://steamcommunity.com/profiles/${freshUser.steamId}` : ''
-                } as any : undefined
+                } : undefined
               });
-              console.log('User data refreshed successfully with Steam profile:', freshUser);
+              
+              console.log('User data refreshed successfully');
               return;
             }
+          } else {
+            console.warn('Failed to fetch fresh user data:', response.status);
           }
-        } catch {
-          console.log('Failed to parse session cookie');
+        } catch (parseError) {
+          console.error('Failed to parse session cookie:', parseError);
         }
       }
       
-      // Fallback to Supabase approach
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-
-        // For Steam users, prioritize database fields over metadata
-        const displayName = profile?.displayname || profile?.username || user.user_metadata?.displayName || user.user_metadata?.displayname || user.email?.split('@')[0] || '';
-        const photoURL = profile?.avatar_url || user.user_metadata?.avatar || '';
-        const isSteamUser = profile?.steam_verified || profile?.steam_id || user.app_metadata?.provider === 'steam';
-
-        setUser({
-          id: user.id,
-          email: user.email || '',
-          username: profile?.username,
-          displayName: displayName,
-          photoURL: photoURL,
-          role: profile?.role || 'user',
-          level: profile?.level || 1,
-          xp: profile?.xp || 0,
-          provider: (user.app_metadata?.provider as 'steam' | 'default') || (isSteamUser ? 'steam' : 'default'),
-          steam_verified: profile?.steam_verified || false,
-          account_status: profile?.account_status || 'active',
-          steamProfile: isSteamUser ? {
-            avatar: photoURL,
-            steamId: profile?.steam_id || user.user_metadata?.steamId || '',
-            profileUrl: profile?.steam_id ? `https://steamcommunity.com/profiles/${profile.steam_id}` : user.user_metadata?.steamProfile?.profileUrl || ''
-          } : undefined
-        });
-      }
-    } catch {
-      console.error('Failed to refresh user');
+      console.log('No valid session found during refresh');
+    } catch (error) {
+      console.error('Error refreshing user data:', error);
     }
   }, []);
 
