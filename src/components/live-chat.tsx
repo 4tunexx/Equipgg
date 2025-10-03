@@ -118,12 +118,19 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
                     id: `fallback-${Date.now()}`,
                     user: user ? {
                         rank: 0,
-                        name: user.displayName || user.email,
-                        avatar: user.photoURL || (user as any).avatar_url || null,
-                        role: user.role || 'user',
+                        name: (user as any).displayName || (user as any).email || 'Anonymous',
+                        avatar: (user as any).photoURL || (user as any).avatar_url || null,
+                        role: (user as any).role || 'user',
                         dataAiHint: 'user avatar',
                         xp: 0,
-                    } : fallbackMessages[0].user,
+                    } : {
+                        rank: 0,
+                        name: 'Anonymous',
+                        avatar: null,
+                        role: 'user',
+                        dataAiHint: 'user avatar',
+                        xp: 0,
+                    },
                     message: messageContent,
                     timestamp: new Date().toISOString(),
                 };
