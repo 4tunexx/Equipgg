@@ -74,6 +74,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
 
     // Initialize socket connection
     const newSocket = io(socketUrl, {
+      path: '/api/socket.io',  // Specify the correct path
       transports: ['polling', 'websocket'], // Try polling first, then websocket
       timeout: 10000,
       autoConnect: false,
