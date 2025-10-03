@@ -1,157 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession } from '../../../../lib/auth-utils';
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 
+// GET /api/user/profile - Get user's profile information  
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated session
-    const session = await getAuthSession(request);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const supabase = createServerSupabaseClient()
+    
+    // Get user from session
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user data from users table
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, email, displayname, role, coins, gems, xp, level, created_at')
-      .eq('id', session.user_id)
-      .single();
-    if (error || !data) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    // Get user's inventory count
-    const { data: inventoryData } = await supabase
-      .from('user_inventory')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', session.user_id);
-    const itemCount = inventoryData?.length ?? 0;
-    // Get user's current rank based on XP
-    const { data: rankData, error: rankError } = await supabase
-      .from('ranks')
-      .select('id, name, image_url, tier')
-      .lte('min_xp', data.xp || 0)
-      .order('min_xp', { ascending: false })
-      .limit(1)
-      .single();
+    // Get user profile data
+    const { data: profileData, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
 
-    const currentRank = rankError ? null : rankData;
-
-    // Placeholders for stats, achievements, referrals
-    const betsWon = 0;
-    const winRate = 0;
-    const achievements: any[] = [];
-    const referrals: any[] = [];
-    return NextResponse.json({
-      success: true,
-      profile: {
+    if (profileError) {
+      console.error('Profile error:', profileError)
+      // Return default profile data
+      return NextResponse.json({
+        success: true,
         user: {
-          id: data.id,
-          email: data.email,
-          displayName: data.displayname,
-          role: data.role,
-          coins: data.coins || 0,
-          gems: data.gems || 0,
-          xp: data.xp || 0,
-          level: data.level || 1,
-          rank: currentRank ? {
-            id: currentRank.id,
-            name: currentRank.name,
-            image_url: currentRank.image_url,
-            tier: currentRank.tier
-          } : null,
-          createdAt: data.created_at
+          id: user.id,
+          email: user.email,
+          displayName: user.email?.split('@')[0] || 'Anonymous',
+          role: 'user',
+          coins: 0,
+          gems: 0,
+          xp: 0,
+          level: 1,
+          rank: null,
+          createdAt: new Date().toISOString()
         },
         stats: {
-          itemCount,
-          betsWon,
-          winRate,
-          achievements: achievements.length,
-          referrals: referrals.length
+          itemCount: 0,
+          betsWon: 0,
+          winRate: 0,
+          achievements: 0,
+          referrals: 0
         },
-        achievements,
-        referrals
-      }
-    });
-  } catch (error) {
-    console.error('Error fetching user profile:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    // Get authenticated session
-    const session = await getAuthSession(request);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        achievements: [],
+        referrals: []
+      })
     }
-
-    // Parse request body
-    const body = await request.json();
-    const { displayName } = body;
-
-    // Validate input
-    if (!displayName || typeof displayName !== 'string') {
-      return NextResponse.json(
-        { error: 'Invalid display name' },
-        { status: 400 }
-      );
-    }
-
-    // Update user profile
-    const { data, error } = await supabase
-      .from('users')
-      .update({ displayname: displayName })
-      .eq('id', session.user_id)
-      .select('id, email, displayname, role, coins, gems, xp, level, created_at')
-      .single();
-
-    if (error || !data) {
-      return NextResponse.json(
-        { error: 'Failed to update profile' },
-        { status: 500 }
-      );
-    }
-
-    // Get user's current rank based on XP
-    const { data: rankData, error: rankError } = await supabase
-      .from('ranks')
-      .select('id, name, image_url, tier')
-      .lte('min_xp', data.xp || 0)
-      .order('min_xp', { ascending: false })
-      .limit(1)
-      .single();
-
-    const currentRank = rankError ? null : rankData;
 
     return NextResponse.json({
       success: true,
       user: {
-        id: data.id,
-        email: data.email,
-        displayName: data.displayname,
-        role: data.role,
-        coins: data.coins || 0,
-        gems: data.gems || 0,
-        xp: data.xp || 0,
-        level: data.level || 1,
-        rank: currentRank ? {
-          id: currentRank.id,
-          name: currentRank.name,
-          image_url: currentRank.image_url,
-          tier: currentRank.tier
-        } : null,
-        createdAt: data.created_at
-      }
+        id: user.id,
+        email: user.email,
+        displayName: profileData.display_name || user.email?.split('@')[0] || 'Anonymous',
+        role: profileData.role || 'user',
+        coins: profileData.coins || 0,
+        gems: profileData.gems || 0,
+        xp: profileData.xp || 0,
+        level: profileData.level || 1,
+        rank: null, // TODO: implement rank system
+        createdAt: profileData.created_at || new Date().toISOString()
+      },
+      stats: {
+        itemCount: 0,
+        betsWon: 0,
+        winRate: 0,
+        achievements: 0,
+        referrals: 0
+      },
+      achievements: [],
+      referrals: []
     });
   } catch (error) {
-    console.error('Error updating user profile:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Error fetching user profile:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
