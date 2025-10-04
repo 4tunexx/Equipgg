@@ -65,22 +65,19 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     console.log('🔌 Socket.IO enabled for real-time features');
     
     // Enable Socket.IO for both development and production
-    // For production, we'll use fallback mechanisms for now
-
-    // Get Socket.IO URL from environment or use default for development
     const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
     
     console.log('🚀 Initializing Socket.io connection to:', socketUrl);
 
     // Initialize socket connection
     const newSocket = io(socketUrl, {
-      path: '/api/socket.io',  // Specify the correct path
-      transports: ['polling', 'websocket'], // Try polling first, then websocket
+      path: '/api/socket.io',
+      transports: ['polling', 'websocket'],
       timeout: 10000,
       autoConnect: false,
       reconnection: true,
       reconnectionDelay: 2000,
-      reconnectionAttempts: 3, // Reduce attempts to prevent spam
+      reconnectionAttempts: 3,
       forceNew: true
     });
 
@@ -93,7 +90,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         setIsConnected(false);
         socketFallback.setConnected(false);
       }
-    }, 8000); // Increased timeout
+    }, 8000);
 
     newSocket.on('connect', () => {
       console.log('✅ Connected to Socket.io server');
@@ -106,11 +103,6 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       console.log('❌ Socket connection error:', error.message);
       setIsConnected(false);
       socketFallback.setConnected(false);
-      // Don't spam reconnect attempts
-      if (process.env.NODE_ENV === 'production') {
-        newSocket.disconnect();
-        clearTimeout(connectTimeout);
-      }
     });
 
     newSocket.on('disconnect', (reason) => {
@@ -119,16 +111,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       socketFallback.setConnected(false);
     });
 
-    newSocket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      setIsConnected(false);
-      socketFallback.setConnected(false);
-      clearTimeout(connectTimeout);
-    });
-
     // Try to connect
     newSocket.connect();
-
     setSocket(newSocket);
 
     return () => {

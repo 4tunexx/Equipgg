@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       }
     ];
     
-    const createdUsers = [];
+    const createdUsers: string[] = [];
     
     for (const user of users) {
       try {

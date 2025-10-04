@@ -7,6 +7,14 @@ export interface AuthSession {
   role: string;
 }
 
+export interface SessionData {
+  user_id: string;
+  email: string;
+  role: string;
+  expires_at: number;
+  access_token: string;
+}
+
 export interface AuthSessionWithToken {
   session: AuthSession | null;
   token: string | null;
@@ -29,7 +37,7 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
     // Get the authorization header
     const authHeader = request.headers.get('authorization');
   let token: string | null = null;
-  let sessionData = null;
+  let sessionData: SessionData | null = null;
     
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7);
@@ -51,13 +59,13 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
           
           // Try to parse, if it fails, try double decode for localhost
           try {
-            sessionData = JSON.parse(decodedValue);
+            sessionData = JSON.parse(decodedValue) as SessionData;
           } catch {
             console.log('Single decode parse failed, trying double decode');
             try {
               decodedValue = decodeURIComponent(decodedValue);
               console.log('Double decoded cookie value:', decodedValue);
-              sessionData = JSON.parse(decodedValue);
+              sessionData = JSON.parse(decodedValue) as SessionData;
               console.log('Double decode successful');
             } catch (secondParseError) {
               console.log('Double decode also failed:', secondParseError);
@@ -68,7 +76,7 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
           console.log('Parsed session data:', sessionData);
           
           // Check if session is still valid
-          if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
+          if (sessionData && sessionData.expires_at && Date.now() < sessionData.expires_at) {
             console.log('Session is valid, returning session');
             return {
               session: {
@@ -79,7 +87,7 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
               token: sessionData.access_token || null
             };
           } else {
-            console.log('Session expired');
+            console.log('Session expired or invalid');
             return { session: null, token: null };
           }
         } catch (parseError) {
@@ -106,13 +114,13 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
               
               // Try to parse, if it fails, try double decode for localhost
               try {
-                sessionData = JSON.parse(decodedValue);
+                sessionData = JSON.parse(decodedValue) as SessionData;
               } catch {
                 console.log('Single decode parse failed, trying double decode');
                 try {
                   decodedValue = decodeURIComponent(decodedValue);
                   console.log('Double decoded cookie value:', decodedValue);
-                  sessionData = JSON.parse(decodedValue);
+                  sessionData = JSON.parse(decodedValue) as SessionData;
                   console.log('Double decode successful');
                 } catch (secondParseError) {
                   console.log('Double decode also failed:', secondParseError);
@@ -123,7 +131,7 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
               console.log('Parsed session data:', sessionData);
               
               // Check if session is still valid
-              if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
+              if (sessionData && sessionData.expires_at && Date.now() < sessionData.expires_at) {
                 console.log('Session is valid, returning session');
                 return {
                   session: {

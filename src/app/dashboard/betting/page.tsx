@@ -51,10 +51,18 @@ export default function BettingPage() {
   const { isConnected } = useRealtimeBetting();
   const { user } = useAuth();
 
-  // Separate matches by status
-  const upcomingMatches = matches.filter(m => m.status === 'Upcoming');
-  const liveMatches = matches.filter(m => m.status === 'Live');
-  const finishedMatches = matches.filter(m => m.status === 'Finished');
+  // Separate matches by status (normalize status values)
+  const normalizeStatus = (status: string): MatchStatus => {
+    const lowerStatus = status.toLowerCase();
+    if (lowerStatus === 'upcoming' || lowerStatus === 'scheduled') return 'Upcoming';
+    if (lowerStatus === 'live' || lowerStatus === 'running') return 'Live';
+    if (lowerStatus === 'finished' || lowerStatus === 'completed') return 'Finished';
+    return 'Upcoming'; // Default
+  };
+
+  const upcomingMatches = matches.filter(m => normalizeStatus(m.status) === 'Upcoming');
+  const liveMatches = matches.filter(m => normalizeStatus(m.status) === 'Live');
+  const finishedMatches = matches.filter(m => normalizeStatus(m.status) === 'Finished');
   const allMatches = matches;
 
   useEffect(() => {
@@ -69,12 +77,21 @@ export default function BettingPage() {
              const baseOdds1 = 1.5 + Math.random() * 1.0; // Between 1.5-2.5
              const baseOdds2 = 3.0 - baseOdds1 + 0.5; // Inversely related, between 1.0-2.0
              
+             // Normalize status to match our frontend expectations
+             const normalizeApiStatus = (status: string): MatchStatus => {
+               const lowerStatus = status.toLowerCase();
+               if (lowerStatus === 'upcoming' || lowerStatus === 'scheduled') return 'Upcoming';
+               if (lowerStatus === 'live' || lowerStatus === 'running') return 'Live';
+               if (lowerStatus === 'finished' || lowerStatus === 'completed') return 'Finished';
+               return 'Upcoming';
+             };
+             
              return {
                ...match,
                odds1: Math.round(baseOdds1 * 100) / 100, // Round to 2 decimal places
                odds2: Math.round(baseOdds2 * 100) / 100,
                startTime: match.time,
-               status: match.status === 'upcoming' ? 'Upcoming' : match.status
+               status: normalizeApiStatus(match.status)
              };
            });
           setMatches(formattedMatches);

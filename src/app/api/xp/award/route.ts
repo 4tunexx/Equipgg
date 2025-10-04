@@ -152,7 +152,12 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Valid XP amount is required' }, { status: 400 });
     }
 
-    const results = [];
+    const results: Array<{
+      userId: any;
+      success: boolean;
+      result?: any;
+      error?: string;
+    }> = [];
 
     // Award XP to each user
     for (const userId of userIds) {

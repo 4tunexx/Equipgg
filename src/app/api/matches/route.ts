@@ -3,38 +3,48 @@ import { secureDb } from "../../../lib/secure-db";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get visible upcoming matches from database
+    // Get all visible matches from database (upcoming, live, and finished)
     const matches = await secureDb.findMany('matches', {
-      is_visible: true,
-      status: 'upcoming'
+      is_visible: true
     }, {
       orderBy: 'match_date ASC',
-      limit: 20
+      limit: 50
     });
 
     // Transform to the expected format for frontend compatibility
-    const transformedMatches = matches.map((match: any) => ({
-      id: match.id,
-      team1: {
-        name: match.team_a_name,
-        logo: match.team_a_logo
-      },
-      team2: {
-        name: match.team_b_name,
-        logo: match.team_b_logo
-      },
-      scheduled_at: match.match_date && match.start_time
-        ? new Date(`${match.match_date}T${match.start_time}`).toISOString()
-        : new Date(match.match_date).toISOString(),
-      tournament: match.event_name,
-      status: match.status,
-      odds: {
-        team1: parseFloat(match.team_a_odds) || 1.5,
-        team2: parseFloat(match.team_b_odds) || 2.5
-      },
-      map: match.map,
-      stream_url: match.stream_url
-    }));
+    const transformedMatches = matches.map((match: any) => {
+      // Normalize status values for frontend
+      const normalizeStatus = (status: string) => {
+        const lowerStatus = status?.toLowerCase() || 'upcoming';
+        if (lowerStatus === 'upcoming' || lowerStatus === 'scheduled') return 'upcoming';
+        if (lowerStatus === 'live' || lowerStatus === 'running') return 'live';
+        if (lowerStatus === 'finished' || lowerStatus === 'completed') return 'finished';
+        return 'upcoming';
+      };
+
+      return {
+        id: match.id,
+        team1: {
+          name: match.team_a_name,
+          logo: match.team_a_logo
+        },
+        team2: {
+          name: match.team_b_name,
+          logo: match.team_b_logo
+        },
+        time: match.match_date && match.start_time
+          ? new Date(`${match.match_date}T${match.start_time}`).toISOString()
+          : new Date(match.match_date).toISOString(),
+        tournament: match.event_name,
+        status: normalizeStatus(match.status),
+        odds: {
+          team1: parseFloat(match.team_a_odds) || 1.5,
+          team2: parseFloat(match.team_b_odds) || 2.5
+        },
+        map: match.map,
+        stream_url: match.stream_url
+      };
+    });
 
     return NextResponse.json(transformedMatches);
   } catch (error) {

@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
     const { type, count = 1 } = await request.json();
 
-    const notifications = [];
+    const notifications: string[] = [];
 
     for (let i = 0; i < count; i++) {
       switch (type) {

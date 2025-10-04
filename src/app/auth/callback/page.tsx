@@ -11,8 +11,8 @@ function CallbackContent() {
 
   useEffect(() => {
     // Supabase and many providers use 'type' or 'action' or 'mode' in query
-    const type = searchParams.get("type") || searchParams.get("action") || searchParams.get("mode");
-    const error = searchParams.get("error") || searchParams.get("error_description");
+    const type = searchParams?.get("type") || searchParams?.get("action") || searchParams?.get("mode");
+    const error = searchParams?.get("error") || searchParams?.get("error_description");
 
     if (type === "email_confirmed" || type === "signup" || type === "confirm") {
       toast({

@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate expiration if duration is provided
-    let expiresAt = null;
+    let expiresAt: string | null = null;
     if (duration && ['mute', 'ban', 'suspend'].includes(action)) {
       const durationMs = parseDuration(duration);
       if (durationMs) {

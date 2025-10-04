@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       user_id: data.user.id,
       email: data.user.email,
       role: profile?.role || 'user',
-      expires_at: data.session.expires_at * 1000 // convert to ms
+      expires_at: (data.session.expires_at || Date.now() / 1000 + 86400) * 1000 // convert to ms, default 1 day
     };
     response.cookies.set('equipgg_session', encodeURIComponent(JSON.stringify(sessionPayload)), {
       httpOnly: true,

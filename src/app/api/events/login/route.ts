@@ -118,7 +118,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Record bonus transactions
-    const transactions = [];
+    const transactions: Array<{
+      user_id: string;
+      type: string;
+      amount: number;
+      description: string;
+      created_at: string;
+    }> = [];
 
     if (dailyBonus > 0) {
       transactions.push({

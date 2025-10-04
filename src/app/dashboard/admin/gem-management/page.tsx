@@ -590,7 +590,7 @@ export default function GemManagementPage() {
   };
 
   const handleAddRate = () => {
-    if (!newRate.name || newRate.rate <= 0) {
+    if (!newRate.name || !newRate.rate || newRate.rate <= 0) {
       toast({ 
         title: "Validation error", 
         description: "Please provide a valid name and rate.",
@@ -951,10 +951,15 @@ export default function GemManagementPage() {
                   <Label htmlFor="edit-currency-name">Currency Name</Label>
                   <Input 
                     id="edit-currency-name"
-                    value={editRateDialog.rate.name}
+                    value={editRateDialog.rate?.name || ''}
                     onChange={(e) => setEditRateDialog({
                       ...editRateDialog,
-                      rate: { ...editRateDialog.rate, name: e.target.value }
+                      rate: editRateDialog.rate ? { 
+                        id: editRateDialog.rate.id,
+                        name: e.target.value,
+                        rate: editRateDialog.rate.rate,
+                        enabled: editRateDialog.rate.enabled
+                      } : null
                     })}
                   />
                 </div>
@@ -963,20 +968,30 @@ export default function GemManagementPage() {
                   <Input 
                     id="edit-rate"
                     type="number"
-                    value={editRateDialog.rate.rate}
+                    value={editRateDialog.rate?.rate || 0}
                     onChange={(e) => setEditRateDialog({
                       ...editRateDialog,
-                      rate: { ...editRateDialog.rate, rate: parseFloat(e.target.value) }
+                      rate: editRateDialog.rate ? { 
+                        id: editRateDialog.rate.id,
+                        name: editRateDialog.rate.name,
+                        rate: parseFloat(e.target.value),
+                        enabled: editRateDialog.rate.enabled
+                      } : null
                     })}
                   />
                 </div>
                 <div className="flex items-center space-x-2">
                   <Switch 
                     id="edit-enabled"
-                    checked={editRateDialog.rate.enabled}
+                    checked={editRateDialog.rate?.enabled || false}
                     onCheckedChange={(checked) => setEditRateDialog({
                       ...editRateDialog,
-                      rate: { ...editRateDialog.rate, enabled: checked }
+                      rate: editRateDialog.rate ? { 
+                        id: editRateDialog.rate.id,
+                        name: editRateDialog.rate.name,
+                        rate: editRateDialog.rate.rate,
+                        enabled: checked
+                      } : null
                     })}
                   />
                   <Label htmlFor="edit-enabled">Enabled</Label>

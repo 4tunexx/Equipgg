@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get additional user data from our users table
-    let userProfile = null;
+    let userProfile: any = null;
     try {
       const { data: profile } = await supabase
         .from('users')
@@ -93,6 +93,12 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       email: user.email,
       role: formattedUser.role,
+      displayName: formattedUser.displayName,
+      avatarUrl: formattedUser.photoURL,
+      level: formattedUser.level,
+      xp: formattedUser.xp,
+      provider: formattedUser.provider,
+      steamVerified: formattedUser.steam_verified,
       expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
     });
     

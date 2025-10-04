@@ -23,7 +23,7 @@ export function CrateOpeningAnimation({ items, wonItem, onAnimationEnd }: CrateO
 
   // Memoize the reel items to prevent re-generation on re-renders
   const reelItems = useMemo(() => {
-    const reel = [];
+    const reel: CrateItem[] = [];
     const wonItemIndex = TOTAL_REEL_ITEMS - 10; // Land on the 90th item
     
     // Create a deterministic seed based on wonItem.id

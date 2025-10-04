@@ -29,7 +29,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const testUsers = [];
+    const testUsers: Array<{
+      id: string;
+      username: string;
+      email: string;
+      role: string;
+      balance: number;
+      level: number;
+      xp: number;
+      vip_tier: string;
+      created_at: string;
+      updated_at: string;
+      last_login: string;
+      is_active: boolean;
+    }> = [];
     const timestamp = Date.now();
 
     for (let i = 1; i <= count; i++) {
@@ -71,7 +84,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create some test transactions for the users
-    const testTransactions = [];
+    const testTransactions: Array<{
+      user_id: any;
+      type: string;
+      amount: number;
+      description: string;
+      created_at: string;
+    }> = [];
     for (const user of createdUsers) {
       // Create 2-5 random transactions per user
       const transactionCount = Math.floor(Math.random() * 4) + 2;

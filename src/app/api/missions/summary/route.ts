@@ -1,68 +1,67 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from "@/lib/supabase";
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase';
 
-// GET /api/missions/summary - Get mission summary for user
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
-    
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Get authenticated user from session cookie
+    const { user, error: authError } = await getAuthenticatedUser(request);
     
     if (authError || !user) {
-      // Return default/guest summary instead of error
-      return NextResponse.json({
-        totalMissions: 0,
-        completedMissions: 0,
-        activeMissions: 0,
-        totalRewardsEarned: 0,
-        totalGemsEarned: 0,
-        missionsByDifficulty: {
-          easy: 0,
-          medium: 0,
-          hard: 0
-        },
-        recentlyCompleted: [],
-        dailyCompleted: 0,
-        totalDaily: 9
-      });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // For now, return mock data that matches expected structure
+    const supabase = createServerSupabaseClient()
+    
+    // Get all missions
+    const { data: missions, error: missionsError } = await supabase
+      .from('missions')
+      .select('*')
+      .eq('is_active', true)
+
+    if (missionsError) {
+      console.error('Error fetching missions:', missionsError);
+      return NextResponse.json({ error: 'Failed to fetch missions' }, { status: 500 });
+    }
+
+    // Get user mission progress
+    const { data: userProgress, error: progressError } = await supabase
+      .from('user_mission_progress')
+      .select('*')
+      .eq('user_id', user.id)
+
+    if (progressError) {
+      console.error('Error fetching user progress:', progressError);
+      // If no progress table, assume no missions completed
+    }
+
+    // Calculate stats
+    const dailyMissions = missions.filter(m => m.mission_type === 'daily');
+    const mainMissions = missions.filter(m => m.mission_type === 'main');
+    
+    const completedDaily = userProgress ? 
+      userProgress.filter(p => {
+        const mission = missions.find(m => m.id === parseInt(p.mission_id));
+        return mission && mission.mission_type === 'daily' && (p.completed || p.progress >= (mission.requirement_value || 1));
+      }).length : 0;
+      
+    const completedMain = userProgress ? 
+      userProgress.filter(p => {
+        const mission = missions.find(m => m.id === parseInt(p.mission_id));
+        return mission && mission.mission_type === 'main' && (p.completed || p.progress >= (mission.requirement_value || 1));
+      }).length : 0;
+
     return NextResponse.json({
-      totalMissions: 15,
-      completedMissions: 3,
-      activeMissions: 12,
-      totalRewardsEarned: 500,
-      totalGemsEarned: 50,
-      missionsByDifficulty: {
-        easy: 5,
-        medium: 7,
-        hard: 3
-      },
-      recentlyCompleted: [
-        { title: "First Steps", completedAt: new Date().toISOString(), reward: "+100 XP" },
-        { title: "Daily Login", completedAt: new Date().toISOString(), reward: "+50 XP" }
-      ],
-      dailyCompleted: 2,
-      totalDaily: 9
+      dailyCompleted: completedDaily,
+      totalDaily: dailyMissions.length,
+      totalMissions: mainMissions.length,
+      completedMissions: completedMain
     });
+
   } catch (error) {
-    console.error('Error fetching mission summary:', error);
-    return NextResponse.json({
-      totalMissions: 0,
-      completedMissions: 0,
-      activeMissions: 0,
-      totalRewardsEarned: 0,
-      totalGemsEarned: 0,
-      missionsByDifficulty: {
-        easy: 0,
-        medium: 0,
-        hard: 0
-      },
-      recentlyCompleted: [],
-      dailyCompleted: 0,
-      totalDaily: 9
-    }, { status: 500 });
+    console.error('Mission summary error:', error);
+    return NextResponse.json(
+      { error: 'Internal Server Error' },
+      { status: 500 }
+    );
   }
 }

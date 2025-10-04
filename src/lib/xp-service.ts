@@ -325,7 +325,7 @@ export function getXPRequirements(
   endLevel: number = 20, 
   config: XPConfig = defaultXPConfig
 ): Array<{ level: number; xpNeeded: number; totalXp: number }> {
-  const requirements = [];
+  const requirements: Array<{ level: number; xpNeeded: number; totalXp: number }> = [];
   
   for (let i = startLevel; i <= endLevel; i++) {
     const totalXp = getXPForLevel(i, config);

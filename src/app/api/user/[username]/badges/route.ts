@@ -28,19 +28,7 @@ export async function GET(
     // Get user's badges from user_badges table
     const { data: userBadges, error: userBadgesError } = await supabase
       .from('user_badges')
-      .select(`
-        id,
-        badge_id,
-        earned_at,
-        badges (
-          id,
-          name,
-          description,
-          image_url,
-          category,
-          rarity
-        )
-      `)
+      .select('badge_id, earned_at')
       .eq('user_id', user.id);
 
     if (userBadgesError) {
@@ -51,7 +39,7 @@ export async function GET(
     // Get all available badges
     const { data: allBadges, error: allBadgesError } = await supabase
       .from('badges')
-      .select('id, name, description, image_url, category, rarity, requirement_type, requirement_value')
+      .select('id, name, description, icon_url, category, rarity, requirement_type, requirement_value')
       .order('category', { ascending: true });
 
     if (allBadgesError) {
@@ -66,7 +54,7 @@ export async function GET(
       id: badge.id,
       name: badge.name,
       description: badge.description,
-      image_url: badge.image_url,
+      icon_url: badge.icon_url,
       category: badge.category,
       rarity: badge.rarity,
       requirement_type: badge.requirement_type,

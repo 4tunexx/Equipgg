@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
 import { supabase } from "../../../../lib/supabase";
-// Removed mock data import - now using database queries
 import { trackShopVisit } from "../../../../lib/mission-tracker";
 import { trackCollectionAchievement } from "../../../../lib/achievement-tracker";
 
@@ -19,14 +18,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Get user info
+    // Get user info and current balance
     const { data: user, error: userError } = await supabase
       .from('users')
-      .select('id, coins')
+      .select('id, displayname, coins, gems')
       .eq('id', session.user_id)
       .single();
 
-    if (!user) {
+    if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
@@ -34,23 +33,26 @@ export async function POST(request: NextRequest) {
     if (price > user.coins) {
       return NextResponse.json({ 
         error: 'Insufficient coins',
-        balance: user.coins 
+        balance: user.coins,
+        required: price
       }, { status: 400 });
     }
 
-    // Find item details in database
+    // Get item details (handle both shop_item_id and direct item_id)
+    const isDirectItem = itemId.startsWith('shop_');
+    const actualItemId = isDirectItem ? itemId.replace('shop_', '') : itemId;
+    
     const { data: item, error: itemError } = await supabase
-      .from('shop_items')
+      .from('items')
       .select('*')
-      .eq('id', itemId)
-      .gt('stock_quantity', 0)
+      .eq('id', actualItemId)
       .single();
     
-    if (!item) {
-      return NextResponse.json({ error: 'Item not found or out of stock' }, { status: 404 });
+    if (itemError || !item) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
 
-    // Start transaction
+    // Calculate new balance
     const newBalance = user.coins - price;
     
     // Update user balance
@@ -58,111 +60,86 @@ export async function POST(request: NextRequest) {
       .from('users')
       .update({ coins: newBalance })
       .eq('id', user.id);
+      
     if (updateError) {
+      console.error('Failed to update user balance:', updateError);
       return NextResponse.json({ error: 'Failed to update user balance' }, { status: 500 });
     }
     
-    // Add item to inventory (if it's not a perk)
-    if (item.item_type !== 'perk') {
-      const inventoryId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      await supabase.from('user_inventory').insert({
+    // Add item to user inventory
+    const inventoryId = `inv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const { error: inventoryError } = await supabase
+      .from('user_inventory')
+      .insert({
         id: inventoryId,
         user_id: user.id,
-        item_id: itemId,
-        item_name: itemName,
-        item_type: item.item_type,
-        rarity: item.rarity,
-        image_url: item.image_url,
+        item_id: actualItemId,
+        item_name: item.name,
+        item_type: item.type || 'weapon',
+        rarity: item.rarity || 'common',
+        image_url: item.image_url || '/default-item.png',
         value: price,
+        obtained_from: 'shop_purchase',
         acquired_at: new Date().toISOString()
       });
-      // Update stock quantity
-      await supabase.from('shop_items')
-        .update({ stock_quantity: item.stock_quantity - 1 })
-        .eq('id', itemId);
-    } else {
-      // Apply perk to user account
-      const perkId = `perk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
-      // Calculate duration and expiration for time-based perks
-      let durationHours = null;
-      let expiresAt = null;
-      
-      if (itemName.includes('3 Hours')) {
-        durationHours = 3;
-        expiresAt = new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString();
-      } else if (itemName.includes('24 Hours')) {
-        durationHours = 24;
-        expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-      } else if (itemName.includes('7 Days')) {
-        durationHours = 168; // 7 days
-        expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (itemName.includes('14 Days')) {
-        durationHours = 336; // 14 days
-        expiresAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (itemName.includes('30 Days')) {
-        durationHours = 720; // 30 days
-        expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-      } else if (itemName.includes('Permanently') || itemName.includes('+1 Inventory Slot') || itemName.includes('+5 Inventory Slots')) {
-        // Permanent perks
-        durationHours = null;
-        expiresAt = null;
-      }
-      
-      await supabase.from('user_perks').insert({
-        id: perkId,
-        user_id: user.id,
-        perk_id: itemId,
-        perk_name: itemName,
-        perk_type: item.item_type,
-        duration_hours: durationHours,
-        expires_at: expiresAt,
-        is_active: true
-      });
-      
-      // Apply immediate effects for certain perks
-      if (itemName.includes('+1 Inventory Slot')) {
-        // This would need to be handled in the inventory system
-        // For now, we'll just record the perk
-      } else if (itemName.includes('+5 Inventory Slots')) {
-        // This would need to be handled in the inventory system
-        // For now, we'll just record the perk
-      }
+    
+    if (inventoryError) {
+      console.error('Failed to add item to inventory:', inventoryError);
+      // Rollback the balance update
+      await supabase
+        .from('users')
+        .update({ coins: user.coins })
+        .eq('id', user.id);
+      return NextResponse.json({ error: 'Failed to add item to inventory' }, { status: 500 });
     }
     
     // Record transaction
     const transactionId = `txn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    await supabase.from('user_transactions').insert({
-      id: transactionId,
-      user_id: user.id,
-      type: 'purchase',
-      amount: -price,
-      currency: 'coins',
-      description: `Purchased ${itemName}`,
-      item_id: itemId
-    });
+    const { error: transactionError } = await supabase
+      .from('user_transactions')
+      .insert({
+        id: transactionId,
+        user_id: user.id,
+        type: 'purchase',
+        amount: -price,
+        currency: 'coins',
+        description: `Purchased ${item.name}`,
+        item_id: actualItemId,
+        created_at: new Date().toISOString()
+      });
     
-    // Track mission progress
-    await trackShopVisit(user.id);
+    if (transactionError && transactionError.code !== 'PGRST116') {
+      console.error('Failed to record transaction:', transactionError);
+      // Don't fail the purchase for this
+    }
     
-    // Track collection achievements
-    await trackCollectionAchievement(user.id, 'shop_purchase');
-    
-  // All changes persisted via Supabase
+    // Track mission progress (non-blocking)
+    try {
+      await trackShopVisit(user.id);
+      await trackCollectionAchievement(user.id, 'shop_purchase');
+    } catch (trackingError) {
+      console.warn('Failed to track mission/achievement progress:', trackingError);
+    }
     
     return NextResponse.json({
       success: true,
-      message: `Successfully purchased ${itemName}`,
+      message: `Successfully purchased ${item.name}`,
       newBalance,
       purchasedItem: {
-        id: itemId,
-        name: itemName,
-        price
+        id: inventoryId,
+        name: item.name,
+        type: item.type,
+        rarity: item.rarity,
+        price,
+        image_url: item.image_url
       }
     });
 
   } catch (error) {
-    console.error('Shop purchase error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Purchase error:', error);
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

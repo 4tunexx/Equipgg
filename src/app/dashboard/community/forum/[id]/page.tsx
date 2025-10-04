@@ -62,9 +62,10 @@ export default function ForumPostPage() {
   const [replyContent, setReplyContent] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
 
-  const postId = params.id as string;
+  const postId = params?.id as string;
 
   useEffect(() => {
+    if (!postId) return;
     fetchPost();
     fetchReplies();
   }, [postId]);

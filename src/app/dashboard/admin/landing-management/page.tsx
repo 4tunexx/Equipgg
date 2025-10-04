@@ -376,7 +376,8 @@ export default function LandingManagement() {
                           placeholder="Title"
                           value={item.title}
                           onChange={(e) => {
-                            const newItems = [...editingSection.items];
+                            const currentItems = editingSection.items || [];
+                            const newItems = [...currentItems];
                             newItems[index] = {...newItems[index], title: e.target.value};
                             setEditingSection({...editingSection, items: newItems});
                           }}
@@ -385,7 +386,8 @@ export default function LandingManagement() {
                           placeholder="Description"
                           value={item.description}
                           onChange={(e) => {
-                            const newItems = [...editingSection.items];
+                            const currentItems = editingSection.items || [];
+                            const newItems = [...currentItems];
                             newItems[index] = {...newItems[index], description: e.target.value};
                             setEditingSection({...editingSection, items: newItems});
                           }}
@@ -397,7 +399,8 @@ export default function LandingManagement() {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        const newItems = [...editingSection.items, { title: '', description: '' }];
+                        const currentItems = editingSection.items || [];
+                        const newItems = [...currentItems, { title: '', description: '' }];
                         setEditingSection({...editingSection, items: newItems});
                       }}
                     >

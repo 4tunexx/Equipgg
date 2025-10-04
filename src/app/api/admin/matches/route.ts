@@ -148,56 +148,60 @@ export async function PUT(request: NextRequest) {
     const updated = await secureDb.update('matches', { id: matchId }, filteredUpdates);
 
     // If match status is being set to 'completed' and winner is specified, process bet payouts
-    if (filteredUpdates.status === 'completed' && (filteredUpdates.winner || updated.winner)) {
-      const winner = filteredUpdates.winner || updated.winner;
+    if (filteredUpdates.status === 'completed' && (filteredUpdates.winner || (updated && updated.winner))) {
+      const winner = filteredUpdates.winner || (updated ? updated.winner : null);
 
-      try {
-        // Get all active bets for this match
-        const bets = await secureDb.findMany('user_bets', {
-          match_id: matchId,
-          status: 'active'
-        });
+      if (winner) {
+        try {
+          // Get all active bets for this match
+          const bets = await secureDb.findMany('user_bets', {
+            match_id: matchId,
+            status: 'active'
+          });
 
-        if (bets && bets.length > 0) {
-          // Process each bet
-          for (const bet of bets) {
-            const isWinner = bet.team_choice === winner;
-            const newStatus = isWinner ? 'won' : 'lost';
+          if (bets && bets.length > 0) {
+            // Process each bet
+            for (const bet of bets) {
+              const isWinner = bet.team_choice === winner;
+              const newStatus = isWinner ? 'won' : 'lost';
 
-            // Update bet status
-            await secureDb.update('user_bets', { id: bet.id }, {
-              status: newStatus,
-              settled_at: new Date().toISOString()
-            });
+              // Update bet status
+              await secureDb.update('user_bets', { id: bet.id }, {
+                status: newStatus,
+                settled_at: new Date().toISOString()
+              });
 
-            // If winner, payout the winnings
-            if (isWinner) {
-              // Get current user balance
-              const user = await secureDb.findOne('users', { id: bet.user_id });
-              if (user) {
-                const currentCoins = Number(user.coins || 0);
-                const payoutAmount = Number(bet.potential_payout || 0);
-                const newBalance = currentCoins + payoutAmount;
-                await secureDb.update('users', { id: bet.user_id }, { coins: newBalance });
+              // If winner, payout the winnings
+              if (isWinner) {
+                // Get current user balance
+                const user = await secureDb.findOne('users', { id: bet.user_id });
+                if (user) {
+                  const currentCoins = Number(user.coins || 0);
+                  const payoutAmount = Number(bet.potential_payout || 0);
+                  const newBalance = currentCoins + payoutAmount;
+                  await secureDb.update('users', { id: bet.user_id }, { coins: newBalance });
 
-                // Award XP for winning a bet
-                try {
-                  await addXP(
-                    String(bet.user_id),
-                    25, // 25 XP for winning a bet
-                    'betting',
-                    `Won bet on ${updated.team_a_name} vs ${updated.team_b_name} (+${payoutAmount} coins)`
-                  );
-                } catch (xpError) {
-                  console.warn('Failed to award XP for winning bet:', xpError);
+                  // Award XP for winning a bet
+                  try {
+                    const teamAName = updated?.team_a_name || 'Team A';
+                    const teamBName = updated?.team_b_name || 'Team B';
+                    await addXP(
+                      String(bet.user_id),
+                      25, // 25 XP for winning a bet
+                      'betting',
+                      `Won bet on ${teamAName} vs ${teamBName} (+${payoutAmount} coins)`
+                    );
+                  } catch (xpError) {
+                    console.warn('Failed to award XP for winning bet:', xpError);
+                  }
                 }
               }
             }
           }
+        } catch (payoutError) {
+          console.error('Error processing bet payouts:', payoutError);
+          // Don't fail the entire request if payouts fail, just log it
         }
-      } catch (payoutError) {
-        console.error('Error processing bet payouts:', payoutError);
-        // Don't fail the entire request if payouts fail, just log it
       }
     }
 

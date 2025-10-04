@@ -268,10 +268,10 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   }, [user?.id]); // Only depend on user ID, not role to prevent re-renders during login
 
   
-  const currentPage = navLinks.find((link) => pathname.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard'));
+  const currentPage = navLinks.find((link) => pathname?.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard'));
   const pageTitle = currentPage ? currentPage.label : 'Dashboard';
-  const isAdminPage = pathname.startsWith('/dashboard/admin');
-  const isModeratorPage = pathname.startsWith('/dashboard/moderator');
+  const isAdminPage = pathname?.startsWith('/dashboard/admin') ?? false;
+  const isModeratorPage = pathname?.startsWith('/dashboard/moderator') ?? false;
   const isAdmin = Boolean(user?.role === 'admin');
   const isModerator = Boolean(user?.role === 'moderator');
 
@@ -463,7 +463,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                 <SidebarMenuItem key={link.href}>
                   <SidebarMenuButton
                     asChild
-                    isActive={pathname.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard')}
+                    isActive={pathname?.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard')}
                     tooltip={link.label}
                   >
                     <Link href={link.href}>

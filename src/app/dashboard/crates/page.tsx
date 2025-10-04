@@ -127,12 +127,12 @@ export default function CratesPage() {
         setInventoryData(inventory as InventoryItem[]);
         setInventoryCount(inventory.length);
         
-        // Fetch user keys with cache busting (keep existing API call for now)
-        const keysResponse = await fetch(`/api/user/keys?t=${Date.now()}`);
+        // Fetch user keys with correct endpoint
+        const keysResponse = await fetch(`/api/user/crate-keys?t=${Date.now()}`);
         if (keysResponse.ok) {
           const keysData = await keysResponse.json();
           setUserKeys(keysData.keys || {});
-          console.log('🔑 Fetched keys:', keysData.keys);
+          console.log('🔑 Fetched crate keys:', keysData.keys);
         }
 
         // Fetch user profile for level 

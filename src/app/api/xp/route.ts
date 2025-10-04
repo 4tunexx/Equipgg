@@ -1,131 +1,37 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from "@/lib/supabase";
-import { addXP, getUserXPInfo, getXPRequirements } from "../../../lib/xp-service";
-import { defaultXPConfig } from "../../../lib/xp-config";
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { getAuthenticatedUser } from '@/lib/supabase'
 
-// GET /api/xp - Get user's XP information
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const { user, error: authError } = await getAuthenticatedUser(request)
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    
-    if (authError || !user) {
-      // Return default/guest XP info instead of error
-      return NextResponse.json({
-        success: true,
-        xp: 0,
-        level: 1,
-        levelInfo: {
-          currentLevel: 1,
-          currentXP: 0,
-          xpForNextLevel: 100,
-          xpProgress: 0,
-          totalXPForNextLevel: 100
-        }
-      });
-    }
-
-    const userXPInfo = await getUserXPInfo(user.id);
-    
-    if (!userXPInfo) {
-      // Return default if user not found
-      return NextResponse.json({
-        success: true,
-        xp: 0,
-        level: 1,
-        levelInfo: {
-          currentLevel: 1,
-          currentXP: 0,
-          xpForNextLevel: 100,
-          xpProgress: 0,
-          totalXPForNextLevel: 100
-        }
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      xp: userXPInfo.xp,
-      level: userXPInfo.level,
-      levelInfo: userXPInfo.levelInfo
-    });
-
-  } catch (error) {
-    console.error('Error fetching XP info:', error);
-    // Return default info on error instead of 500
-    return NextResponse.json({
-      success: true,
-      xp: 0,
-      level: 1,
-      levelInfo: {
-        currentLevel: 1,
-        currentXP: 0,
-        xpForNextLevel: 100,
-        xpProgress: 0,
-        totalXPForNextLevel: 100
-      }
-    });
-  }
-}
-
-// POST /api/xp - Add XP to user (admin only or system)
-export async function POST(request: NextRequest) {
-  try {
-    const supabase = createServerSupabaseClient()
-    
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { amount, source, reason, userId } = await request.json();
-
-    // Validate input
-    if (!amount || amount <= 0) {
-      return NextResponse.json({ error: 'Valid amount required' }, { status: 400 });
-    }
-
-    if (!source) {
-      return NextResponse.json({ error: 'Source required' }, { status: 400 });
-    }
-
-    // Check if user is admin or if adding XP to themselves
-    const targetUserId = userId || user.id;
+    const currentLevel = user.level || 1
+    const currentXP = user.xp || 0
     
-    if (targetUserId !== user.id) {
-      // For now, allow all users to add XP (TODO: implement proper admin check)
-      // const userInfo = await getUserXPInfo(user.id);
-      // if (!userInfo || user.role !== 'admin') {
-      //   return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
-      // }
-    }
-
-    const result = await addXP(
-      targetUserId,
-      amount,
-      source,
-      reason || 'XP Award'
-    );
-
-    if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 400 });
-    }
+    const totalXPForNextLevel = currentLevel * 1000
+    const currentLevelXP = currentXP % 1000
+    const xpForNextLevel = totalXPForNextLevel - currentLevelXP
+    const xpProgress = Math.round((currentLevelXP / 1000) * 100)
 
     return NextResponse.json({
       success: true,
-      newXP: result.newXP,
-      newLevel: result.newLevel,
-      leveledUp: result.leveledUp,
-      levelsGained: result.levelsGained,
-      levelInfo: result.levelInfo,
-      transaction: result.transaction
-    });
+      xp: currentXP,
+      level: currentLevel,
+      levelInfo: {
+        currentLevel: currentLevel,
+        currentXP: currentLevelXP,
+        xpForNextLevel: xpForNextLevel,
+        xpProgress: xpProgress,
+        totalXPForNextLevel: 1000
+      }
+    })
 
   } catch (error) {
-    console.error('Error adding XP:', error);
-    return NextResponse.json({ error: 'Failed to add XP' }, { status: 500 });
+    console.error('Error fetching XP info:', error)
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
   }
 }

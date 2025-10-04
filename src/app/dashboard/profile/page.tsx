@@ -96,10 +96,9 @@ export default function ProfilePage() {
   }, [user?.username]);
 
   const getRankByLevel = (level: number) => {
-    // Find the appropriate rank based on XP (assuming level roughly correlates to XP)
-    const estimatedXp = level * 100; // Rough estimation
+    // Find the appropriate rank based on actual level
     const currentRank = ranks.find(rank =>
-      estimatedXp >= rank.min_xp && (rank.max_xp === null || estimatedXp <= rank.max_xp)
+      level >= rank.min_level && (rank.max_level === null || level <= rank.max_level)
     );
     return currentRank?.name || 'Unranked';
   };
@@ -153,7 +152,14 @@ export default function ProfilePage() {
         if (achievementsResponse.ok) {
           const achievementsData = await achievementsResponse.json();
           if (achievementsData.success) {
-            setAchievements(achievementsData.achievements);
+            // Use categories data which groups achievements by category
+            const categorizedData: any = {};
+            if (achievementsData.categories && Array.isArray(achievementsData.categories)) {
+              achievementsData.categories.forEach((category: any) => {
+                categorizedData[category.name] = category.achievements || [];
+              });
+            }
+            setAchievements(categorizedData);
           }
         }
         
@@ -459,8 +465,8 @@ export default function ProfilePage() {
                   <div key={category}>
                     <h3 className="text-xl font-bold mb-2">{category}</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {items.map((item: any) => {
-                        const isAchieved = item.achieved || item.unlocked_at;
+                      {Array.isArray(items) ? items.map((item: any) => {
+                        const isAchieved = item.achieved || item.unlocked || item.unlocked_at;
                         return (
                           <Card key={item.id} className={cn(
                             "transition-all hover:scale-105",
@@ -480,11 +486,15 @@ export default function ProfilePage() {
                                   {isAchieved && " ✓"}
                                 </p>
                                 <p className="text-xs text-muted-foreground">{item.description}</p>
-                                {item.reward_xp && (
-                                  <p className="text-xs text-blue-500 mt-1">Reward: {item.reward_xp} XP</p>
+                                {(item.reward_xp || item.xp_reward) && (
+                                  <p className="text-xs text-yellow-600">
+                                    +{item.reward_xp || item.xp_reward} XP
+                                  </p>
                                 )}
-                                {item.reward_coins && (
-                                  <p className="text-xs text-yellow-500">Reward: {item.reward_coins} coins</p>
+                                {(item.reward_coins || item.coin_reward) && (
+                                  <p className="text-xs text-green-600">
+                                    +{item.reward_coins || item.coin_reward} Coins
+                                  </p>
                                 )}
                                 {isAchieved && (
                                   <UiBadge variant="default" className="text-xs bg-green-600 mt-1">
@@ -495,7 +505,7 @@ export default function ProfilePage() {
                             </CardHeader>
                           </Card>
                         );
-                      })}
+                      }) : <p className="text-muted-foreground">Invalid achievement data for category: {category}</p>}
                     </div>
                   </div>
                 ))
@@ -591,9 +601,10 @@ export default function ProfilePage() {
                 <h3 className="text-xl font-bold mb-2">Competitive Ranks</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {ranks.map((rank, index) => {
-                    const currentRank = getRankByLevel(balance?.level || 1);
-                    const isCurrentRank = rank.name === currentRank;
-                    const isAchieved = (balance?.level || 1) >= Math.floor(rank.min_xp / 100); // Rough level estimation
+                    const userLevel = balance?.level || 1;
+                    const currentRankName = getRankByLevel(userLevel);
+                    const isCurrentRank = rank.name === currentRankName;
+                    const isAchieved = userLevel >= rank.min_level;
 
                     return (
                       <Card key={rank.id} className={cn(
@@ -615,7 +626,7 @@ export default function ProfilePage() {
                               {isCurrentRank && " (Current)"}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              XP: {rank.min_xp}{rank.max_xp ? ` - ${rank.max_xp}` : '+'} | Tier: {rank.tier}
+                              Level: {rank.min_level}{rank.max_level ? ` - ${rank.max_level}` : '+'} | Tier: {rank.tier}
                             </p>
                            </div>
                         </CardHeader>

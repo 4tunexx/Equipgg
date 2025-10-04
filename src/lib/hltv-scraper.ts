@@ -64,7 +64,13 @@ export async function syncOddsFromHLTV(): Promise<void> {
       try {
         console.log(`Scraping odds for match ${match.pandascore_id} (${match.team_a_name} vs ${match.team_b_name})`);
 
-        const oddsData = await scrapeHLTVOdds(match.pandascore_id.toString());
+        const pandascoreId = match.pandascore_id?.toString();
+        if (!pandascoreId) {
+          console.log(`Skipping match with no pandascore_id: ${match.team_a_name} vs ${match.team_b_name}`);
+          continue;
+        }
+
+        const oddsData = await scrapeHLTVOdds(pandascoreId);
 
         if (oddsData && oddsData.odds.team1 && oddsData.odds.team2) {
           // Update the match with scraped odds

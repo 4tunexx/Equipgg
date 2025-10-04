@@ -76,7 +76,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Create crate records
-    const crateRecords = [];
+    const crateRecords: Array<{
+      id: string;
+      user_id: any;
+      crate_type: any;
+      status: string;
+      given_by: string;
+      reason: any;
+      created_at: string;
+    }> = [];
     for (let i = 0; i < quantity; i++) {
       crateRecords.push({
         id: `crate_${Date.now()}_${Math.random().toString(36).substr(2, 6)}_${i}`,

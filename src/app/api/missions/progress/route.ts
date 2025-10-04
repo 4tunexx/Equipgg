@@ -1,26 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase";
+import { getAuthenticatedUser, createServerSupabaseClient } from "@/lib/supabase";
 
 // Get user's mission progress
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    // Get authenticated user from session cookie
+    const { user, error: authError } = await getAuthenticatedUser(request);
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    console.log('Mission progress endpoint - auth check:', { user: user?.id, error: authError });
+    
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
+
+    const supabase = createServerSupabaseClient()
 
     const { searchParams } = new URL(request.url);
     const missionId = searchParams.get('missionId');
 
     let query = supabase
       .from('user_mission_progress')
-      .select(`
-        *,
-        missions!inner(*)
-      `)
+      .select('*')
       .eq('user_id', user.id);
 
     if (missionId) {
@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
 
     if (error) throw error;
 
-    return NextResponse.json({ progress });
+    return NextResponse.json({ 
+      success: true,
+      progress: progress || []
+    });
   } catch (error) {
     console.error('Error fetching mission progress:', error);
     return NextResponse.json({ error: 'Failed to fetch mission progress' }, { status: 500 });

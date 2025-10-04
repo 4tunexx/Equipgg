@@ -137,7 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           // Handle double URL encoding by decoding twice if needed
           const cookieValue = equipggSessionCookie;
-          let sessionData = null;
+          let sessionData: any = null;
           
           try {
             // Try single decode first
@@ -150,8 +150,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           
           console.log('Found equipgg_session_client cookie:', sessionData);
           
-          // Check if session is still valid
-          if (sessionData.expires_at && Date.now() < sessionData.expires_at) {
+          // Check if session is still valid and sessionData is not null
+          if (sessionData && sessionData.expires_at && Date.now() < sessionData.expires_at) {
             console.log('Session is valid, setting user data directly');
             
             // Set user directly from session data for regular logins
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: sessionData.email,
               username: sessionData.username,
               displayName: sessionData.displayName || sessionData.displayname || sessionData.email.split('@')[0],
-              photoURL: sessionData.avatarUrl || null,
+              photoURL: sessionData.avatarUrl || undefined,
               role: sessionData.role || 'user',
               provider: sessionData.provider || 'default',
               level: sessionData.level || 1,
@@ -169,6 +169,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               account_status: 'active',
               steamProfile: sessionData.steamProfile || undefined
             });
+            
+            // If critical user data is missing from cookie, refresh from API
+            if (!sessionData.avatarUrl || !sessionData.displayName) {
+              console.log('Cookie missing user profile data, refreshing from /api/me');
+              // Use timeout to avoid blocking the initial render
+              setTimeout(() => {
+                refreshUser();
+              }, 100);
+            }
+            
             setLoading(false);
             return;
           } else {
@@ -202,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: sessionData.email,
               username: sessionData.username,
               displayName: sessionData.displayName || sessionData.displayname || sessionData.email.split('@')[0],
-              photoURL: null,
+              photoURL: undefined,
               role: sessionData.role || 'user',
               provider: 'default',
               level: 1,
@@ -211,6 +221,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               account_status: 'active',
               steamProfile: sessionData.steamProfile || undefined
             });
+            
+            // Always refresh from API since main session cookie has minimal data
+            console.log('Main session cookie has minimal data, refreshing from /api/me');
+            setTimeout(() => {
+              refreshUser();
+            }, 100);
+            
             setLoading(false);
             return;
           } else {
@@ -253,7 +270,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               email: userData.email,
               username: userData.username,
               displayName: userData.displayname || userData.username || steamUserId,
-              photoURL: userData.avatar_url || null,
+              photoURL: userData.avatar_url || undefined,
               role: userData.role || 'user',
               level: userData.level || 1,
               xp: userData.xp || 0,
@@ -262,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               account_status: userData.account_status || 'active',
               steamProfile: {
                 steamId: steamUserId,
-                avatar: userData.avatar_url || null,
+                avatar: userData.avatar_url || undefined,
                 profileUrl: `https://steamcommunity.com/profiles/${steamUserId}`
               }
             });
@@ -273,7 +290,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               id: steamSession,
               email: decodeURIComponent(steamEmail),
               displayName: steamUserId, // Use Steam ID as display name - this will be fixed by /api/me refresh
-              photoURL: null,
+              photoURL: undefined,
               role: 'user',
               level: 1,
               xp: 0,
@@ -282,7 +299,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               account_status: 'active',
               steamProfile: {
                 steamId: steamUserId,
-                avatar: null,
+                avatar: undefined,
                 profileUrl: `https://steamcommunity.com/profiles/${steamUserId}`
               }
             });
@@ -301,7 +318,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: steamSession,
             email: decodeURIComponent(steamEmail),
             displayName: steamUserId,
-            photoURL: null,
+            photoURL: undefined,
             role: 'user',
             level: 1,
             xp: 0,
@@ -310,14 +327,60 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             account_status: 'active',
             steamProfile: {
               steamId: steamUserId,
-              avatar: null,
-              profileUrl: null
+              avatar: undefined,
+              profileUrl: undefined
             }
           });
           setLoading(false);
         }
         
         return;
+      }
+      
+      // If no session cookies found, try to validate session via API as a final check
+      console.log('🔍 No valid cookies found, checking session via /api/me...');
+      try {
+        const response = await fetch('/api/me', { 
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
+        
+        if (response.ok) {
+          const { user: freshUser } = await response.json();
+          if (freshUser) {
+            console.log('✅ API validated session, setting user data:', freshUser);
+            const displayName = freshUser.displayName || freshUser.displayname || freshUser.username || '';
+            const photoURL = freshUser.avatarUrl || freshUser.photoURL || '';
+            
+            setUser({
+              id: freshUser.id,
+              email: freshUser.email || '',
+              username: freshUser.username,
+              displayName: displayName,
+              photoURL: photoURL,
+              role: freshUser.role || 'user',
+              level: freshUser.level || 1,
+              xp: freshUser.xp || 0,
+              provider: freshUser.provider || (freshUser.isSteamUser ? 'steam' : 'default'),
+              steam_verified: freshUser.steamVerified || freshUser.steam_verified || false,
+              account_status: freshUser.account_status || 'active',
+              steamProfile: (freshUser.isSteamUser || freshUser.steamId) ? {
+                avatar: photoURL,
+                steamId: freshUser.steamId || '',
+                profileUrl: freshUser.steamId ? `https://steamcommunity.com/profiles/${freshUser.steamId}` : ''
+              } : undefined
+            });
+            
+            setLoading(false);
+            return;
+          }
+        } else {
+          console.log('❌ API session validation failed:', response.status);
+        }
+      } catch (apiError) {
+        console.error('❌ Failed to validate session via API:', apiError);
       }
       
       // No session at all - set loading to false first, then handle redirect

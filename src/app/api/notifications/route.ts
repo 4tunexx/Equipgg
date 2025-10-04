@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
     // Parse notification data and add navigation info
     const enrichedNotifications = notifications.map(notification => {
-      let navigationData = null;
+      let navigationData: { route: string; params: any } | null = null;
       
       try {
         const data = notification.data ? JSON.parse(notification.data) : {};

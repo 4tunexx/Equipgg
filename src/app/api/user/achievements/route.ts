@@ -1,48 +1,61 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerSupabaseClient } from '@/lib/supabase'
+import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    // Get authenticated user from session cookie
+    const { user, error: authError } = await getAuthenticatedUser(request);
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user achievements with achievement details
+    const supabase = createServerSupabaseClient()
+
+    // Get user achievements (just the IDs)
     const { data: userAchievements, error: achievementsError } = await supabase
       .from('user_achievements')
-      .select(`
-        *,
-        achievements!inner (
-          id,
-          name,
-          description,
-          category,
-          xp_reward,
-          coin_reward,
-          gem_reward,
-          icon_url,
-          is_active
-        )
-      `)
+      .select('achievement_id, unlocked_at')
       .eq('user_id', user.id)
-    
+
     if (achievementsError) {
-      console.error('Error fetching achievements:', achievementsError)
+      console.error('Error fetching user achievements:', achievementsError)
+    }
+
+    // Also get all available achievements
+    const { data: allAchievements, error: allAchievementsError } = await supabase
+      .from('achievements')
+      .select('*')
+      .eq('is_active', true)
+    
+    if (allAchievementsError) {
+      console.error('Error fetching all achievements:', allAchievementsError)
       return NextResponse.json(
         { error: 'Failed to fetch achievements' },
         { status: 500 }
       )
     }
 
+    // Create a map of user achievements
+    const userAchievementIds = new Set((userAchievements || []).map(ua => parseInt(ua.achievement_id)))
+
+    // Combine user achievements with all achievements to show progress
+    const allAchievementsWithProgress = (allAchievements || []).map(achievement => ({
+      id: achievement.id,
+      name: achievement.name,
+      description: achievement.description,
+      category: achievement.category || 'General',
+      xp_reward: achievement.xp_reward,
+      coin_reward: achievement.coin_reward,
+      gem_reward: achievement.gem_reward,
+      icon_url: achievement.icon_url,
+      is_active: achievement.is_active,
+      unlocked: userAchievementIds.has(achievement.id),
+      progress: userAchievementIds.has(achievement.id) ? 100 : 0
+    }))
+
     // Group achievements by category
-    const categorizedAchievements = (userAchievements || []).reduce((acc: any, userAchievement: any) => {
-      const achievement = userAchievement.achievements
-      if (!achievement || !achievement.is_active) return acc
-      
+    const categorizedAchievements = allAchievementsWithProgress.reduce((acc: any, achievement: any) => {
       const category = achievement.category || 'General'
       if (!acc[category]) {
         acc[category] = {
@@ -51,18 +64,17 @@ export async function GET(request: NextRequest) {
         }
       }
       
-      acc[category].achievements.push({
-        ...userAchievement,
-        achievement: achievement
-      })
-      
+      acc[category].achievements.push(achievement)
       return acc
     }, {})
 
     return NextResponse.json({
       success: true,
+      achievements: allAchievementsWithProgress,
       categories: Object.values(categorizedAchievements),
-      total: userAchievements?.length || 0
+      userAchievements: userAchievements || [],
+      totalUnlocked: userAchievements?.length || 0,
+      totalAchievements: allAchievements?.length || 0
     })
 
   } catch (error) {

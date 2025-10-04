@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
       console.log('Steam user info retrieved:', steamUser);
       // Use simple database-only approach (no admin APIs)
       const email = `${steamUser.steamId}@steam.local`;
-      let userId = null;
+      let userId: string | null = null;
       let isVerification = false; // Track if this is linking an existing account
       
       console.log('Looking up Steam user by Steam ID:', steamUser.steamId);
@@ -414,13 +414,15 @@ export async function GET(request: NextRequest) {
       console.log('Session cookies set successfully');
       
       // Also set user-friendly cookies for client-side access
-      response.cookies.set('equipgg_user_id', userId, {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7,
-        path: '/'
-      });
+      if (userId) {
+        response.cookies.set('equipgg_user_id', userId, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        });
+      }
       
       response.cookies.set('equipgg_user_email', userData.email, {
         httpOnly: false,
@@ -466,7 +468,7 @@ export async function POST(request: NextRequest) {
     }
     // Look up or create user in Supabase
     const email = `${steamUser.steamId}@steam.local`;
-    let userId = null;
+    let userId: string | null = null;
     const { data: userList, error: listError } = await supabase.auth.admin.listUsers();
     if (listError) {
       return NextResponse.json({ error: 'Supabase user list failed' }, { status: 500 });
@@ -474,14 +476,16 @@ export async function POST(request: NextRequest) {
     const found = userList?.users?.find((u: any) => u.email === email);
     if (found) {
       userId = found.id;
-      await supabase.auth.admin.updateUserById(userId, {
-        user_metadata: {
-          displayName: steamUser.username,
-          avatar: steamUser.avatar,
-          steamId: steamUser.steamId,
-          steamProfile: steamUser.profileUrl
-        }
-      });
+      if (userId) {
+        await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: {
+            displayName: steamUser.username,
+            avatar: steamUser.avatar,
+            steamId: steamUser.steamId,
+            steamProfile: steamUser.profileUrl
+          }
+        });
+      }
     } else {
       const { data: newUser, error: createError } = await supabase.auth.admin.createUser({
         email,

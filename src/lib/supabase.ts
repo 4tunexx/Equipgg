@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
 
 // Prefer explicit env fallbacks so local vs hosting envs work
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
@@ -83,4 +84,40 @@ export function createRequestSupabaseClient(token?: string) {
   }
 
   return client;
+}
+
+// Helper function to get authenticated user from session cookie
+export async function getAuthenticatedUser(request?: Request) {
+  try {
+    // In API routes, we need to read cookies from the request headers
+    const cookieHeader = request?.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    if (!cookieMatch) {
+      return { user: null, error: 'No session cookie found' };
+    }
+
+    const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+    
+    // Check if session is expired
+    if (sessionData.expires_at && Date.now() > sessionData.expires_at) {
+      return { user: null, error: 'Session expired' };
+    }
+
+    // Get user from database using service role client
+    const supabase = createServerSupabaseClient();
+    const { data: user, error } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', sessionData.user_id)
+      .single();
+
+    if (error || !user) {
+      return { user: null, error: 'User not found' };
+    }
+
+    return { user, error: null };
+  } catch (error) {
+    return { user: null, error: 'Invalid session cookie' };
+  }
 }

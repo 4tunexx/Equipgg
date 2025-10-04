@@ -91,7 +91,12 @@ export async function syncMatchesFromPandaScore(): Promise<unknown[]> {
     const allMatches = [...upcomingMatches, ...runningMatches, ...recentMatches];
     console.log(`Fetched ${allMatches.length} matches from PandaScore`);
 
-    const syncedMatches = [];
+    const syncedMatches: Array<{
+      id: any;
+      status: any;
+      tournament: any;
+      teams: any;
+    }> = [];
 
     for (const match of allMatches) {
       try {
@@ -276,7 +281,11 @@ export async function processMatchResults(): Promise<unknown[]> {
       pandascore_id: { not: null }
     });
 
-    const processedMatches = [];
+    const processedMatches: Array<{
+      id: unknown;
+      winner: 'team_a' | 'team_b';
+      score: string;
+    }> = [];
 
     for (const match of finishedMatches || []) {
       try {
@@ -288,7 +297,7 @@ export async function processMatchResults(): Promise<unknown[]> {
           const team1Score = matchDetailsData.results[0]?.score || 0;
           const team2Score = matchDetailsData.results[1]?.score || 0;
           
-          let winner = null;
+          let winner: 'team_a' | 'team_b' | null = null;
           if (team1Score > team2Score) {
             winner = 'team_a';
           } else if (team2Score > team1Score) {

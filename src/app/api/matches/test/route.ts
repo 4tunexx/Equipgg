@@ -40,7 +40,22 @@ export async function POST(request: NextRequest) {
       'DreamHack', 'ESEA League', 'Flashpoint', 'WePlay'
     ];
 
-    const testMatches = [];
+    const testMatches: Array<{
+      id: string;
+      title: string;
+      team1_name: string;
+      team2_name: string;
+      tournament: string;
+      status: string;
+      scheduled_at: any;
+      completed_at: any;
+      result: string | null;
+      team1_score: number | null;
+      team2_score: number | null;
+      map_pool: string[];
+      created_at: string;
+      updated_at: string;
+    }> = [];
     const timestamp = Date.now();
 
     for (let i = 1; i <= count; i++) {
@@ -54,7 +69,8 @@ export async function POST(request: NextRequest) {
       const statuses = ['upcoming', 'live', 'completed'];
       const status = statuses[Math.floor(Math.random() * statuses.length)];
 
-      let scheduledAt, completedAt, result = null;
+      let scheduledAt, completedAt;
+      let result: string | null = null;
       
       if (status === 'upcoming') {
         // Future matches
@@ -122,7 +138,12 @@ export async function POST(request: NextRequest) {
         .limit(10);
 
       if (users && users.length > 0) {
-        const testPredictions = [];
+        const testPredictions: Array<{
+          user_id: any;
+          match_id: any;
+          prediction: string;
+          created_at: string;
+        }> = [];
         for (const match of completedMatches) {
           const predictionCount = Math.floor(Math.random() * users.length) + 1;
           const shuffledUsers = users.sort(() => 0.5 - Math.random()).slice(0, predictionCount);

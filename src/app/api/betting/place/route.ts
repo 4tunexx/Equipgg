@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from '../../../../lib/supabase';
 import { getAuthSessionWithToken } from "../../../../lib/auth-utils";
 import { addXP } from "../../../../lib/xp-service";
+import { achievementService } from "../../../../lib/achievement-service";
 
 // Note: create server admin client inside the handler to avoid import-time errors
 
@@ -159,6 +160,22 @@ export async function POST(request: NextRequest) {
     } catch (xpError) {
       console.warn('Failed to award XP for bet placement:', xpError);
       // Don't fail the bet if XP award fails
+    }
+
+    // Check for achievements
+    try {
+      const achievements = await achievementService.checkAchievements(session.user_id, 'bet_placed', {
+        amount: amount,
+        payout: potentialPayout,
+        match: matchData
+      });
+      
+      if (achievements.length > 0) {
+        console.log(`🎉 User ${session.user_id} unlocked ${achievements.length} achievements for placing bet!`);
+      }
+    } catch (achievementError) {
+      console.warn('Failed to check achievements for bet placement:', achievementError);
+      // Don't fail the bet if achievement check fails
     }
 
     return NextResponse.json({

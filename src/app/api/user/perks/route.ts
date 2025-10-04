@@ -48,7 +48,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate available perks based on database data
-    const availablePerks = [];
+    const availablePerks: Array<{
+      id: any;
+      type: any;
+      name: any;
+      description: any;
+      amount: number;
+      available: boolean;
+      category: any;
+      perk_type: any;
+      coin_price: any;
+      gem_price: any;
+      duration_hours: any;
+    }> = [];
     const claimedToday = (claimsToday || []).map(c => c.perk_type);
 
     for (const perk of perksData || []) {
