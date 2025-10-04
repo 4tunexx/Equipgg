@@ -102,10 +102,11 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
     
     // Log the crate opening activity
     await client
-      .from('user_activities')
+      .from('activity_feed')
       .insert({
         user_id: userId,
-        activity_type: 'crate_opened',
+        action: 'crate_opened',
+        description: `Opened crate with ID: ${crateId}`,
         metadata: { crate_id: crateId },
         created_at: new Date().toISOString()
       });
@@ -172,10 +173,11 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
     
     // Log the betting activity
     await client
-      .from('user_activities')
+      .from('activity_feed')
       .insert({
         user_id: userId,
-        activity_type: 'bet_placed',
+        action: 'bet_placed',
+        description: `Placed bet of ${amount} coins on ${gameType}`,
         metadata: { amount, game_type: gameType },
         created_at: new Date().toISOString()
       });

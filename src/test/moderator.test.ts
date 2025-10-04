@@ -28,10 +28,16 @@ describe('Moderator Functions', () => {
 
     testUserId = userData?.user?.id || '';
 
-    // Create test chat room
+    // Create test chat message for testing
     const { data: chatData } = await supabase
-      .from('chat_rooms')
-      .insert({ name: 'Test Chat' })
+      .from('chat_messages')
+      .insert({ 
+        user_id: testUserId,
+        username: 'testUser',
+        message: 'Test message',
+        content: 'Test message content',
+        channel: 'arena'
+      })
       .select()
       .single();
 
@@ -41,7 +47,7 @@ describe('Moderator Functions', () => {
   afterAll(async () => {
     // Clean up test data
     await supabase
-      .from('chat_rooms')
+      .from('chat_messages')
       .delete()
       .eq('id', testChatId);
 

@@ -31,7 +31,7 @@ describe('Deployment Verification', () => {
   });
 
   test('should verify database connection and migrations', async () => {
-    const tables = ['users', 'items', 'user_inventory', 'missions', 'chat_rooms'];
+    const tables = ['users', 'items', 'user_inventory', 'missions', 'user_bets'];
     
     for (const table of tables) {
       const { error } = await supabase
