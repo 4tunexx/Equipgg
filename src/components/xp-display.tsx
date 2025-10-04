@@ -99,9 +99,8 @@ export function XpDisplay({
   const currentLevel = xpData?.level ?? propLevel ?? 1;
   const levelInfo = xpData?.levelInfo ?? getNewLevelInfo(currentXP, defaultXPConfig);
 
-  // Calculate XP earned toward next level properly
-  const currentLevelBaseXP = levelInfo.totalXPNeeded - levelInfo.currentLevelXP;
-  const xpEarnedThisLevel = currentXP - currentLevelBaseXP;
+  // Calculate XP progress correctly using the level info
+  const xpEarnedThisLevel = Math.max(0, currentXP - levelInfo.totalXPNeeded);
   const xpNeededForNext = levelInfo.currentLevelXP;
   const safeXpNeededForNext = xpNeededForNext > 0 ? xpNeededForNext : 1;
   const safeXpEarned = Math.max(0, xpEarnedThisLevel);

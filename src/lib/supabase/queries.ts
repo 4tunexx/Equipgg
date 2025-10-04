@@ -251,7 +251,7 @@ export class SupabaseQueries {
   // Inventory queries
   async getUserInventory(userId: string) {
     const { data, error } = await this.supabase
-      .from('inventory_items')
+      .from('user_inventory')
       .select('*, item:items(*)')
       .eq('user_id', userId);
     
@@ -261,7 +261,7 @@ export class SupabaseQueries {
 
   async addItemToInventory(userId: string, itemId: string) {
     const { data, error } = await this.supabase
-      .from('inventory_items')
+      .from('user_inventory')
       .insert([{ user_id: userId, item_id: itemId }])
       .select('*, item:items(*)')
       .single();

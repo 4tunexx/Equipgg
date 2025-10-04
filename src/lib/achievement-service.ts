@@ -101,7 +101,7 @@ class AchievementService {
       if (achievement.name === 'Regular Bettor' && action === 'bet_placed') {
         // Check if user has placed 50 bets total
         const { count } = await this.supabase
-          .from('bets')
+          .from('user_bets')
           .select('id', { count: 'exact' })
           .eq('user_id', userId);
         return (count || 0) >= 50;
@@ -110,7 +110,7 @@ class AchievementService {
       if (achievement.name === 'Consistent Winner' && action === 'bet_won') {
         // Check if user has won 50 bets total
         const { count } = await this.supabase
-          .from('bets')
+          .from('user_bets')
           .select('id', { count: 'exact' })
           .eq('user_id', userId)
           .eq('status', 'won');

@@ -10,7 +10,7 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
     const { data: missions } = await client
       .from('missions')
       .select('*')
-      .eq('type', 'shop_visit')
+      .eq('requirement_type', 'shop_visit')
       .eq('is_active', true);
     
     if (!missions?.length) return { success: true };
@@ -18,7 +18,7 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
     // Update or create mission progress
     for (const mission of missions) {
       const { data: progress } = await client
-        .from('mission_progress')
+        .from('user_mission_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('mission_id', mission.id)
@@ -27,21 +27,21 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
       if (progress) {
         // Update existing progress
         await client
-          .from('mission_progress')
+          .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.target_value),
+            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
       } else {
         // Create new progress record
         await client
-          .from('mission_progress')
+          .from('user_mission_progress')
           .insert({
             user_id: userId,
             mission_id: mission.id,
             current_progress: 1,
-            target_progress: mission.target_value,
+            target_progress: mission.requirement_value,
             completed: false
           });
       }
@@ -63,7 +63,7 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
     const { data: missions } = await client
       .from('missions')
       .select('*')
-      .eq('type', 'crate_open')
+      .eq('requirement_type', 'open_crate')
       .eq('is_active', true);
     
     if (!missions?.length) return { success: true };
@@ -71,7 +71,7 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
     // Update or create mission progress
     for (const mission of missions) {
       const { data: progress } = await client
-        .from('mission_progress')
+        .from('user_mission_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('mission_id', mission.id)
@@ -80,21 +80,21 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
       if (progress) {
         // Update existing progress
         await client
-          .from('mission_progress')
+          .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.target_value),
+            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
       } else {
         // Create new progress record
         await client
-          .from('mission_progress')
+          .from('user_mission_progress')
           .insert({
             user_id: userId,
             mission_id: mission.id,
             current_progress: 1,
-            target_progress: mission.target_value,
+            target_progress: mission.requirement_value,
             completed: false
           });
       }
@@ -126,7 +126,7 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
     const { data: missions } = await client
       .from('missions')
       .select('*')
-      .in('type', ['bet_placed', 'bet_amount', 'game_play'])
+      .in('requirement_type', ['place_bet', 'win_bet', 'bet_amount', 'game_play'])
       .eq('is_active', true);
     
     if (!missions?.length) return { success: true };
@@ -134,35 +134,37 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
     // Update or create mission progress
     for (const mission of missions) {
       const { data: progress } = await client
-        .from('mission_progress')
+        .from('user_mission_progress')
         .select('*')
         .eq('user_id', userId)
         .eq('mission_id', mission.id)
         .single();
       
       let progressIncrement = 1;
-      if (mission.type === 'bet_amount') {
+      if (mission.requirement_type === 'bet_amount') {
         progressIncrement = amount; // Track total bet amount
+      } else if (mission.requirement_type === 'place_bet') {
+        progressIncrement = 1; // Count number of bets placed
       }
       
       if (progress) {
         // Update existing progress
         await client
-          .from('mission_progress')
+          .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + progressIncrement, mission.target_value),
+            current_progress: Math.min(progress.current_progress + progressIncrement, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
       } else {
         // Create new progress record
         await client
-          .from('mission_progress')
+          .from('user_mission_progress')
           .insert({
             user_id: userId,
             mission_id: mission.id,
             current_progress: progressIncrement,
-            target_progress: mission.target_value,
+            target_progress: mission.requirement_value,
             completed: false
           });
       }

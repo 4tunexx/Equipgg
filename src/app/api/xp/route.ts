@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/supabase'
+import { getLevelInfo, getLevelFromXP, defaultXPConfig, getXPForLevel } from '@/lib/xp-config'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,24 +10,24 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const currentLevel = user.level || 1
     const currentXP = user.xp || 0
-    
-    const totalXPForNextLevel = currentLevel * 1000
-    const currentLevelXP = currentXP % 1000
-    const xpForNextLevel = totalXPForNextLevel - currentLevelXP
-    const xpProgress = Math.round((currentLevelXP / 1000) * 100)
+    const levelInfo = getLevelInfo(currentXP, defaultXPConfig)
 
     return NextResponse.json({
       success: true,
       xp: currentXP,
-      level: currentLevel,
+      level: levelInfo.level,
       levelInfo: {
-        currentLevel: currentLevel,
-        currentXP: currentLevelXP,
-        xpForNextLevel: xpForNextLevel,
-        xpProgress: xpProgress,
-        totalXPForNextLevel: 1000
+        currentLevel: levelInfo.level,
+        currentLevelXP: levelInfo.currentLevelXP,
+        totalXPNeeded: levelInfo.totalXPNeeded,
+        xpToNext: levelInfo.xpToNext,
+        progressPercent: levelInfo.progressPercent,
+        // For backwards compatibility with frontend components
+        currentXP: Math.max(0, currentXP - levelInfo.totalXPNeeded),
+        xpForNextLevel: levelInfo.xpToNext,
+        xpProgress: levelInfo.progressPercent,
+        totalXPForNextLevel: levelInfo.currentLevelXP
       }
     })
 

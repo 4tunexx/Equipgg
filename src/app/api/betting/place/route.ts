@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from '../../../../lib/supabase';
 import { getAuthSessionWithToken } from "../../../../lib/auth-utils";
 import { addXP } from "../../../../lib/xp-service";
 import { achievementService } from "../../../../lib/achievement-service";
+import { trackBetPlaced } from "../../../../lib/mission-tracker";
 
 // Note: create server admin client inside the handler to avoid import-time errors
 
@@ -176,6 +177,35 @@ export async function POST(request: NextRequest) {
     } catch (achievementError) {
       console.warn('Failed to check achievements for bet placement:', achievementError);
       // Don't fail the bet if achievement check fails
+    }
+
+    // Track mission progress for betting
+    try {
+      await trackBetPlaced(session.user_id, amount, 'match_betting', supabaseAdmin);
+      console.log(`📝 Tracked bet placement for mission progress: User ${session.user_id}, Amount ${amount}`);
+    } catch (missionError) {
+      console.warn('Failed to track mission progress for bet placement:', missionError);
+      // Don't fail the bet if mission tracking fails
+    }
+
+    // Notify about new bet via Socket.IO
+    try {
+      const { getSocketServer } = await import('@/lib/socket-server');
+      const io = getSocketServer();
+      if (io) {
+        io.to(`betting:${matchId}`).emit('new-bet', {
+          matchId: matchData.id,
+          amount: amount,
+          team: normalizedTeam,
+          odds: odds,
+          user: session.user_id,
+          timestamp: new Date().toISOString()
+        });
+        console.log(`📡 Broadcasted new bet to betting:${matchId} room`);
+      }
+    } catch (socketError) {
+      console.warn('Failed to broadcast bet via Socket.IO:', socketError);
+      // Don't fail the bet if socket broadcast fails
     }
 
     return NextResponse.json({
