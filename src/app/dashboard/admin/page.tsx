@@ -98,6 +98,18 @@ export default function AdminDashboardPage() {
   const [showEditUser, setShowEditUser] = useState(false);
   const [showDeleteUser, setShowDeleteUser] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  
+  // Landing page management state
+  const [landingPanels, setLandingPanels] = useState<any[]>([]);
+  const [heroPanel, setHeroPanel] = useState<any>({
+    title: '',
+    content: '',
+    button_text: '',
+    button_url: '',
+    image_url: '',
+    is_active: true
+  });
+  
   const [showCreateItem, setShowCreateItem] = useState(false);
   const [newItem, setNewItem] = useState({ name: '', type: '', rarity: 'common', value: 0 });
   const [showCreateBadge, setShowCreateBadge] = useState(false);
@@ -190,6 +202,73 @@ export default function AdminDashboardPage() {
     is_active: true
   });
 
+  // Save landing page data function
+  const saveLandingPageData = async () => {
+    try {
+      if (!heroPanel) {
+        alert('No hero panel data to save');
+        return;
+      }
+
+      // Map heroPanel fields to API fields
+      const apiData = {
+        id: heroPanel.id || undefined,
+        type: 'hero', // Always hero for this panel
+        title: heroPanel.title || '',
+        content: heroPanel.description || '', // description maps to content
+        image_url: heroPanel.background_image || '', // background_image maps to image_url
+        logo_layer1: heroPanel.logo_layer1 || '/1.png', // Logo layer 1
+        logo_layer2: heroPanel.logo_layer2 || '/2.png', // Logo layer 2
+        button_text: heroPanel.button_text || '',
+        button_url: heroPanel.button_link || '', // button_link maps to button_url
+        is_active: heroPanel.enabled ?? true, // enabled maps to is_active
+        display_order: heroPanel.sort_order || 1
+      };
+
+      // Use PUT if we have an ID, POST if creating new
+      const method = heroPanel.id ? 'PUT' : 'POST';
+      
+      const heroRes = await fetch('/api/landing/panels', {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiData)
+      });
+
+      if (heroRes.ok) {
+        alert('Landing page settings saved successfully');
+        // Refresh the data
+        const updatedRes = await fetch('/api/landing/panels');
+        if (updatedRes.ok) {
+          const data = await updatedRes.json();
+          setLandingPanels(data.panels || data.data || []);
+          const hero = (data.panels || data.data || []).find((panel: any) => panel.type === 'hero');
+          if (hero) {
+            // Map API fields back to heroPanel format
+            setHeroPanel({
+              id: hero.id,
+              section: 'hero',
+              title: hero.title,
+              description: hero.content,
+              button_text: hero.button_text,
+              button_link: hero.button_url,
+              background_image: hero.image_url,
+              logo_layer1: hero.logo_layer1 || '/1.png',
+              logo_layer2: hero.logo_layer2 || '/2.png',
+              enabled: hero.is_active,
+              sort_order: hero.display_order
+            });
+          }
+        }
+      } else {
+        const data = await heroRes.json();
+        alert(data.error || 'Save failed');
+      }
+    } catch (error) {
+      console.error('Save landing page error:', error);
+      alert('Save failed');
+    }
+  };
+
   useEffect(() => {
     if (authLoading) return;
     if (!user) return router.push('/sign-in?redirect=/dashboard/admin');
@@ -199,7 +278,7 @@ export default function AdminDashboardPage() {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, iRes, bRes, mRes, pRes, rRes, cRes, aRes, sRes, gRes, stRes, nRes, missRes, fsRes, urRes] = await Promise.all([
+        const [uRes, iRes, bRes, mRes, pRes, rRes, cRes, aRes, sRes, gRes, stRes, nRes, missRes, fsRes, urRes, lpRes] = await Promise.all([
           fetch('/api/admin/users').catch(() => null),
           fetch('/api/admin/items').catch(() => null),
           fetch('/api/admin/badges').catch(() => null),
@@ -215,6 +294,7 @@ export default function AdminDashboardPage() {
           fetch('/api/admin/missions').catch(() => null),
           fetch('/api/admin/flash-sales').catch(() => null),
           fetch('/api/admin/user-rewards').catch(() => null),
+          fetch('/api/landing/panels').catch(() => null),
         ]);
 
         if (!mounted) return;
@@ -292,6 +372,28 @@ export default function AdminDashboardPage() {
         if (urRes && urRes.ok) {
           const data = await urRes.json();
           setUserRewards(data.rewards || data.data || []);
+        }
+
+        if (lpRes && lpRes.ok) {
+          const data = await lpRes.json();
+          setLandingPanels(data.panels || data.data || []);
+          // Find the hero panel specifically and map API fields
+          const hero = (data.panels || data.data || []).find((panel: any) => panel.type === 'hero');
+          if (hero) {
+            setHeroPanel({
+              id: hero.id,
+              section: 'hero',
+              title: hero.title,
+              description: hero.content, // content maps to description
+              button_text: hero.button_text,
+              button_link: hero.button_url, // button_url maps to button_link
+              background_image: hero.image_url, // image_url maps to background_image
+              logo_layer1: hero.logo_layer1 || '/1.png',
+              logo_layer2: hero.logo_layer2 || '/2.png',
+              enabled: hero.is_active, // is_active maps to enabled
+              sort_order: hero.display_order // display_order maps to sort_order
+            });
+          }
         }
       } catch (err) {
         console.error('admin load error', err);
@@ -600,6 +702,17 @@ export default function AdminDashboardPage() {
                               value={siteSettings.siteDescription || ''}
                               onChange={(e) => setSiteSettings({ ...siteSettings, siteDescription: e.target.value })}
                             />
+                          </div>
+                          <div className="space-y-2 md:col-span-2">
+                            <Label>Logo URL</Label>
+                            <Input
+                              value={siteSettings.logo_url || ''}
+                              onChange={(e) => setSiteSettings({ ...siteSettings, logo_url: e.target.value })}
+                              placeholder="Enter logo URL (e.g., /uploads/logo.png)"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              This logo will appear in the corner and hero section of the landing page
+                            </p>
                           </div>
                         </div>
                       </CardContent>
@@ -1846,16 +1959,13 @@ export default function AdminDashboardPage() {
                   <h3 className="text-lg font-semibold">Landing Page Settings</h3>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => {
-                      // TODO: Implement preview landing page
-                      alert('Opening landing page preview...');
+                      // Open landing page in new tab for preview
+                      window.open('/', '_blank');
                     }}>
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Preview
                     </Button>
-                    <Button onClick={() => {
-                      // TODO: Implement save landing page settings
-                      alert('Landing page settings saved successfully');
-                    }}>
+                    <Button onClick={saveLandingPageData}>
                       <ShieldCheck className="w-4 h-4 mr-2" />
                       Save Changes
                     </Button>
@@ -1875,39 +1985,156 @@ export default function AdminDashboardPage() {
                           <Label>Main Headline</Label>
                           <Input
                             placeholder="Welcome to EquipGG"
-                            defaultValue="Welcome to EquipGG"
+                            value={heroPanel?.title || ''}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, title: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: e.target.value,
+                              description: '',
+                              button_text: '',
+                              button_link: '',
+                              background_image: '',
+                              enabled: true,
+                              sort_order: 0
+                            })}
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>Subheadline</Label>
                           <Input
                             placeholder="The ultimate gaming marketplace"
-                            defaultValue="The ultimate gaming marketplace"
+                            value={heroPanel?.description || ''}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, description: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: e.target.value,
+                              button_text: '',
+                              button_link: '',
+                              background_image: '',
+                              enabled: true,
+                              sort_order: 0
+                            })}
                           />
                         </div>
                         <div className="space-y-2">
-                          <Label>Hero Image URL</Label>
+                          <Label>Logo Layer 1 URL (Character/Main Logo)</Label>
+                          <Input
+                            placeholder="/1.png"
+                            value={heroPanel?.logo_layer1 || '/1.png'}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, logo_layer1: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: '',
+                              button_text: '',
+                              button_link: '',
+                              background_image: '',
+                              logo_layer1: e.target.value,
+                              logo_layer2: '/2.png',
+                              enabled: true,
+                              sort_order: 0
+                            })}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            The main character/logo image that appears first
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Logo Layer 2 URL (Text/Overlay Logo)</Label>
+                          <Input
+                            placeholder="/2.png"
+                            value={heroPanel?.logo_layer2 || '/2.png'}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, logo_layer2: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: '',
+                              button_text: '',
+                              button_link: '',
+                              background_image: '',
+                              logo_layer1: '/1.png',
+                              logo_layer2: e.target.value,
+                              enabled: true,
+                              sort_order: 0
+                            })}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            The text/overlay layer that appears on top
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Hero Background Image URL</Label>
                           <Input
                             placeholder="https://..."
-                            defaultValue="/bg2.png"
+                            value={heroPanel?.background_image || ''}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, background_image: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: '',
+                              button_text: '',
+                              button_link: '',
+                              background_image: e.target.value,
+                              enabled: true,
+                              sort_order: 0
+                            })}
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>Call-to-Action Text</Label>
                           <Input
                             placeholder="Get Started"
-                            defaultValue="Get Started"
+                            value={heroPanel?.button_text || ''}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, button_text: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: '',
+                              button_text: e.target.value,
+                              button_link: '',
+                              background_image: '',
+                              enabled: true,
+                              sort_order: 0
+                            })}
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>CTA Link</Label>
                           <Input
                             placeholder="/dashboard"
-                            defaultValue="/dashboard"
+                            value={heroPanel?.button_link || ''}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, button_link: e.target.value} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: '',
+                              button_text: '',
+                              button_link: e.target.value,
+                              background_image: '',
+                              enabled: true,
+                              sort_order: 0
+                            })}
                           />
                         </div>
                         <div className="flex items-center space-x-2">
-                          <input type="checkbox" id="heroEnabled" defaultChecked className="rounded" />
+                          <input 
+                            type="checkbox" 
+                            id="heroEnabled" 
+                            checked={heroPanel?.enabled ?? true}
+                            onChange={(e) => setHeroPanel(prev => prev ? {...prev, enabled: e.target.checked} : {
+                              id: '',
+                              section: 'hero',
+                              title: '',
+                              description: '',
+                              button_text: '',
+                              button_link: '',
+                              background_image: '',
+                              enabled: e.target.checked,
+                              sort_order: 0
+                            })}
+                            className="rounded" 
+                          />
                           <Label htmlFor="heroEnabled">Show Hero Section</Label>
                         </div>
                       </div>

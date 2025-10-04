@@ -136,10 +136,12 @@ export default function CratesPage() {
         }
 
         // Fetch user profile for level 
-        const profileResponse = await fetch('/api/user/profile');
+        const profileResponse = await fetch('/api/user/stats', { credentials: 'include' });
         if (profileResponse.ok) {
           const profileData = await profileResponse.json();
-          setUserLevel(profileData.level || 1);
+          setUserLevel(profileData.stats?.level || 1);
+        } else {
+          console.error('Failed to fetch user profile:', profileResponse.status);
         }
       } catch (error) {
         console.error('Error fetching user data:', error);

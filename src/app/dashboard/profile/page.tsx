@@ -72,27 +72,59 @@ export default function ProfilePage() {
   // Fetch user badges from database
   useEffect(() => {
     const fetchUserBadges = async () => {
-      if (!user?.username) return;
-
-      try {
-        const response = await fetch(`/api/user/${user.username}/badges`);
-        if (response.ok) {
-          const data = await response.json();
-          setUserBadges(data.badges || []);
+      let username = user?.username;
+      
+      // If no username in user context, try to fetch from /api/me
+      if (!username) {
+        console.log('No username in user context, checking /api/me...');
+        try {
+          const meResponse = await fetch('/api/me', { credentials: 'include' });
+          if (meResponse.ok) {
+            const meData = await meResponse.json();
+            console.log('User data from /api/me:', meData);
+            if (meData.user?.username) {
+              username = meData.user.username;
+            } else if (meData.user?.email) {
+              // If no username but has email, try to derive username
+              const emailUsername = meData.user.email.split('@')[0];
+              username = emailUsername;
+              console.log('Using email-derived username:', username);
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching user from /api/me:', error);
         }
-      } catch (error) {
-        console.error('Error fetching user badges:', error);
-        // Fallback to mock badges for testing
-        setUserBadges([
-          { id: 1, name: 'First Win', description: 'Win your first bet', category: 'Betting', rarity: 'Common', earned: true },
-          { id: 2, name: 'Lucky Streak', description: 'Win 5 bets in a row', category: 'Betting', rarity: 'Rare', earned: false },
-        ]);
       }
+
+      // If we have a username, try to fetch real badges
+      if (username) {
+        try {
+          console.log('Fetching badges for username:', username);
+          const response = await fetch(`/api/user/${username}/badges`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Badges API response:', data);
+            setUserBadges(data.badges || []);
+            return; // Exit early on success
+          } else {
+            console.error('Badge API response not ok:', response.status, response.statusText);
+          }
+        } catch (error) {
+          console.error('Error fetching user badges:', error);
+        }
+      }
+      
+      // If we reach here, show fallback badges
+      console.log('Using fallback badges - no username or API failed');
+      setUserBadges([
+        { id: 1, name: 'First Win', description: 'Win your first bet', category: 'Betting', rarity: 'Common', earned: true, icon_url: null },
+        { id: 2, name: 'Lucky Streak', description: 'Win 5 bets in a row', category: 'Betting', rarity: 'Rare', earned: false, icon_url: null },
+        { id: 3, name: 'Service Medal - Level 1', description: 'Awarded for reaching Level 1', category: 'Level', rarity: 'Common', earned: true, icon_url: null },
+      ]);
     };
 
-    if (user?.username) {
-      fetchUserBadges();
-    }
+    fetchUserBadges();
   }, [user?.username]);
 
   const getRankByLevel = (level: number) => {
@@ -535,9 +567,9 @@ export default function ProfilePage() {
                         isEarned ? "bg-secondary/50 border-green-500/20" : "bg-secondary/50 opacity-60 grayscale"
                       )}>
                         <CardHeader className="flex-row items-center gap-4">
-                          {badge.image_url ? (
+                          {badge.icon_url ? (
                             <img
-                              src={badge.image_url}
+                              src={badge.icon_url}
                               alt={badge.name}
                               className={cn(
                                 "w-8 h-8 rounded",
@@ -584,7 +616,15 @@ export default function ProfilePage() {
               ) : (
                 <div className="text-center py-8">
                   <Award className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-muted-foreground">No badges available yet. Start playing to earn badges!</p>
+                  <p className="text-muted-foreground">
+                    {user?.username 
+                      ? `No badges loaded for user: ${user.username}` 
+                      : 'Please log in to view your badges'
+                    }
+                  </p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    Check browser console for API debugging info
+                  </p>
                 </div>
               )}
             </CardContent>

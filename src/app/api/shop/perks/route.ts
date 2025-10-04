@@ -5,12 +5,7 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
+    // No authentication required for viewing perks - anyone can browse the shop
     // Get perks from database
     const { data: perks, error: perksError } = await supabase
       .from('perks')
@@ -24,26 +19,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch perks' }, { status: 500 })
     }
 
-    // Get user's current perks
-    const { data: userPerks, error: userPerksError } = await supabase
-      .from('user_perks')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('is_active', true)
-
-    if (userPerksError) {
-      console.error('User perks error:', userPerksError)
-    }
-
-    // Add ownership status to perks
-    const perksWithOwnership = perks.map(perk => ({
+    // For public viewing, just return perks without ownership status
+    // Ownership can be checked when user is authenticated for purchases
+    const perksWithBasicInfo = perks.map(perk => ({
       ...perk,
-      owned: userPerks?.some(up => up.perk_id === perk.id.toString()) || false
+      owned: false // Default to false for public viewing
     }))
 
     return NextResponse.json({ 
-      perks: perksWithOwnership,
-      user_perks: userPerks || [],
+      perks: perksWithBasicInfo,
+      user_perks: [],
       total: perks.length 
     })
 

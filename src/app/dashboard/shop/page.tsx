@@ -54,6 +54,7 @@ export default function ShopPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // Show 12 items per page
   const [shopItems, setShopItems] = useState<DBShopItem[]>([]);
+  const [perks, setPerks] = useState<any[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSubTab, setActiveSubTab] = useState('all');
@@ -86,8 +87,28 @@ export default function ShopPage() {
     }
   };
 
+  // Fetch perks from the perks API
+  const fetchPerks = async () => {
+    try {
+      const response = await fetch('/api/shop/perks');
+      
+      if (response.ok) {
+        const data = await response.json();
+        setPerks(data.perks || []);
+        console.log('✅ Loaded', data.perks?.length || 0, 'perks from database');
+      } else {
+        console.error(`Perks API responded with status: ${response.status}`);
+        setPerks([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch perks:', error);
+      setPerks([]);
+    }
+  };
+
   useEffect(() => {
     fetchShopItems();
+    fetchPerks();
   }, []);
 
   const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -233,13 +254,72 @@ export default function ShopPage() {
   }
 
   const renderPaginatedPerks = () => {
-    // Filter perks from shop items
-    const allPerks = shopItems.filter(item => item.item?.type === 'perk');
+    // Use actual perks from the perks API
+    if (perks.length === 0) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Loading perks...</p>
+        </div>
+      );
+    }
 
-    // Apply filtering and sorting to all perks
-    const filteredAndSortedPerks = filterItems(allPerks);
+    // Convert perks to shop item format for display
+    const perkShopItems = perks
+      .filter(perk => perk.is_active)
+      .map(perk => ({
+        id: `perk_${perk.id}`,
+        name: perk.name,
+        description: perk.description,
+        price: perk.coin_price,
+        gem_price: perk.gem_price,
+        item_id: perk.id,
+        category: perk.category,
+        perk_type: perk.perk_type,
+        effect_value: perk.effect_value,
+        duration_hours: perk.duration_hours,
+        is_consumable: perk.is_consumable,
+        stock: 999,
+        discount_percentage: 0,
+        is_featured: false,
+        is_active: true,
+        created_at: perk.created_at,
+        updated_at: perk.created_at,
+        item: {
+          id: perk.id,
+          name: perk.name,
+          description: perk.description,
+          type: 'perk',
+          rarity: 'Rare',
+          image: `/assets/perks/${perk.category}.png`,
+          data_ai_hint: `${perk.perk_type} perk providing ${perk.effect_value || 'special'} effect`,
+          created_at: perk.created_at,
+          category: perk.category,
+          weapon_type: null,
+          coin_price: perk.coin_price,
+          gem_price: perk.gem_price,
+          is_tradeable: false,
+          is_sellable: false,
+          is_equipable: false,
+          sell_price: 0,
+          is_active: perk.is_active,
+          featured: false
+        }
+      }));
+
+    // Apply search filtering
+    let filteredPerks = perkShopItems;
+    if (searchTerm) {
+      filteredPerks = filteredPerks.filter(perk => 
+        perk.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        perk.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        perk.category.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply sorting
+    const sortedPerks = sortItems(filteredPerks as DBShopItem[]);
     
-    if (filteredAndSortedPerks.length === 0) {
+    if (sortedPerks.length === 0) {
       return (
         <div className="text-center py-12">
           <p className="text-muted-foreground">No perks found matching your criteria.</p>
@@ -248,17 +328,17 @@ export default function ShopPage() {
     }
 
     // Calculate pagination
-    const totalPages = Math.ceil(filteredAndSortedPerks.length / itemsPerPage);
+    const totalPages = Math.ceil(sortedPerks.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedPerks = filteredAndSortedPerks.slice(startIndex, endIndex);
+    const paginatedPerks = sortedPerks.slice(startIndex, endIndex);
 
     return (
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold font-headline">All Perks</h2>
           <span className="text-sm text-muted-foreground">
-            Showing {startIndex + 1}-{Math.min(endIndex, filteredAndSortedPerks.length)} of {filteredAndSortedPerks.length} perks
+            Showing {startIndex + 1}-{Math.min(endIndex, sortedPerks.length)} of {sortedPerks.length} perks
           </span>
         </div>
         
@@ -266,9 +346,9 @@ export default function ShopPage() {
           {paginatedPerks.map(perk => <ShopItemCard key={perk.id} item={{
             ...perk,
             description: perk.description ?? 'No description available',
-            type: perk.item?.type ?? 'Unknown',
-            rarity: (perk.item?.rarity ?? 'Common') as Rarity,
-            image: perk.item?.image ?? '/assets/placeholder.svg',
+            type: 'perk',
+            rarity: 'Rare' as Rarity,
+            image: perk.item?.image || '/assets/placeholder.svg',
             dataAiHint: perk.item?.data_ai_hint ?? ''
           }} />)}
         </div>

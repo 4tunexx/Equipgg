@@ -107,6 +107,8 @@ export async function POST(request: NextRequest) {
       title, 
       content, 
       image_url, 
+      logo_layer1,
+      logo_layer2,
       icon, 
       button_text, 
       button_url, 
@@ -128,6 +130,8 @@ export async function POST(request: NextRequest) {
         title,
         content,
         image_url,
+        logo_layer1,
+        logo_layer2,
         icon,
         button_text,
         button_url,
@@ -187,6 +191,8 @@ export async function PUT(request: NextRequest) {
       title, 
       content, 
       image_url, 
+      logo_layer1,
+      logo_layer2,
       icon, 
       button_text, 
       button_url, 
@@ -207,6 +213,8 @@ export async function PUT(request: NextRequest) {
     if (title !== undefined) updates.title = title;
     if (content !== undefined) updates.content = content;
     if (image_url !== undefined) updates.image_url = image_url;
+    if (logo_layer1 !== undefined) updates.logo_layer1 = logo_layer1;
+    if (logo_layer2 !== undefined) updates.logo_layer2 = logo_layer2;
     if (icon !== undefined) updates.icon = icon;
     if (button_text !== undefined) updates.button_text = button_text;
     if (button_url !== undefined) updates.button_url = button_url;

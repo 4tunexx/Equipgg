@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from "../../../lib/supabase";
+import { getAuthenticatedUser, supabase } from "../../../lib/supabase";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 
 const queries = createSupabaseQueries(supabase);
@@ -24,9 +24,9 @@ interface InventoryItem {
 // GET /api/inventory - Fetch user's inventory
 export async function GET(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { user, error: authError } = await getAuthenticatedUser(request);
     
-    if (authError || !session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -38,14 +38,26 @@ export async function GET(request: NextRequest) {
     const equipped = searchParams.get('equipped');
 
     // Build query for user's inventory
+    // Use explicit column selection instead of relying on foreign key relationships
     let query = supabase
       .from('user_inventory')
-      .select('*, item:items(*)')
-      .eq('user_id', session.user.id);
+      .select(`
+        id,
+        item_id,
+        user_id,
+        equipped,
+        acquired_at,
+        item_name,
+        item_type,
+        rarity,
+        image_url,
+        value
+      `)
+      .eq('user_id', user.id);
 
     // Apply filters
     if (filter && filter !== 'all') {
-      query = query.eq('item.type', filter);
+      query = query.eq('item_type', filter);
     }
 
     if (equipped === 'true') {
@@ -67,16 +79,16 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform data to match expected format
-    const inventory = (inventoryItems as InventoryItem[]).map(record => ({
+    const inventory = (inventoryItems as any[]).map(record => ({
       id: record.id,
-      name: record.item.name,
-      type: record.item.type,
-      rarity: record.item.rarity,
-      image: record.item.image_url,
+      name: record.item_name,
+      type: record.item_type,
+      rarity: record.rarity,
+      image: record.image_url,
       equipped: record.equipped,
-      slotType: record.item.slot_type,
+      slotType: 'weapon', // Default value since we don't have slot_type in current structure
       stat: {
-        value: record.item.value
+        value: record.value || 100
       }
     }));
 
@@ -98,9 +110,9 @@ export async function GET(request: NextRequest) {
 // POST /api/inventory - Add item to inventory (from purchases, rewards, etc.)
 export async function POST(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { user, error: authError } = await getAuthenticatedUser(request);
     
-    if (authError || !session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -144,7 +156,7 @@ export async function POST(request: NextRequest) {
     const { data: inventoryItem, error: insertError } = await supabase
       .from('user_inventory')
       .insert({
-        user_id: session.user.id,
+        user_id: user.id,
         item_id: itemId,
         equipped: false,
         acquired_at: new Date().toISOString(),
@@ -179,9 +191,9 @@ export async function POST(request: NextRequest) {
 // DELETE /api/inventory - Remove item from inventory
 export async function DELETE(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const { user, error: authError } = await getAuthenticatedUser(request);
     
-    if (authError || !session) {
+    if (authError || !user) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -202,7 +214,7 @@ export async function DELETE(request: NextRequest) {
     const { data: inventoryItem, error: findError } = await supabase
       .from('user_inventory')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('user_id', user.id)
       .eq('id', itemId)
       .single();
 
@@ -219,7 +231,7 @@ export async function DELETE(request: NextRequest) {
       .from('user_inventory')
       .delete()
       .eq('id', itemId)
-      .eq('user_id', session.user.id);
+      .eq('user_id', user.id);
 
     if (deleteError) {
       console.error('Error removing item from inventory:', deleteError);

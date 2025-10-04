@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     // Get all badges ordered by category
     const { data: badges, error: badgesError } = await supabase
       .from('badges')
-      .select('id, name, description, image_url, category, rarity, requirement_type, requirement_value')
+      .select('id, name, description, icon_url, category, rarity, requirement_type, requirement_value')
       .order('category', { ascending: true });
 
     if (badgesError) {

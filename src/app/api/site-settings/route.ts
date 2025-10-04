@@ -17,6 +17,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
           siteName: 'EquipGG',
           siteDescription: 'The Ultimate CS2 Virtual Betting & Gaming Platform',
+          logo_url: '/logo.png',
+          site_name: 'EquipGG',
+          description: 'The Ultimate CS2 Virtual Betting & Gaming Platform',
+          message_of_the_day: 'Welcome to EquipGG.net!',
           enableRegistration: true,
           maintenanceMode: false,
           enableChat: true,

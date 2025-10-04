@@ -1,89 +1,29 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+﻿import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const category = searchParams.get('category');
-    const perkType = searchParams.get('perk_type');
-    const search = searchParams.get('search');
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    const supabase = createServerSupabaseClient();
 
-    let query = supabase
+    const { data: perks, error } = await supabase
       .from('perks')
-      .select(`
-        id,
-        name,
-        description,
-        category,
-        perk_type,
-        effect_value,
-        duration_hours,
-        coin_price,
-        gem_price,
-        is_active,
-        created_at,
-        updated_at
-      `)
+      .select('*')
       .order('category', { ascending: true })
-      .order('name', { ascending: true })
-      .range(offset, offset + limit - 1);
-
-    if (category && category !== 'all') {
-      query = query.eq('category', category);
-    }
-
-    if (perkType && perkType !== 'all') {
-      query = query.eq('perk_type', perkType);
-    }
-
-    if (search) {
-      query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%`);
-    }
-
-    const { data: perks, error, count } = await query;
+      .order('name', { ascending: true });
 
     if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to fetch perks' },
-        { status: 500 }
-      );
+      console.error('Error fetching perks:', error);
+      return NextResponse.json({ error: 'Failed to fetch perks' }, { status: 500 });
     }
 
-    // Get perk statistics
-    const { data: stats } = await supabase
-      .from('perks')
-      .select('category, perk_type')
-      .eq('is_active', true);
-
-    const categoryStats = stats?.reduce((acc, perk) => {
-      acc[perk.category] = (acc[perk.category] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>) || {};
-
-    const typeStats = stats?.reduce((acc, perk) => {
-      acc[perk.perk_type] = (acc[perk.perk_type] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>) || {};
-
     return NextResponse.json({
+      success: true,
       perks: perks || [],
-      total: count || 0,
-      stats: {
-        categories: categoryStats,
-        types: typeStats
-      }
+      total_count: perks?.length || 0
     });
 
   } catch (error) {
-    console.error('API error:', error);
+    console.error('Error in perks admin API:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -93,135 +33,116 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const {
-      name,
-      description,
-      category,
-      perk_type,
-      effect_value,
-      duration_hours,
-      coin_price,
-      gem_price,
-      is_active = true
-    } = body;
-
-    // Validate required fields
-    if (!name || !description || !category || !perk_type) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
-    }
-
-    const { data, error } = await supabase
+    const supabase = createServerSupabaseClient();
+    const perkData = await request.json();
+    
+    const { data: newPerk, error } = await supabase
       .from('perks')
       .insert([{
-        name,
-        description,
-        category,
-        perk_type,
-        effect_value: parseFloat(effect_value) || 0,
-        duration_hours: parseInt(duration_hours) || 0,
-        coin_price: parseInt(coin_price) || 0,
-        gem_price: parseInt(gem_price) || 0,
-        is_active
+        name: perkData.name,
+        description: perkData.description,
+        category: perkData.category,
+        perk_type: perkData.perk_type,
+        effect_value: perkData.effect_value || 0,
+        duration_hours: perkData.duration_hours || 0,
+        coin_price: perkData.coin_price || 0,
+        gem_price: perkData.gem_price || 0,
+        is_consumable: perkData.is_consumable !== undefined ? perkData.is_consumable : true,
+        is_active: perkData.is_active !== undefined ? perkData.is_active : true
       }])
       .select()
       .single();
 
     if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to create perk' },
-        { status: 500 }
-      );
+      console.error('Error creating perk:', error);
+      return NextResponse.json({ error: 'Failed to create perk' }, { status: 500 });
     }
 
-    return NextResponse.json({ perk: data });
+    return NextResponse.json({
+      success: true,
+      message: 'Perk created successfully',
+      perk: newPerk
+    });
 
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Admin perks POST error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function PUT(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { id, ...updateData } = body;
+    const supabase = createServerSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const perkId = searchParams.get('id');
+    const perkData = await request.json();
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Perk ID is required' },
-        { status: 400 }
-      );
+    if (!perkId) {
+      return NextResponse.json({ error: 'Perk ID is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabase
+    const { data: updatedPerk, error } = await supabase
       .from('perks')
       .update({
-        ...updateData,
-        updated_at: new Date().toISOString()
+        name: perkData.name,
+        description: perkData.description,
+        category: perkData.category,
+        perk_type: perkData.perk_type,
+        effect_value: perkData.effect_value,
+        duration_hours: perkData.duration_hours,
+        coin_price: perkData.coin_price,
+        gem_price: perkData.gem_price,
+        is_consumable: perkData.is_consumable,
+        is_active: perkData.is_active
       })
-      .eq('id', id)
+      .eq('id', perkId)
       .select()
       .single();
 
     if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to update perk' },
-        { status: 500 }
-      );
+      console.error('Error updating perk:', error);
+      return NextResponse.json({ error: 'Failed to update perk' }, { status: 500 });
     }
 
-    return NextResponse.json({ perk: data });
+    return NextResponse.json({
+      success: true,
+      message: 'Perk updated successfully',
+      perk: updatedPerk
+    });
 
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Admin perks PUT error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = createServerSupabaseClient();
     const { searchParams } = new URL(request.url);
-    const id = searchParams.get('id');
+    const perkId = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Perk ID is required' },
-        { status: 400 }
-      );
+    if (!perkId) {
+      return NextResponse.json({ error: 'Perk ID is required' }, { status: 400 });
     }
 
     const { error } = await supabase
       .from('perks')
       .delete()
-      .eq('id', id);
+      .eq('id', perkId);
 
     if (error) {
-      console.error('Supabase error:', error);
-      return NextResponse.json(
-        { error: 'Failed to delete perk' },
-        { status: 500 }
-      );
+      console.error('Error deleting perk:', error);
+      return NextResponse.json({ error: 'Failed to delete perk' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({
+      success: true,
+      message: 'Perk deleted successfully'
+    });
 
   } catch (error) {
-    console.error('API error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Admin perks DELETE error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

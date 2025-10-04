@@ -20,10 +20,16 @@ interface XPData {
   level: number;
   levelInfo: {
     level: number;
+    currentLevel?: number;
     currentLevelXP: number;
     totalXPNeeded: number;
     xpToNext: number;
     progressPercent: number;
+    // Additional fields from API
+    currentXP?: number;
+    xpForNextLevel?: number;
+    xpProgress?: number;
+    totalXPForNextLevel?: number;
   };
 }
 
@@ -83,7 +89,11 @@ export function XpDisplay({
           setXpData({
             xp: propXp,
             level: propLevel,
-            levelInfo
+            levelInfo: {
+              ...levelInfo,
+              currentXP: Math.max(0, propXp - levelInfo.totalXPNeeded),
+              totalXPForNextLevel: levelInfo.currentLevelXP
+            }
           });
         }
       } finally {
@@ -99,9 +109,10 @@ export function XpDisplay({
   const currentLevel = xpData?.level ?? propLevel ?? 1;
   const levelInfo = xpData?.levelInfo ?? getNewLevelInfo(currentXP, defaultXPConfig);
 
-  // Calculate XP progress correctly using the level info
+  // Use the correct fields from the API response or calculate locally
+  // For level progression display, we want to show progress toward NEXT level
   const xpEarnedThisLevel = Math.max(0, currentXP - levelInfo.totalXPNeeded);
-  const xpNeededForNext = levelInfo.currentLevelXP;
+  const xpNeededForNext = levelInfo.xpToNext + xpEarnedThisLevel; // Total XP needed for next level
   const safeXpNeededForNext = xpNeededForNext > 0 ? xpNeededForNext : 1;
   const safeXpEarned = Math.max(0, xpEarnedThisLevel);
 
