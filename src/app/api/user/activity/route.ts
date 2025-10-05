@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         activities.push({
           id: game.id,
           type: game.result === 'win' ? 'game_win' : 'game_loss',
-          description: `Played ${game.game_type} - ${game.result === 'win' ? 'Won' : 'Lost'} ${game.winnings} coins`,
+          description: `Played ${game.game_type} - ${game.result === 'win' ? 'Won' : 'Lost'} ${game.result === 'win' ? game.winnings : game.bet_amount} coins`,
           amount: game.result === 'win' ? game.winnings : -game.bet_amount,
           timestamp: game.created_at,
           category: 'gaming'

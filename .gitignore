@@ -108,3 +108,33 @@ build/
 # Prisma
 prisma/migrations/
 .vercel
+
+# TypeScript build info
+tsconfig.tsbuildinfo
+
+# Debug and log files
+*.log
+error.txt
+problem*.txt
+logs_result.json
+deployerror.txt
+scanme.txt
+tryme*.txt
+keys.txt
+
+# Temporary scripts and utilities
+check-database.js
+check-table-details.js
+test-login.js
+update-package.js
+server.js
+temp-queries.ts
+fix-database.html
+
+# Documentation artifacts
+*_SUMMARY.md
+*_GUIDE.md
+*_CHECKLIST.md
+*_STATUS.md
+DEPLOY_NOW.md
+README_CLEANUP.md

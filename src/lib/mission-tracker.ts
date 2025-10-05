@@ -127,13 +127,18 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
     const { data: missions } = await client
       .from('missions')
       .select('*')
-      .in('requirement_type', ['place_bet', 'win_bet', 'bet_amount', 'game_play'])
+      .in('requirement_type', ['place_bet', 'win_bet', 'bet_amount', 'game_play', 'crash_game_bets'])
       .eq('is_active', true);
     
     if (!missions?.length) return { success: true };
     
     // Update or create mission progress
     for (const mission of missions) {
+      // Skip crash game specific missions if not crash game
+      if (mission.requirement_type === 'crash_game_bets' && gameType !== 'crash') {
+        continue;
+      }
+      
       const { data: progress } = await client
         .from('user_mission_progress')
         .select('*')
@@ -144,7 +149,7 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
       let progressIncrement = 1;
       if (mission.requirement_type === 'bet_amount') {
         progressIncrement = amount; // Track total bet amount
-      } else if (mission.requirement_type === 'place_bet') {
+      } else if (mission.requirement_type === 'place_bet' || mission.requirement_type === 'crash_game_bets') {
         progressIncrement = 1; // Count number of bets placed
       }
       
@@ -186,6 +191,59 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
     return { success: true };
   } catch (error) {
     console.error('Error tracking bet placed:', error);
+    return { success: false, error };
+  }
+}
+
+export async function trackCrashGameEarnings(userId: string, earnings: number, supabaseClient?: SupabaseClient) {
+  try {
+    const client = supabaseClient || supabase;
+    
+    // Check if there's an active mission for crash game earnings
+    const { data: missions } = await client
+      .from('missions')
+      .select('*')
+      .eq('requirement_type', 'crash_game_earnings')
+      .eq('is_active', true);
+    
+    if (!missions?.length) return { success: true };
+    
+    // Update or create mission progress
+    for (const mission of missions) {
+      const { data: progress } = await client
+        .from('user_mission_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('mission_id', mission.id)
+        .single();
+      
+      if (progress) {
+        // Update existing progress
+        await client
+          .from('user_mission_progress')
+          .update({ 
+            current_progress: Math.min(progress.current_progress + earnings, mission.requirement_value),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progress.id);
+      } else {
+        // Create new progress record
+        await client
+          .from('user_mission_progress')
+          .insert({
+            user_id: userId,
+            mission_id: mission.id,
+            current_progress: earnings,
+            target_progress: mission.requirement_value,
+            completed: false
+          });
+      }
+    }
+    
+    console.log(`Tracking crash game earnings for user ${userId}, earnings ${earnings}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error tracking crash game earnings:', error);
     return { success: false, error };
   }
 }

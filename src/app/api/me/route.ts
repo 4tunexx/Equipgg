@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from "../../../lib/auth-utils";
 import { createServerSupabaseClient } from "../../../lib/supabase";
+import { getLevelFromXP } from "../../../lib/xp-config";
 
 interface User {
   id: string;
@@ -59,6 +60,9 @@ export async function GET(req: NextRequest) {
       const displayName = user.displayname || user.username || 'Player';
       const isSteamUser = !!user.steam_id;
       
+      // Calculate level from XP to ensure consistency
+      const calculatedLevel = getLevelFromXP(user.xp || 0);
+      
       // Build Steam profile data if user is a Steam user
       const steamProfile = isSteamUser ? {
         steamId: user.steam_id,
@@ -76,7 +80,7 @@ export async function GET(req: NextRequest) {
           photoURL: user.avatar_url,
           avatarUrl: user.avatar_url, // Keep both for compatibility
           xp: user.xp || 0,
-          level: user.level || 1,
+          level: calculatedLevel, // Use calculated level from XP
           role: user.role || 'user',
           coins: user.coins || 0,
           gems: user.gems || 0,

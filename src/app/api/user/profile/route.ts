@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { getAuthenticatedUser } from '@/lib/supabase'
+import { getLevelFromXP } from '@/lib/xp-config'
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,6 +10,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Calculate level from XP to ensure consistency
+    const calculatedLevel = getLevelFromXP(user.xp || 0);
+
     return NextResponse.json({
       success: true,
       user: {
@@ -17,7 +21,7 @@ export async function GET(request: NextRequest) {
         displayName: user.displayname || user.name || 'User',
         photoURL: user.avatar_url || '',
         role: user.role || 'user',
-        level: user.level || 1,
+        level: calculatedLevel, // Use calculated level from XP
         xp: user.xp || 0,
         coins: user.coins || 0,
         gems: user.gems || 0,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { getLevelFromXP } from "../../../../lib/xp-config";
 
 export async function GET(
   request: NextRequest,
@@ -49,6 +50,9 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Calculate level from XP to ensure consistency
+    const calculatedLevel = getLevelFromXP(user.xp || 0);
+
     // Return public user data (no sensitive information)
     return NextResponse.json({
       success: true,
@@ -59,7 +63,7 @@ export async function GET(
         username: user.username || user.displayname || 'Player',
         role: user.role || 'user',
         xp: user.xp || 0,
-        level: user.level || 1,
+        level: calculatedLevel, // Use calculated level from XP
         avatar: user.avatar_url || null,
         avatarUrl: user.avatar_url,
         createdAt: user.created_at,

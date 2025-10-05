@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
 
     // Get the coinflip game
     const { data: game, error: gameError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .select('*')
       .eq('id', gameId)
       .single();
@@ -95,8 +95,7 @@ export async function POST(request: NextRequest) {
     const { error: balanceError } = await supabase
       .from('users')
       .update({ 
-        balance: newBalance,
-        updated_at: new Date().toISOString()
+        balance: newBalance
       })
       .eq('id', session.user_id);
 
@@ -112,15 +111,12 @@ export async function POST(request: NextRequest) {
 
     // Update game with joiner and result
     const { data: updatedGame, error: updateError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .update({
         joiner_id: session.user_id,
-        joiner_side: side,
-        result: flipResult,
         winner_id: isWinner ? session.user_id : game.creator_id,
         status: 'completed',
-        completed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
+        completed_at: new Date().toISOString()
       })
       .eq('id', gameId)
       .select()
@@ -142,8 +138,7 @@ export async function POST(request: NextRequest) {
       const { error: winningsError } = await supabase
         .from('users')
         .update({ 
-          balance: newBalance + winnings,
-          updated_at: new Date().toISOString()
+          balance: newBalance + winnings
         })
         .eq('id', session.user_id);
 
@@ -162,8 +157,7 @@ export async function POST(request: NextRequest) {
         const { error: winningsError } = await supabase
           .from('users')
           .update({ 
-            balance: creatorData.balance + winnings,
-            updated_at: new Date().toISOString()
+            balance: creatorData.balance + winnings
           })
           .eq('id', game.creator_id);
 
@@ -227,8 +221,7 @@ export async function POST(request: NextRequest) {
         await supabase
           .from('users')
           .update({ 
-            xp: (player.xp || 0) + xpReward,
-            updated_at: new Date().toISOString()
+            xp: (player.xp || 0) + xpReward
           })
           .eq('id', player.id);
       }

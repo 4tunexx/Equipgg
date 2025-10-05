@@ -22,6 +22,7 @@ type LeaderboardPlayer = {
 };
 import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
 import { XpDisplay } from "./xp-display";
+import { getLevelFromXP } from "../lib/xp-config";
 import { useState, useEffect } from 'react';
   
 import { BadgeCheck } from "lucide-react";
@@ -107,9 +108,9 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
         fetchUserStats();
     }, [displayUser.name, displayUser.username, displayUser.xp, displayUser.level]);
     
-    // Prefer userStats over displayUser data, but ensure we never show 0 if we have valid data
-    const level = userStats?.level || displayUser.level || 1;
+    // Calculate level from XP to ensure consistency
     const xp = userStats?.xp || displayUser.xp || 0;
+    const level = getLevelFromXP(xp);
 
     
     // Safely handle name property - prioritize Steam displayname

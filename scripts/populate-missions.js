@@ -132,6 +132,36 @@ const defaultMissions = [
     order_index: 8
   },
 
+  // Crash Game Specific Missions
+  {
+    name: 'Crash Game Enthusiast',
+    description: 'Bet 10 times on crash game today',
+    mission_type: 'daily',
+    tier: 2,
+    xp_reward: 150,
+    coin_reward: 300,
+    requirement_type: 'crash_game_bets',
+    requirement_value: 10,
+    target_value: 10,
+    is_repeatable: true,
+    is_active: true,
+    order_index: 9
+  },
+  {
+    name: 'Crash Master',
+    description: 'Earn 10,000 coins from crash game',
+    mission_type: 'main',
+    tier: 5,
+    xp_reward: 2000,
+    coin_reward: 5000,
+    requirement_type: 'crash_game_earnings',
+    requirement_value: 10000,
+    target_value: 10000,
+    is_repeatable: false,
+    is_active: true,
+    order_index: 10
+  },
+
   // General Daily Activities
   {
     name: 'Daily Login',
@@ -145,7 +175,7 @@ const defaultMissions = [
     requirement_value: 1,
     is_repeatable: true,
     is_active: true,
-    order_index: 9
+    order_index: 11
   }
 ];
 
@@ -153,27 +183,32 @@ async function populateMissions() {
   try {
     console.log('🚀 Starting missions population...');
     
-    // Check if missions already exist
-    const { data: existingMissions, error: checkError } = await supabase
+    // Check if crash game missions already exist
+    const { data: existingCrashMissions, error: checkError } = await supabase
       .from('missions')
       .select('id, name')
-      .limit(5);
+      .in('name', ['Crash Game Enthusiast', 'Crash Master']);
     
     if (checkError) {
-      console.error('❌ Error checking existing missions:', checkError);
+      console.error('❌ Error checking existing crash missions:', checkError);
       return;
     }
     
-    if (existingMissions && existingMissions.length > 0) {
-      console.log(`📋 Found ${existingMissions.length} existing missions. Skipping population.`);
-      console.log('Existing missions:', existingMissions.map(m => m.name));
+    if (existingCrashMissions && existingCrashMissions.length > 0) {
+      console.log(`📋 Found ${existingCrashMissions.length} existing crash missions. Skipping population.`);
+      console.log('Existing crash missions:', existingCrashMissions.map(m => m.name));
       return;
     }
     
-    // Insert default missions
+    // Insert only crash game missions
+    const crashMissions = defaultMissions.filter(mission => 
+      mission.name === 'Crash Game Enthusiast' || mission.name === 'Crash Master'
+    );
+    
+    // Insert crash game missions
     const { data: insertedMissions, error: insertError } = await supabase
       .from('missions')
-      .insert(defaultMissions)
+      .insert(crashMissions)
       .select('id, name, mission_type');
     
     if (insertError) {

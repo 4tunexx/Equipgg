@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from '../../../../lib/auth-utils';
 import { supabase } from "../../../../lib/supabase";
+import { trackBetPlaced, trackCrashGameEarnings } from '../../../../lib/mission-tracker';
 
 // Game session management and play endpoint
 export async function POST(request: NextRequest) {
@@ -33,10 +34,10 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Get user's current balance
+    // Get user's current balance and XP data
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('coins, level, vip_tier')
+      .select('coins, level, vip_tier, xp')
       .eq('id', session.user_id)
       .single();
 
@@ -59,16 +60,38 @@ export async function POST(request: NextRequest) {
 
     switch (gameType) {
       case 'crash':
-        // Crash multiplier simulation
-        const crashMultiplier = generateCrashMultiplier();
-        const targetMultiplier = gameData?.targetMultiplier || 2.0;
-        won = crashMultiplier >= targetMultiplier;
-        winnings = won ? Math.floor(betAmount * targetMultiplier) : 0;
+        // Crash game logic - use data from frontend
+        let crashMultiplier;
+        let targetMultiplier = gameData?.targetMultiplier;
+        
+        if (gameData?.crashedAt) {
+          // Game crashed - use the actual crash point from frontend
+          crashMultiplier = gameData.crashedAt;
+          targetMultiplier = gameData.targetMultiplier || gameData.cashedOutAt || 2.0;
+          // Player loses if they didn't cash out before crash
+          won = gameData.cashedOutAt && gameData.cashedOutAt <= crashMultiplier;
+          winnings = won ? Math.floor(betAmount * gameData.cashedOutAt) : 0;
+        } else if (gameData?.cashedOutAt) {
+          // Player cashed out successfully
+          crashMultiplier = generateCrashMultiplier(); // This doesn't matter as they cashed out
+          targetMultiplier = gameData.cashedOutAt;
+          won = true;
+          winnings = Math.floor(betAmount * gameData.cashedOutAt);
+        } else {
+          // Fallback to old logic if no specific data provided
+          crashMultiplier = generateCrashMultiplier();
+          targetMultiplier = gameData?.targetMultiplier || 2.0;
+          won = crashMultiplier >= targetMultiplier;
+          winnings = won ? Math.floor(betAmount * targetMultiplier) : 0;
+        }
+        
         result = {
           crashMultiplier,
           targetMultiplier,
           won,
-          winnings
+          winnings,
+          cashedOutAt: gameData?.cashedOutAt || null,
+          crashedAt: gameData?.crashedAt || crashMultiplier
         };
         break;
 
@@ -119,9 +142,11 @@ export async function POST(request: NextRequest) {
         break;
     }
 
-    // Calculate new balance
+    // Calculate new balance and XP
     const newBalance = userData.coins - betAmount + winnings;
     const netGain = winnings - betAmount;
+    // Give more generous XP: minimum 2 XP, +1 XP per 50 coins bet
+    const xpGain = Math.max(2, Math.floor(betAmount / 50));
 
     // Update user balance
     const { error: updateError } = await supabase
@@ -134,23 +159,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update balance' }, { status: 500 });
     }
 
-    // Record the game session
-    const gameRecord = {
+    // Record the game in game_history table
+    const gameHistoryRecord = {
+      id: `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       user_id: session.user_id,
       game_type: gameType,
       bet_amount: betAmount,
-      result: won ? 'win' : 'loss',
       winnings: winnings,
-      net_gain: netGain,
+      profit: netGain,
+      multiplier: result.multiplier || result.targetMultiplier || 1.0,
       game_data: JSON.stringify(result),
-      created_at: new Date().toISOString()
+      result: won ? 'win' : 'loss',
+      tiles_cleared: result.safeReveals || result.revealCount || 0,
+      xp_gained: xpGain
     };
 
-    // Try to insert game record (if table exists)
-    try {
-      await supabase.from('game_sessions').insert([gameRecord]);
-    } catch (insertError) {
-      console.log('Game sessions table not available, skipping record');
+    // Insert into game_history table
+    const { error: historyError } = await supabase
+      .from('game_history')
+      .insert([gameHistoryRecord]);
+
+    if (historyError) {
+      console.log('Game history insert error:', historyError);
+      // Don't fail the request if history insert fails
     }
 
     // Record transaction
@@ -162,14 +193,34 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString()
     }]);
 
-    // Update XP for playing (small amount)
-    const xpGain = Math.max(1, Math.floor(betAmount / 100));
+    // Update XP and level for playing
+    const newXP = (userData.xp || 0) + xpGain;
+    
+    // Calculate correct level from new XP total
+    const { getLevelFromXP } = await import('../../../../lib/xp-config');
+    const calculatedLevel = getLevelFromXP(newXP);
+    
     await supabase
       .from('users')
       .update({ 
-        xp: (userData.level * 1000) + xpGain // Simple XP calculation
+        xp: newXP,
+        level: calculatedLevel
       })
       .eq('id', session.user_id);
+
+    // Track mission progress
+    try {
+      // Track bet placed for all games
+      await trackBetPlaced(session.user_id, betAmount, gameType, supabase);
+      
+      // Track crash game specific earnings if won
+      if (gameType === 'crash' && won && winnings > 0) {
+        await trackCrashGameEarnings(session.user_id, winnings, supabase);
+      }
+    } catch (missionError) {
+      console.error('Error tracking mission progress:', missionError);
+      // Don't fail the game request if mission tracking fails
+    }
 
     return NextResponse.json({
       success: true,
@@ -224,9 +275,9 @@ export async function GET(request: NextRequest) {
     const gameType = searchParams.get('type');
     const limit = parseInt(searchParams.get('limit') || '10');
 
-    // Get user's recent games
+    // Get user's recent games from game_history table
     const { data: recentGames, error } = await supabase
-      .from('game_sessions')
+      .from('game_history')
       .select('*')
       .eq('user_id', session.user_id)
       .eq(gameType ? 'game_type' : 'user_id', gameType || session.user_id) // Filter by game type if provided

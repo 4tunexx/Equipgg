@@ -429,7 +429,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                         xp={balance?.xp ?? 0} 
                         level={balance?.level ?? 1}
                         userId={user?.id}
-                        autoFetch={true}
+                        autoFetch={false}
                         className=""
                     />
                 </div>

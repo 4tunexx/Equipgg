@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '50');
     const offset = parseInt(searchParams.get('offset') || '0');
-    const gameType = searchParams.get('game_type');
+    const gameType = searchParams.get('game_type') || searchParams.get('gameType');
 
     let query = supabase
       .from('game_history')
@@ -21,10 +21,13 @@ export async function GET(request: NextRequest) {
         game_type,
         bet_amount,
         multiplier,
-        payout,
-        profit_loss,
+        winnings,
+        profit,
         created_at,
-        game_data
+        game_data,
+        result,
+        tiles_cleared,
+        xp_gained
       `)
       .eq('user_id', authSession.user_id)
       .order('created_at', { ascending: false })
@@ -41,15 +44,15 @@ export async function GET(request: NextRequest) {
     // Calculate summary statistics
     const { data: stats, error: statsError } = await supabase
       .from('game_history')
-      .select('bet_amount, profit_loss')
+      .select('bet_amount, profit')
       .eq('user_id', authSession.user_id);
 
     if (statsError) throw statsError;
 
     const totalBets = stats?.length || 0;
     const totalWagered = stats?.reduce((sum, game) => sum + (game.bet_amount || 0), 0) || 0;
-    const totalProfitLoss = stats?.reduce((sum, game) => sum + (game.profit_loss || 0), 0) || 0;
-    const wins = stats?.filter(game => (game.profit_loss || 0) > 0).length || 0;
+    const totalProfitLoss = stats?.reduce((sum, game) => sum + (game.profit || 0), 0) || 0;
+    const wins = stats?.filter(game => (game.profit || 0) > 0).length || 0;
     const winRate = totalBets > 0 ? (wins / totalBets) * 100 : 0;
 
     return NextResponse.json({
@@ -82,7 +85,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { game_type, bet_amount, multiplier, payout, profit_loss, game_data } = body;
+    const { game_type, bet_amount, multiplier, winnings, profit, game_data, result, tiles_cleared, xp_gained } = body;
 
     if (!game_type || bet_amount === undefined) {
       return NextResponse.json({ 
@@ -93,13 +96,17 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('game_history')
       .insert({
+        id: `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         user_id: authSession.user_id,
         game_type,
         bet_amount,
         multiplier: multiplier || null,
-        payout: payout || 0,
-        profit_loss: profit_loss || (payout || 0) - bet_amount,
-        game_data: game_data || {},
+        winnings: winnings || 0,
+        profit: profit || (winnings || 0) - bet_amount,
+        game_data: game_data || '',
+        result: result || '',
+        tiles_cleared: tiles_cleared || 0,
+        xp_gained: xp_gained || 0,
         created_at: new Date().toISOString()
       })
       .select()

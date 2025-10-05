@@ -34,13 +34,20 @@ interface CoinflipGameHistoryItem {
 interface CoinflipLobby {
     id: string;
     creator: {
-        name: string;
-        avatar: string;
-        dataAiHint: string;
+        username: string;
+        level: number;
+        vip_tier: string;
     };
     bet_amount: number;
-    side: 'heads' | 'tails';
-    timeLeft: string;
+    creator_side: 'heads' | 'tails';
+    available_side: 'heads' | 'tails';
+    status: string;
+    created_at: string;
+    result: string | null;
+    winner_id: string | null;
+    completed_at: string | null;
+    joiner_id: string | null;
+    timeLeft?: string; // This is added by frontend processing
 }
 
 
@@ -107,7 +114,32 @@ export function CoinflipGame() {
             const response = await fetch('/api/coinflip/lobbies');
             if (response.ok) {
                 const data = await response.json();
-                setLobbies(data.lobbies || []);
+                // Process lobbies to add timeLeft calculation
+                const processedLobbies = (data.lobbies || []).map((lobby: any) => {
+                    // Calculate time left (5 minutes from creation)
+                    const createdAt = new Date(lobby.created_at);
+                    const now = new Date();
+                    const timeElapsed = now.getTime() - createdAt.getTime();
+                    const timeLeft = Math.max(0, 300000 - timeElapsed); // 5 minutes in ms
+                    
+                    console.log('Timer debug for lobby', lobby.id, {
+                        created_at: lobby.created_at,
+                        createdAt,
+                        now,
+                        timeElapsed,
+                        timeLeft
+                    });
+                    
+                    const minutes = Math.floor(timeLeft / 60000);
+                    const seconds = Math.floor((timeLeft % 60000) / 1000);
+                    const timeLeftString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                    
+                    return {
+                        ...lobby,
+                        timeLeft: timeLeftString
+                    };
+                });
+                setLobbies(processedLobbies);
             } else if (response.status === 401) {
                 console.log('Session corruption detected, attempting repair...');
                 const repaired = await repairSession();
@@ -116,7 +148,23 @@ export function CoinflipGame() {
                     const retryResponse = await fetch('/api/coinflip/lobbies');
                     if (retryResponse.ok) {
                         const retryData = await retryResponse.json();
-                        setLobbies(retryData.lobbies || []);
+                        const processedRetryLobbies = (retryData.lobbies || []).map((lobby: any) => {
+                            // Calculate time left (5 minutes from creation)
+                            const createdAt = new Date(lobby.created_at);
+                            const now = new Date();
+                            const timeElapsed = now.getTime() - createdAt.getTime();
+                            const timeLeft = Math.max(0, 300000 - timeElapsed); // 5 minutes in ms
+                            
+                            const minutes = Math.floor(timeLeft / 60000);
+                            const seconds = Math.floor((timeLeft % 60000) / 1000);
+                            const timeLeftString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                            
+                            return {
+                                ...lobby,
+                                timeLeft: timeLeftString
+                            };
+                        });
+                        setLobbies(processedRetryLobbies);
                     }
                 }
             } else if (response.status === 404) {
@@ -136,9 +184,33 @@ export function CoinflipGame() {
         fetchGameHistory();
         fetchLobbies();
         
-        // Refresh lobbies every 1 second to catch expired lobbies immediately
-        const interval = setInterval(fetchLobbies, 1000);
-        return () => clearInterval(interval);
+        // Refresh lobbies every 5 seconds (much more reasonable than 1 second)
+        const interval = setInterval(fetchLobbies, 5000);
+        
+        // Update timers every second for real-time countdown
+        const timerInterval = setInterval(() => {
+            setLobbies(currentLobbies => currentLobbies.map(lobby => {
+                // Recalculate time left
+                const createdAt = new Date(lobby.created_at);
+                const now = new Date();
+                const timeElapsed = now.getTime() - createdAt.getTime();
+                const timeLeft = Math.max(0, 300000 - timeElapsed); // 5 minutes in ms
+                
+                const minutes = Math.floor(timeLeft / 60000);
+                const seconds = Math.floor((timeLeft % 60000) / 1000);
+                const timeLeftString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                return {
+                    ...lobby,
+                    timeLeft: timeLeftString
+                };
+            }));
+        }, 1000);
+        
+        return () => {
+            clearInterval(interval);
+            clearInterval(timerInterval);
+        };
     }, [user, fetchGameHistory, fetchLobbies]);
 
     // No more frontend timer - let backend handle everything
@@ -208,7 +280,7 @@ export function CoinflipGame() {
 
         // Check if user is trying to join their own lobby
         const currentUserName = user.displayName || user.email;
-        if (lobby.creator.name === currentUserName) {
+        if (lobby.creator.username === currentUserName) {
             toast.error("You can&apos;t join your own lobby! Create a different lobby or wait for someone else to join.");
             return;
         }
@@ -235,15 +307,19 @@ export function CoinflipGame() {
                 // Set up the game panel with the actual result
                 setActiveGame({
                     lobbyId,
-                    creator: lobby.creator,
+                    creator: {
+                        name: lobby.creator.username,
+                        avatar: '',
+                        dataAiHint: 'user avatar'
+                    },
                     joiner: {
                         name: user.displayName || user.email,
                         avatar: user.photoURL || '',
                         dataAiHint: 'user avatar'
                     },
                     betAmount: lobby.bet_amount,
-                    creatorSide: lobby.side,
-                    joinerSide: lobby.side === 'heads' ? 'tails' : 'heads',
+                    creatorSide: lobby.creator_side,
+                    joinerSide: lobby.creator_side === 'heads' ? 'tails' : 'heads',
                     gameResult: data.result // Pass the actual game result
                 });
                 
@@ -350,23 +426,23 @@ export function CoinflipGame() {
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant="secondary" className="capitalize">{lobby.side}</Badge>
+                                                <Badge variant="secondary" className="capitalize">{lobby.creator_side}</Badge>
                                             </TableCell>
                                             <TableCell className="font-mono">
                                                 <span className={`${
                                                     lobby.timeLeft === '0:00' 
                                                         ? 'text-red-500 font-bold' 
-                                                        : lobby.timeLeft.startsWith('0:') && parseInt(lobby.timeLeft.split(':')[1]) <= 30
+                                                        : lobby.timeLeft && lobby.timeLeft.startsWith('0:') && parseInt(lobby.timeLeft.split(':')[1]) <= 30
                                                         ? 'text-orange-500 font-semibold'
                                                         : 'text-muted-foreground'
                                                 }`}>
-                                                    {lobby.timeLeft}
+                                                    {lobby.timeLeft || '5:00'}
                                                 </span>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 {(() => {
                                                     const currentUserName = user?.displayName || user?.email;
-                                                    const isOwnLobby = lobby.creator.name === currentUserName;
+                                                    const isOwnLobby = lobby.creator.username === currentUserName;
                                                     
                                                     return (
                                                         <Button 

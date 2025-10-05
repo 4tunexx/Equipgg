@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { getLevelFromXP } from "../../../../lib/xp-config";
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,6 +37,9 @@ export async function GET(request: NextRequest) {
     if (!userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    
+    // Calculate level from XP to ensure consistency
+    const calculatedLevel = getLevelFromXP(userData.xp || 0);
     // Get betting stats
     const { data: betStats } = await supabase
       .from('user_bets')
@@ -75,7 +79,7 @@ export async function GET(request: NextRequest) {
     const maxInventorySlots = 50; // TODO: add perks logic if needed
     const stats = {
       xp: userData.xp || 0,
-      level: userData.level || 1,
+      level: calculatedLevel, // Use calculated level from XP
       coins: userData.coins || 0,
       gems: userData.gems || 0,
       totalBets,

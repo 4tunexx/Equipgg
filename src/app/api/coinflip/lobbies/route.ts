@@ -12,22 +12,17 @@ export async function GET(request: NextRequest) {
 
     // Get coinflip games
     const { data: games, error: gamesError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .select(`
         id,
         creator_id,
         bet_amount,
-        creator_side,
+        side,
         status,
         created_at,
-        result,
         winner_id,
         completed_at,
-        users!creator_id (
-          username,
-          level,
-          vip_tier
-        )
+        joiner_id
       `)
       .eq('status', status)
       .order('created_at', { ascending: false })
@@ -38,6 +33,7 @@ export async function GET(request: NextRequest) {
         // Tables don't exist yet - return empty state
         return NextResponse.json({
           success: true,
+          lobbies: [],
           games: [],
           total: 0,
           message: 'Coinflip feature not yet configured. Please set up the database tables.'
@@ -47,35 +43,53 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Failed to fetch coinflip games',
         success: false,
+        lobbies: [],
         games: [],
         total: 0
       }, { status: 500 });
     }
 
+    // Get user data for each game separately to avoid join issues
+    const gamesWithUsers = await Promise.all(
+      (games || []).map(async (game) => {
+        const { data: creator } = await supabase
+          .from('users')
+          .select('username, level, vip_tier')
+          .eq('id', game.creator_id)
+          .single();
+        
+        return {
+          ...game,
+          creator: creator || { username: 'Unknown', level: 1, vip_tier: 'none' }
+        };
+      })
+    );
+
     // Format the response
-    const formattedGames = games?.map(game => {
-      const creator = Array.isArray(game.users) ? game.users[0] : game.users;
+    const formattedGames = gamesWithUsers?.map(game => {
       return {
         id: game.id,
         creator: {
-          username: creator?.username || 'Unknown',
-          level: creator?.level || 1,
-          vip_tier: creator?.vip_tier || 'none'
+          username: game.creator?.username || 'Unknown',
+          level: game.creator?.level || 1,
+          vip_tier: game.creator?.vip_tier || 'none'
         },
         bet_amount: game.bet_amount,
-        creator_side: game.creator_side,
-        available_side: game.creator_side === 'heads' ? 'tails' : 'heads',
+        creator_side: game.side, // Use the 'side' column as creator_side
+        available_side: game.side === 'heads' ? 'tails' : 'heads',
         status: game.status,
         created_at: game.created_at,
-        result: game.result,
+        result: null, // No result column in this table
         winner_id: game.winner_id,
-        completed_at: game.completed_at
+        completed_at: game.completed_at,
+        joiner_id: game.joiner_id
       };
     }) || [];
 
     return NextResponse.json({
       success: true,
-      games: formattedGames,
+      lobbies: formattedGames,
+      games: formattedGames, // Keep for backward compatibility
       total: formattedGames.length
     });
 
@@ -88,20 +102,28 @@ export async function GET(request: NextRequest) {
 // Create a new coinflip game
 export async function POST(request: NextRequest) {
   try {
+    console.log('=== COINFLIP POST DEBUG START ===');
     const session = await getAuthSession(request);
+    console.log('Session:', session ? 'Valid' : 'Invalid');
     if (!session) {
+      console.log('No session, returning 401');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { betAmount, side } = await request.json();
+    const body = await request.json();
+    console.log('Request body:', body);
+    const { betAmount, side } = body;
+    console.log('Parsed betAmount:', betAmount, 'side:', side);
 
     if (!betAmount || betAmount <= 0) {
+      console.log('Invalid bet amount:', betAmount);
       return NextResponse.json({ 
         error: 'Valid bet amount is required' 
       }, { status: 400 });
     }
 
     if (!side || !['heads', 'tails'].includes(side)) {
+      console.log('Invalid side:', side);
       return NextResponse.json({ 
         error: 'Side must be "heads" or "tails"' 
       }, { status: 400 });
@@ -109,74 +131,110 @@ export async function POST(request: NextRequest) {
 
     // Minimum and maximum bet validation
     if (betAmount < 10) {
+      console.log('Bet amount too low:', betAmount);
       return NextResponse.json({ 
         error: 'Minimum bet amount is 10 coins' 
       }, { status: 400 });
     }
 
     if (betAmount > 1000) {
+      console.log('Bet amount too high:', betAmount);
       return NextResponse.json({ 
         error: 'Maximum bet amount is 1000 coins' 
       }, { status: 400 });
     }
 
-    // Get user's current balance
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('balance, username, level, vip_tier')
-      .eq('id', session.user_id)
-      .single();
+    console.log('Bet validation passed, fetching user data...');
+    console.log('Fetching user data for user_id:', session.user_id);
 
-    if (userError) {
-      if (userError.code === 'PGRST116') {
-        return NextResponse.json({
-          success: true,
-          message: 'Game created (development mode)',
-          game: {
-            id: `cf_mock_${Date.now()}`,
-            creator: { username: 'TestUser', level: 25, vip_tier: 'none' },
-            bet_amount: betAmount,
-            creator_side: side,
-            status: 'waiting'
-          }
-        });
+    let userData: any = null;
+    try {
+      // Get user's current balance
+      const { data: userQueryData, error: userError } = await supabase
+        .from('users')
+        .select('balance, username, level, vip_tier')
+        .eq('id', session.user_id)
+        .single();
+
+      console.log('User data fetch result:', { userData: userQueryData, userError });
+
+      if (userError) {
+        console.log('User error details:', userError);
+        if (userError.code === 'PGRST116') {
+          console.log('User not found (PGRST116), using development mode');
+          return NextResponse.json({
+            success: true,
+            message: 'Game created (development mode)',
+            game: {
+              id: `cf_mock_${Date.now()}`,
+              creator: { username: 'TestUser', level: 25, vip_tier: 'none' },
+              bet_amount: betAmount,
+              creator_side: side,
+              status: 'waiting'
+            }
+          });
+        }
+        console.error('Error fetching user data:', userError);
+        console.log('Returning 404 error for user not found');
+        return NextResponse.json({ error: 'User not found' }, { status: 404 });
       }
-      console.error('Error fetching user data:', userError);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+
+      userData = userQueryData;
+      console.log('User data fetched successfully:', userData);
+    } catch (fetchError) {
+      console.error('Exception during user data fetch:', fetchError);
+      console.log('Returning 500 error for fetch exception');
+      return NextResponse.json({ error: 'Database error during user fetch' }, { status: 500 });
     }
 
     // Check if user has enough balance
+    console.log('Checking balance:', userData.balance, 'vs bet amount:', betAmount);
     if (userData.balance < betAmount) {
+      console.log('Insufficient balance, returning 400');
       return NextResponse.json({ 
         error: `Insufficient balance. Required: ${betAmount}, Available: ${userData.balance}` 
       }, { status: 400 });
     }
 
-    // Check if user already has an active game
+    console.log('Balance check passed, checking for existing games...');
+
+    // Check if user already has an active game (TEMPORARILY DISABLED)
+    console.log('Querying for existing games for user:', session.user_id);
     const { data: existingGame, error: existingError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .select('id')
       .eq('creator_id', session.user_id)
       .eq('status', 'waiting')
       .single();
 
+    console.log('Existing game query result:', { existingGame, existingError });
+
     if (existingError && existingError.code !== 'PGRST116') {
       console.error('Error checking existing games:', existingError);
+      console.log('Returning 500 error for existing game check failure');
+      return NextResponse.json({ error: 'Failed to check existing games' }, { status: 500 });
     }
 
+    // TEMPORARILY DISABLED: Allow multiple games per user for testing
+    // if (existingGame) {
+    //   console.log('User already has active game:', existingGame.id);
+    //   return NextResponse.json({ 
+    //     error: 'You already have an active game. Complete or cancel it first.' 
+    //   }, { status: 400 });
+    // }
+
     if (existingGame) {
-      return NextResponse.json({ 
-        error: 'You already have an active game. Complete or cancel it first.' 
-      }, { status: 400 });
+      console.log('User already has active game, but allowing multiple games for now:', existingGame.id);
     }
+
+    console.log('No existing games found, proceeding to create new game...');
 
     // Deduct bet amount from user's balance
     const newBalance = userData.balance - betAmount;
     const { error: balanceError } = await supabase
       .from('users')
       .update({ 
-        balance: newBalance,
-        updated_at: new Date().toISOString()
+        balance: newBalance
       })
       .eq('id', session.user_id);
 
@@ -190,13 +248,13 @@ export async function POST(request: NextRequest) {
       id: `cf_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
       creator_id: session.user_id,
       bet_amount: betAmount,
-      creator_side: side,
+      side: side, // Use 'side' instead of 'creator_side'
       status: 'waiting',
       created_at: new Date().toISOString()
     };
 
     const { data: newGame, error: gameError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .insert([gameData])
       .select()
       .single();
@@ -271,7 +329,7 @@ export async function DELETE(request: NextRequest) {
 
     // Get the game
     const { data: game, error: gameError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .select('*')
       .eq('id', gameId)
       .single();
@@ -312,8 +370,7 @@ export async function DELETE(request: NextRequest) {
       const { error: refundError } = await supabase
         .from('users')
         .update({ 
-          balance: userData.balance + game.bet_amount,
-          updated_at: new Date().toISOString()
+          balance: userData.balance + game.bet_amount
         })
         .eq('id', session.user_id);
 
@@ -324,10 +381,9 @@ export async function DELETE(request: NextRequest) {
 
     // Update game status
     const { error: updateError } = await supabase
-      .from('coinflip_games')
+      .from('coinflip_lobbies')
       .update({
-        status: 'cancelled',
-        updated_at: new Date().toISOString()
+        status: 'cancelled'
       })
       .eq('id', gameId);
 

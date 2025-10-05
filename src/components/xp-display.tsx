@@ -1,7 +1,7 @@
 'use client';
 
 import { Progress } from "./ui/progress";
-import { getLevelInfo as getNewLevelInfo, defaultXPConfig } from "../lib/xp-config";
+import { getLevelInfo as getNewLevelInfo, getLevelFromXP, defaultXPConfig } from "../lib/xp-config";
 import { useState, useEffect } from "react";
 
 interface XpDisplayProps {
@@ -104,9 +104,10 @@ export function XpDisplay({
     fetchXPData();
   }, [userId, autoFetch, propXp, propLevel]);
 
-  // Use fetched data or fallback to provided props
+  // Use fetched data or fallback to provided props  
   const currentXP = xpData?.xp ?? propXp ?? 0;
-  const currentLevel = xpData?.level ?? propLevel ?? 1;
+  // Always calculate level from XP to ensure consistency
+  const currentLevel = xpData?.level ?? getLevelFromXP(currentXP) ?? 1;
   const levelInfo = xpData?.levelInfo ?? getNewLevelInfo(currentXP, defaultXPConfig);
 
   // Use the correct fields from the API response or calculate locally

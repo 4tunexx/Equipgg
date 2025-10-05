@@ -6,7 +6,34 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Rocket, Loader2 } from "lucide-react";
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, XAxis, YAx    const playerHistory = gameHistory.map(game => {
+        // Parse game data to get crash-specific info
+        let gameData: any = {};
+        try {
+            gameData = typeof game.game_data === 'string' ? JSON.parse(game.game_data) : game.game_data;
+        } catch {
+            gameData = {};
+        }
+
+        return {
+            id: game.id,
+            user: { 
+                id: game.user_id, 
+                name: `Player ${game.user_id.slice(-4)}`, // Show last 4 chars of user ID
+                avatar: '',
+                role: 'user',
+                xp: game.xp_gained || 0,
+                level: 1
+            },
+            bet: game.bet_amount,
+            result: {
+                cashedOutAt: gameData.targetMultiplier || game.multiplier || 1.0
+            },
+            profit: game.profit,
+            won: game.result === 'win',
+            crashedAt: gameData.crashMultiplier || game.multiplier || 1.0
+        };
+    });harts';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { UserProfileLink } from "../user-profile-link";
 import { useAuth } from "../../hooks/use-auth";
@@ -37,7 +64,7 @@ interface CrashDataPoint {
 }
 
 export function CrashGame() {
-    const { user, refreshUser } = useAuth();
+    const { user } = useAuth();
     const { balance, updateBalance } = useBalance();
     const [betAmount, setBetAmount] = useState('');
     const [autoCashout, setAutoCashout] = useState('');
@@ -60,10 +87,6 @@ export function CrashGame() {
     
     useEffect(() => {
         fetchGameHistory();
-        // Refresh user data to ensure profile cards show latest info
-        if (user) {
-            refreshUser();
-        }
     }, [user]);
 
     // Game loop effect
@@ -200,13 +223,7 @@ export function CrashGame() {
             const data = await response.json();
             
             if (response.ok) {
-                toast.error(`💥 Crashed at ${crashPoint?.toFixed(2)}x! Lost ${amount.toLocaleString()} coins`);
-                
-                // Show XP gain even when losing
-                if (data.game?.xpGain && data.game.xpGain > 0) {
-                    toast.success(`⭐ +${data.game.xpGain} XP earned for playing!`);
-                }
-                
+                toast.error(`Crashed at ${crashPoint?.toFixed(2)}x! Lost ${amount.toLocaleString()} coins`);
                 setBetAmount('');
                 setAutoCashout('');
                 fetchGameHistory();
@@ -215,7 +232,7 @@ export function CrashGame() {
                 // Dispatch events to update dashboard
                 window.dispatchEvent(new CustomEvent('gameCompleted'));
                 window.dispatchEvent(new CustomEvent('balanceUpdated'));
-                if (data.game?.xpGain && data.game.xpGain > 0) {
+                if (data.xpGained && data.xpGained > 0) {
                     window.dispatchEvent(new CustomEvent('xpUpdated'));
                 }
             } else {
@@ -237,7 +254,6 @@ export function CrashGame() {
             const response = await fetch('/api/games/history?gameType=crash&limit=5');
             if (response.ok) {
                 const data = await response.json();
-                console.log('Fetched game history:', data); // Debug log
                 // Remove duplicates based on game ID only
                 const uniqueHistory = data.history?.filter((game: GameHistoryItem, index: number, self: GameHistoryItem[]) => 
                     index === self.findIndex((g: GameHistoryItem) => g.id === game.id)
@@ -245,10 +261,7 @@ export function CrashGame() {
                 
                 // Take only the latest 5 unique games
                 const finalHistory = uniqueHistory.slice(0, 5);
-                console.log('Final game history:', finalHistory); // Debug log
                 setGameHistory(finalHistory);
-            } else {
-                console.error('Failed to fetch game history:', response.status, response.statusText);
             }
         } catch (error) {
             console.error('Failed to fetch game history:', error);
@@ -303,6 +316,8 @@ export function CrashGame() {
         }
 
         const amount = parseFloat(betAmount);
+        // Apply house edge of 5% to reduce player winnings
+        const winnings = Math.floor(amount * currentMultiplier * 0.95);
         
         // Set these states IMMEDIATELY to prevent double processing
         setCashedOut(true);
@@ -318,24 +333,17 @@ export function CrashGame() {
                     gameType: 'crash',
                     betAmount: amount,
                     gameData: {
-                        targetMultiplier: currentMultiplier, // This is what the API expects!
+                        autoCashout: null,
                         cashedOutAt: currentMultiplier,
-                        crashedAt: crashPoint
+                        crashedAt: crashPoint // Send the actual crash point
                     }
                 })
             });
 
             const data = await response.json();
             
-            if (response.ok && data.game) {
-                const actualWinnings = data.game.winnings || Math.floor(amount * currentMultiplier);
-                toast.success(`🚀 Cashed out at ${currentMultiplier.toFixed(2)}x! Won ${actualWinnings.toLocaleString()} coins!`);
-                
-                // Show XP gain
-                if (data.game.xpGain && data.game.xpGain > 0) {
-                    toast.success(`⭐ +${data.game.xpGain} XP earned!`);
-                }
-                
+            if (response.ok) {
+                toast.success(`Cashed out at ${currentMultiplier.toFixed(2)}x! Won ${winnings.toLocaleString()} coins`);
                 setBetAmount('');
                 setAutoCashout('');
                 fetchGameHistory();
@@ -344,7 +352,7 @@ export function CrashGame() {
                 // Dispatch events to update dashboard
                 window.dispatchEvent(new CustomEvent('gameCompleted'));
                 window.dispatchEvent(new CustomEvent('balanceUpdated'));
-                if (data.game.xpGain && data.game.xpGain > 0) {
+                if (data.xpGained && data.xpGained > 0) {
                     window.dispatchEvent(new CustomEvent('xpUpdated'));
                 }
             } else {
@@ -363,23 +371,20 @@ export function CrashGame() {
         }
     };
 
-    const playerHistory = gameHistory.map(game => {
-        // Parse game data to get crash-specific info
-        let gameData: any = {};
-        try {
-            gameData = typeof game.game_data === 'string' ? JSON.parse(game.game_data) : game.game_data;
-        } catch {
-            gameData = {};
-        }
-
-        return {
-            id: game.id,
-            bet: game.bet_amount,
-            cashedOut: gameData.cashedOutAt || null,
-            profit: game.profit,
-            // Don't create fake user data - we'll use real user data in the component
-        };
-    });
+    const playerHistory = gameHistory.map(game => ({
+        id: game.id,
+        user: { 
+            id: game.user.id, 
+            name: game.user.name, 
+            avatar: game.user.avatar,
+            role: game.user.role,
+            xp: game.user.xp,
+            level: game.user.level
+        },
+        bet: game.betAmount,
+        cashedOut: game.result?.cashedOutAt || null,
+        profit: game.profit
+    }));
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8">
             <div className="lg:col-span-2">
@@ -402,13 +407,12 @@ export function CrashGame() {
                         </div>
 
                         {/* Cash Out Button */}
-                        {hasBetThisRound && gameState === 'playing' && !cashedOut && !gameProcessed && (
+                        {hasBetThisRound && gameState === 'playing' && !cashedOut && (
                             <div className="absolute top-2 right-2 md:top-4 md:right-4 z-10">
                                 <Button 
                                     onClick={handleCashOut}
                                     className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs md:text-sm"
                                     size="sm"
-                                    disabled={isPlaying || gameProcessed}
                                 >
                                     Cash Out {currentMultiplier.toFixed(2)}x
                                 </Button>
@@ -444,13 +448,6 @@ export function CrashGame() {
                                 <div>
                                     <p className="text-2xl md:text-5xl font-bold font-mono text-red-500 animate-pulse">{crashPoint?.toFixed(2)}x</p>
                                     <p className="text-red-500 font-medium text-sm md:text-base">CRASHED!</p>
-                                    {hasBetThisRound && (
-                                        <p className={`text-xs md:text-base font-medium ${
-                                            cashedOut ? 'text-green-500' : 'text-red-500'
-                                        }`}>
-                                            {cashedOut ? 'You cashed out in time!' : 'You lost this round!'}
-                                        </p>
-                                    )}
                                     <p className="text-muted-foreground text-xs md:text-base">Next round in {countdownTimer}s</p>
                                 </div>
                             )}
@@ -589,7 +586,7 @@ export function CrashGame() {
             <div className="lg:col-span-3">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Recent Plays</CardTitle>
+                        <CardTitle>Current Round</CardTitle>
                     </CardHeader>
                     <CardContent>
                         <div className="overflow-x-auto">
@@ -621,16 +618,12 @@ export function CrashGame() {
                                         <TableRow key={p.id}>
                                             <TableCell>
                                                 <UserProfileLink user={{
-                                                    id: user?.id || 'unknown',
-                                                    name: user?.displayName || user?.username || user?.email || 'You',
-                                                    username: user?.username,
-                                                    avatar: user?.photoURL || user?.steamProfile?.avatar || '',
-                                                    dataAiHint: 'user avatar',
-                                                    role: user?.role || 'user',
-                                                    xp: user?.xp || 0,
-                                                    level: user?.level || 1,
-                                                    isVip: user?.account_status === 'vip',
-                                                    rank: 1
+                                                    ...p.user, 
+                                                    rank: 1, 
+                                                    xp: p.user.xp || 0, 
+                                                    avatar: p.user.avatar || '', 
+                                                    dataAiHint: 'user avatar', 
+                                                    role: p.user.role || 'user'
                                                 }} />
                                             </TableCell>
                                             <TableCell className="font-mono text-yellow-400 text-sm">{p.bet.toLocaleString()}</TableCell>
