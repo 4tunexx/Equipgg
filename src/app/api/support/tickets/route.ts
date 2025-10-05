@@ -20,29 +20,44 @@ export async function GET(request: NextRequest) {
     if (userError || !user) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+    
     let tickets;
-    if (user.role === 'admin' || user.role === 'moderator') {
-      // Admins and moderators can see all tickets
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .select('*, users:user_id(id, displayName, email), assigned:assigned_to(id, displayName)')
-        .order('created_at', { ascending: false });
-      if (error) {
-        return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 });
+    try {
+      if (user.role === 'admin' || user.role === 'moderator') {
+        // Admins and moderators can see all tickets
+        const { data, error } = await supabase
+          .from('support_tickets')
+          .select('*, users:user_id(id, displayName, email), assigned:assigned_to(id, displayName)')
+          .order('created_at', { ascending: false });
+        if (error) {
+          // If table doesn't exist, return empty array
+          if (error.code === '42P01') {
+            return NextResponse.json({ tickets: [] });
+          }
+          return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 });
+        }
+        tickets = data;
+      } else {
+        // Regular users can only see their own tickets
+        const { data, error } = await supabase
+          .from('support_tickets')
+          .select('*, users:user_id(id, displayName, email), assigned:assigned_to(id, displayName)')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) {
+          // If table doesn't exist, return empty array
+          if (error.code === '42P01') {
+            return NextResponse.json({ tickets: [] });
+          }
+          return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 });
+        }
+        tickets = data;
       }
-      tickets = data;
-    } else {
-      // Regular users can only see their own tickets
-      const { data, error } = await supabase
-        .from('support_tickets')
-        .select('*, users:user_id(id, displayName, email), assigned:assigned_to(id, displayName)')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-      if (error) {
-        return NextResponse.json({ error: 'Failed to fetch tickets' }, { status: 500 });
-      }
-      tickets = data;
+    } catch (tableError) {
+      console.error('Support tickets table error:', tableError);
+      return NextResponse.json({ tickets: [] });
     }
+    
     return NextResponse.json({ tickets });
   } catch (error) {
     console.error('Error fetching tickets:', error);

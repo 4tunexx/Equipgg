@@ -15,8 +15,9 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: false });
 
     if (error) {
+      console.error('Flash sales error:', error);
       // If table doesn't exist, return empty array
-      if (error.code === '42P01') {
+      if (error.code === '42P01' || error.code === 'PGRST116') {
         return NextResponse.json([]);
       }
       throw error;
@@ -25,7 +26,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data || []);
   } catch (error) {
     console.error('Error fetching flash sales:', error);
-    return NextResponse.json({ error: "Unable to fetch flash sales" }, { status: 500 });
+    // Return empty array instead of error for graceful fallback
+    return NextResponse.json([]);
   }
 }
 

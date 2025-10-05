@@ -13,8 +13,15 @@ export async function GET(request: NextRequest) {
       return createUnauthorizedResponse();
     }
     
+    // Fetch user role from database to ensure it's current
+    const users = await secureDb.findMany('users', { id: session.user_id });
+    const user = users[0];
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
+    
     // Check if user is admin
-    if (session.role !== 'admin') {
+    if (user.role !== 'admin') {
       return createForbiddenResponse('Admin access required');
     }
 
