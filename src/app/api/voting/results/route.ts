@@ -195,9 +195,9 @@ export async function GET(request: NextRequest) {
       // Get upcoming matches for predictions
       const { data: matches, error: matchesError } = await supabase
         .from('matches')
-        .select('id, title, team1_name, team2_name, scheduled_at, status')
+        .select('id, event_name, team_a_name, team_b_name, match_date, start_time, status')
         .in('status', ['upcoming', 'live'])
-        .order('scheduled_at', { ascending: true })
+        .order('match_date', { ascending: true })
         .limit(5);
 
       if (matchesError && matchesError.code !== 'PGRST116') {

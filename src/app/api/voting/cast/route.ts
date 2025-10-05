@@ -248,10 +248,10 @@ export async function GET(request: NextRequest) {
           created_at,
           matches (
             id,
-            title,
-            team1_name,
-            team2_name,
-            result
+            event_name,
+            team_a_name,
+            team_b_name,
+            winner
           )
         `)
         .eq('user_id', session.user_id)
