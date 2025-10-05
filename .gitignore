@@ -123,13 +123,25 @@ tryme*.txt
 keys.txt
 
 # Temporary scripts and utilities
-check-database.js
-check-table-details.js
-test-login.js
-update-package.js
-server.js
-temp-queries.ts
-fix-database.html
+check-*.js
+test-*.js
+diagnose-*.js
+discover-*.js
+execute-*.js
+extract-*.js
+final-*.js
+fix-*.js
+get-*.js
+comprehensive-*.js
+*-diagnostics.js
+test-*.ps1
+*.backup
+
+# Temporary SQL files
+CREATE_GAME_HISTORY_TABLE.sql
+MINOR_ADMIN_FIXES.sql
+MISSING_TABLES_FIXES.sql
+fix-game-history-table.sql
 
 # Documentation artifacts
 *_SUMMARY.md
