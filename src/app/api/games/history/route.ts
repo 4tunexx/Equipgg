@@ -50,9 +50,9 @@ export async function GET(request: NextRequest) {
     if (statsError) throw statsError;
 
     const totalBets = stats?.length || 0;
-    const totalWagered = stats?.reduce((sum, game) => sum + (game.bet_amount || 0), 0) || 0;
-    const totalProfitLoss = stats?.reduce((sum, game) => sum + (game.profit || 0), 0) || 0;
-    const wins = stats?.filter(game => (game.profit || 0) > 0).length || 0;
+    const totalWagered = stats?.reduce((sum: number, game: any) => sum + (game.bet_amount || 0), 0) || 0;
+    const totalProfitLoss = stats?.reduce((sum: number, game: any) => sum + (game.profit || 0), 0) || 0;
+    const wins = stats?.filter((game: any) => (game.profit || 0) > 0).length || 0;
     const winRate = totalBets > 0 ? (wins / totalBets) * 100 : 0;
 
     return NextResponse.json({

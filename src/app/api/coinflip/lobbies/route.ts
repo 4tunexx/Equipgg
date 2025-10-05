@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
 
     // Get user data for each game separately to avoid join issues
     const gamesWithUsers = await Promise.all(
-      (games || []).map(async (game) => {
+      (games || []).map(async (game: any) => {
         const { data: creator } = await supabase
           .from('users')
           .select('username, level, vip_tier')
