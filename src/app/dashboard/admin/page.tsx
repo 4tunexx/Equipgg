@@ -8,10 +8,11 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { LineChart, Users as UsersIcon, ShoppingBag, Award, Cog, Swords, Gem, Trophy, Star, Archive, Ticket, ShieldCheck, Bell, MessagesSquare, RefreshCw, Plus, Edit, Trash2 } from 'lucide-react';
+import { LineChart, Users as UsersIcon, ShoppingBag, Award, Cog, Swords, Gem, Trophy, Star, Archive, Ticket, ShieldCheck, Bell, MessagesSquare, RefreshCw, Plus, Edit, Trash2, Power } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 
 // This admin page is adapted from your example (example-admin.txt).
 // It uses the same left-nav + panels layout but fetches live read-only admin endpoints.
@@ -23,6 +24,8 @@ export default function AdminDashboardPage() {
 
   const [activeNav, setActiveNav] = useState('dashboard');
   const [activeSiteControlTab, setActiveSiteControlTab] = useState('site-settings');
+  const [pageToggles, setPageToggles] = useState<Record<string, boolean>>({});
+  const [pageToggleList, setPageToggleList] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -34,7 +37,13 @@ export default function AdminDashboardPage() {
   const [achievements, setAchievements] = useState<any[]>([]);
   const [siteSettings, setSiteSettings] = useState<any>(null);
   const [gemManagement, setGemManagement] = useState<any>(null);
+  const [showCreateGemPackage, setShowCreateGemPackage] = useState(false);
+  const [showEditGemPackage, setShowEditGemPackage] = useState(false);
+  const [editingGemPackage, setEditingGemPackage] = useState<any>(null);
+  const emptyGemPackage = { id: '', name: '', description: '', gems: 0, price: 0, currency: 'USD', enabled: true };
+  const [newGemPackage, setNewGemPackage] = useState<any>({ ...emptyGemPackage });
   const [flashSales, setFlashSales] = useState<any[]>([]);
+  const [inlineStatus, setInlineStatus] = useState<{ type: 'success'|'error'|'loading'; message: string } | null>(null);
   const [showCreateFlashSale, setShowCreateFlashSale] = useState(false);
   const [showEditFlashSale, setShowEditFlashSale] = useState(false);
   const [editingFlashSale, setEditingFlashSale] = useState<any>(null);
@@ -69,6 +78,8 @@ export default function AdminDashboardPage() {
   const [showTicketDetails, setShowTicketDetails] = useState(false);
   const [ticketReplies, setTicketReplies] = useState<any[]>([]);
   const [newReply, setNewReply] = useState('');
+  const [supportTicketSearch, setSupportTicketSearch] = useState('');
+  const [supportTicketStatusFilter, setSupportTicketStatusFilter] = useState('');
   const [showSendMessage, setShowSendMessage] = useState(false);
   const [newMessage, setNewMessage] = useState({
     type: 'info',
@@ -278,7 +289,7 @@ export default function AdminDashboardPage() {
     const load = async () => {
       try {
         setLoading(true);
-        const [uRes, iRes, bRes, mRes, pRes, rRes, cRes, aRes, sRes, gRes, stRes, nRes, missRes, fsRes, urRes, lpRes] = await Promise.all([
+        const [uRes, iRes, bRes, mRes, pRes, rRes, cRes, aRes, sRes, gRes, nRes, missRes, fsRes, urRes, lpRes] = await Promise.all([
           fetch('/api/admin/users').catch(() => null),
           fetch('/api/admin/items').catch(() => null),
           fetch('/api/admin/badges').catch(() => null),
@@ -349,10 +360,11 @@ export default function AdminDashboardPage() {
           setGemManagement(data.data);
         }
 
-        if (stRes && stRes.ok) {
-          const data = await stRes.json();
-          setSupportTickets(data.tickets || []);
-        }
+        // Temporarily disable support tickets until table is created
+        // if (stRes && stRes.ok) {
+        //   const data = await stRes.json();
+        //   setSupportTickets(data.tickets || []);
+        // }
 
         if (nRes && nRes.ok) {
           const data = await nRes.json();
@@ -395,6 +407,18 @@ export default function AdminDashboardPage() {
             });
           }
         }
+
+        // Fetch page toggles (admin only) after other data
+        try {
+          const togglesRes = await fetch('/api/admin/page-toggles');
+          if (togglesRes.ok) {
+            const togglesData = await togglesRes.json();
+            setPageToggles(togglesData.toggles || {});
+            setPageToggleList(togglesData.possiblePages || []);
+          }
+        } catch {
+          // ignore
+        }
       } catch (err) {
         console.error('admin load error', err);
       } finally {
@@ -424,7 +448,7 @@ export default function AdminDashboardPage() {
             <Cog className="w-4 h-4" /> Site Control
           </button>
           <button onClick={() => setActiveNav('matches')} className={cn('flex items-center gap-2 px-3 py-2 rounded', activeNav === 'matches' ? 'bg-accent text-black' : 'text-muted-foreground')}>
-            <Swords className="w-4 h-4" /> Matches
+            <Swords className="w-4 h-4" /> Match Management
           </button>
           <button onClick={() => setActiveNav('shop')} className={cn('flex items-center gap-2 px-3 py-2 rounded', activeNav === 'shop' ? 'bg-accent text-black' : 'text-muted-foreground')}>
             <ShoppingBag className="w-4 h-4" /> Shop
@@ -522,7 +546,7 @@ export default function AdminDashboardPage() {
                         <span className={`px-2 py-1 rounded text-xs ${
                           u.role === 'admin' ? 'bg-red-100 text-red-800' :
                           u.role === 'moderator' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
+                          'bg-gray-700 text-gray-200'
                         }`}>
                           {u.role || 'user'}
                         </span>
@@ -615,7 +639,7 @@ export default function AdminDashboardPage() {
                           badge.rarity === 'legendary' ? 'bg-purple-100 text-purple-800' :
                           badge.rarity === 'epic' ? 'bg-red-100 text-red-800' :
                           badge.rarity === 'rare' ? 'bg-blue-100 text-blue-800' :
-                          'bg-gray-100 text-gray-800'
+                          'bg-gray-700 text-gray-200'
                         }`}>
                           {badge.rarity}
                         </span>
@@ -672,15 +696,22 @@ export default function AdminDashboardPage() {
           <div>
             <h2 className="text-lg font-semibold mb-3">Site Control</h2>
             <Tabs value={activeSiteControlTab} onValueChange={setActiveSiteControlTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-7">
-                <TabsTrigger value="site-settings">Site Settings</TabsTrigger>
-                <TabsTrigger value="flash-sales">Flash Sales</TabsTrigger>
-                <TabsTrigger value="user-rewards">User Rewards</TabsTrigger>
-                <TabsTrigger value="theme-design">Theme Design</TabsTrigger>
-                <TabsTrigger value="connections">Connections</TabsTrigger>
-                <TabsTrigger value="match-management">Match Management</TabsTrigger>
-                <TabsTrigger value="landing-page">Landing Page</TabsTrigger>
-              </TabsList>
+              {/* Mobile-friendly horizontal scroll for tabs */}
+              <div className="w-full overflow-x-auto md:overflow-visible" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <TabsList
+                  aria-label="Site controls"
+                  className="flex w-max min-w-full gap-2 snap-x snap-mandatory md:grid md:w-full md:grid-cols-8 md:gap-0"
+                >
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="site-settings">Site Settings</TabsTrigger>
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="flash-sales">Flash Sales</TabsTrigger>
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="user-rewards">User Rewards</TabsTrigger>
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="theme-design">Theme Design</TabsTrigger>
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="connections">Connections</TabsTrigger>
+                  {/* Removed match-management tab; functionality moved to side nav */}
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="landing-page">Landing Page</TabsTrigger>
+                  <TabsTrigger className="shrink-0 whitespace-nowrap snap-start" value="page-toggles">Page Toggles</TabsTrigger>
+                </TabsList>
+              </div>
 
               <TabsContent value="site-settings" className="space-y-6">
                 {loading ? <div>Loading...</div> : siteSettings ? (
@@ -1212,7 +1243,7 @@ export default function AdminDashboardPage() {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <Label>Primary Font Family</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                          <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="inter">Inter</option>
                             <option value="roboto">Roboto</option>
                             <option value="opensans">Open Sans</option>
@@ -1222,7 +1253,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Heading Font Family</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                          <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="inter">Inter</option>
                             <option value="roboto">Roboto</option>
                             <option value="opensans">Open Sans</option>
@@ -1233,7 +1264,7 @@ export default function AdminDashboardPage() {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Base Font Size</Label>
-                            <select className="w-full px-3 py-2 border rounded">
+                            <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                               <option value="14px">14px</option>
                               <option value="16px">16px</option>
                               <option value="18px">18px</option>
@@ -1241,7 +1272,7 @@ export default function AdminDashboardPage() {
                           </div>
                           <div className="space-y-2">
                             <Label>Line Height</Label>
-                            <select className="w-full px-3 py-2 border rounded">
+                            <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                               <option value="1.4">1.4</option>
                               <option value="1.5">1.5</option>
                               <option value="1.6">1.6</option>
@@ -1271,7 +1302,7 @@ export default function AdminDashboardPage() {
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Border Radius</Label>
-                            <select className="w-full px-3 py-2 border rounded">
+                            <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                               <option value="4px">4px (Subtle)</option>
                               <option value="8px">8px (Standard)</option>
                               <option value="12px">12px (Rounded)</option>
@@ -1280,7 +1311,7 @@ export default function AdminDashboardPage() {
                           </div>
                           <div className="space-y-2">
                             <Label>Shadow Style</Label>
-                            <select className="w-full px-3 py-2 border rounded">
+                            <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                               <option value="none">None</option>
                               <option value="subtle">Subtle</option>
                               <option value="medium">Medium</option>
@@ -1290,7 +1321,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Spacing Scale</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                            <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="compact">Compact</option>
                             <option value="comfortable">Comfortable</option>
                             <option value="spacious">Spacious</option>
@@ -1344,9 +1375,9 @@ export default function AdminDashboardPage() {
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Live Preview
                     </h4>
-                    <div className="border rounded-lg p-4 bg-gray-50">
+                    <div className="border rounded-lg p-4 bg-gray-800">
                       <div className="max-w-md mx-auto">
-                        <div className="bg-white rounded-lg shadow-md p-4 mb-4">
+                        <div className="bg-gray-800 rounded-lg shadow-md p-4 mb-4">
                           <h5 className="font-semibold text-lg mb-2">Sample Card Title</h5>
                           <p className="text-gray-600 mb-3">This is how your content will look with the current theme settings.</p>
                           <Button className="w-full">Sample Button</Button>
@@ -1547,7 +1578,7 @@ export default function AdminDashboardPage() {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label>Provider</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                          <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="stripe">Stripe</option>
                             <option value="paypal">PayPal</option>
                             <option value="coinbase">Coinbase Commerce</option>
@@ -1605,7 +1636,7 @@ export default function AdminDashboardPage() {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label>Provider</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                          <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="sendgrid">SendGrid</option>
                             <option value="mailgun">Mailgun</option>
                             <option value="ses">AWS SES</option>
@@ -1662,7 +1693,7 @@ export default function AdminDashboardPage() {
                       <div className="space-y-3">
                         <div className="space-y-2">
                           <Label>Provider</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                          <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="google">Google Analytics</option>
                             <option value="mixpanel">Mixpanel</option>
                             <option value="amplitude">Amplitude</option>
@@ -1730,225 +1761,53 @@ export default function AdminDashboardPage() {
                 </Card>
               </TabsContent>
 
-              <TabsContent value="match-management" className="space-y-6">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Match Management</h3>
-                  <div className="flex gap-2">
-                    <Button onClick={async () => {
-                      try {
-                        const res = await fetch('/api/matches/sync', { method: 'POST' });
-                        if (res.ok) {
-                          alert('Matches synced with Pandascore successfully');
-                          // Refresh matches
-                          const refreshRes = await fetch('/api/admin/matches');
-                          if (refreshRes.ok) {
-                            const refreshData = await refreshRes.json();
-                            setMatches(refreshData.matches || []);
-                          }
-                        } else {
-                          const data = await res.json();
-                          alert(data.error || 'Sync failed');
-                        }
-                      } catch (error) {
-                        alert('Sync failed');
-                      }
-                    }}>
-                      <RefreshCw className="w-4 h-4 mr-2" />
-                      Sync Pandascore
-                    </Button>
-                    <Button onClick={() => setShowCreateMatch(true)}>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create Match
-                    </Button>
-                  </div>
-                </div>
+              {/* Removed match-management TabsContent; side nav version supersedes */}
 
+              <TabsContent value="page-toggles" className="space-y-6">
                 <Card>
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex gap-4">
-                        <Input
-                          placeholder="Search matches..."
-                          className="max-w-sm"
-                          onChange={(e) => {
-                            // TODO: Implement search filtering
-                          }}
-                        />
-                        <select
-                          className="px-3 py-2 border rounded max-w-xs"
-                          onChange={(e) => {
-                            // TODO: Implement status filtering
-                          }}
-                        >
-                          <option value="">All Status</option>
-                          <option value="upcoming">Upcoming</option>
-                          <option value="live">Live</option>
-                          <option value="completed">Completed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                  <CardContent className="p-6 space-y-6">
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                      <div>
+                        <h3 className="text-lg font-semibold flex items-center gap-2"><Power className="w-4 h-4" /> Dashboard Page Toggles</h3>
+                        <p className="text-sm text-muted-foreground">Disable specific sections for maintenance. Users hitting a disabled page are redirected to /dashboard. Admins always see all pages.</p>
                       </div>
-
-                      <div className="border rounded-lg overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Teams</TableHead>
-                              <TableHead>Event</TableHead>
-                              <TableHead>Map</TableHead>
-                              <TableHead>Date/Time</TableHead>
-                              <TableHead>Odds</TableHead>
-                              <TableHead>Stream</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Visible</TableHead>
-                              <TableHead>Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {matches.map((match: any) => (
-                              <TableRow key={match.id}>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <div className="flex items-center gap-1">
-                                      {match.team_a_logo && (
-                                        <img src={match.team_a_logo} className="w-6 h-6 rounded" alt={match.team_a_name} />
-                                      )}
-                                      <span className="font-medium">{match.team_a_name}</span>
-                                    </div>
-                                    <span className="text-muted-foreground">vs</span>
-                                    <div className="flex items-center gap-1">
-                                      {match.team_b_logo && (
-                                        <img src={match.team_b_logo} className="w-6 h-6 rounded" alt={match.team_b_name} />
-                                      )}
-                                      <span className="font-medium">{match.team_b_name}</span>
-                                    </div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>{match.event_name}</TableCell>
-                                <TableCell>{match.map || 'TBD'}</TableCell>
-                                <TableCell>
-                                  <div className="text-sm">
-                                    <div>{match.match_date ? new Date(match.match_date).toLocaleDateString() : 'TBD'}</div>
-                                    <div className="text-muted-foreground">{match.start_time || 'TBD'}</div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="text-sm">
-                                    <div>{match.team_a_odds?.toFixed(2)} : {match.team_b_odds?.toFixed(2)}</div>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  {match.stream_url ? (
-                                    <span className="text-green-600 text-sm">✓ Has Stream</span>
-                                  ) : (
-                                    <span className="text-red-500 text-sm">No Stream</span>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    match.status === 'live' ? 'bg-green-100 text-green-800' :
-                                    match.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                                    match.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                                    'bg-gray-100 text-gray-800'
-                                  }`}>
-                                    {match.status || 'upcoming'}
-                                  </span>
-                                </TableCell>
-                                <TableCell>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={async () => {
-                                      try {
-                                        const newVisibility = !match.is_visible;
-                                        const res = await fetch('/api/admin/matches', {
-                                          method: 'PATCH',
-                                          headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ 
-                                            matchId: match.id,
-                                            is_visible: newVisibility 
-                                          })
-                                        });
-                                        if (res.ok) {
-                                          setMatches(matches.map((m: any) => 
-                                            m.id === match.id ? { ...m, is_visible: newVisibility } : m
-                                          ));
-                                        } else {
-                                          const data = await res.json();
-                                          alert(data.error || 'Update failed');
-                                        }
-                                      } catch (error) {
-                                        alert('Update failed');
-                                      }
-                                    }}
-                                    className={match.is_visible ? 'text-green-600' : 'text-gray-400'}
-                                  >
-                                    {match.is_visible ? '👁️' : '🙈'}
-                                  </Button>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => {
-                                        setEditingMatch(match);
-                                        setNewMatch({
-                                          team_a_name: match.team_a_name || '',
-                                          team_a_logo: match.team_a_logo || '',
-                                          team_a_odds: match.team_a_odds || 1.0,
-                                          team_b_name: match.team_b_name || '',
-                                          team_b_logo: match.team_b_logo || '',
-                                          team_b_odds: match.team_b_odds || 1.0,
-                                          event_name: match.event_name || '',
-                                          map: match.map || '',
-                                          start_time: match.start_time || '',
-                                          match_date: match.match_date || '',
-                                          stream_url: match.stream_url || '',
-                                          status: match.status || 'upcoming'
-                                        });
-                                        setShowEditMatch(true);
-                                      }}
-                                    >
-                                      <Edit className="w-4 h-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={async () => {
-                                        if (!confirm('Are you sure you want to delete this match? This will also delete all related bets.')) return;
-                                        try {
-                                          const res = await fetch('/api/admin/matches', {
-                                            method: 'DELETE',
-                                            headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ matchId: match.id })
-                                          });
-                                          if (res.ok) {
-                                            setMatches(matches.filter((m: any) => m.id !== match.id));
-                                            alert('Match deleted successfully');
-                                          } else {
-                                            const data = await res.json();
-                                            alert(data.error || 'Delete failed');
-                                          }
-                                        } catch (error) {
-                                          alert('Delete failed');
-                                        }
-                                      }}
-                                    >
-                                      <Trash2 className="w-4 h-4" />
-                                    </Button>
-                                  </div>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
+                      <div className="flex flex-wrap gap-2">
+                        <Button variant="outline" size="sm" onClick={async () => {
+                          const res = await fetch('/api/admin/page-toggles');
+                          if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); }
+                        }}>Refresh</Button>
+                        <Button size="sm" onClick={async () => {
+                          const updates = pageToggleList.map(p => ({ page: p, enabled: true }));
+                          const res = await fetch('/api/admin/page-toggles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }) });
+                          if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); }
+                        }}>Enable All</Button>
+                        <Button variant="destructive" size="sm" onClick={async () => {
+                          const updates = pageToggleList.map(p => ({ page: p, enabled: false }));
+                          const res = await fetch('/api/admin/page-toggles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }) });
+                          if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); }
+                        }}>Disable All</Button>
                       </div>
+                    </div>
 
-                      {matches.length === 0 && (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <p>No matches found. Create your first match or sync with Pandascore.</p>
-                        </div>
-                      )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {pageToggleList.map(p => {
+                        const enabled = pageToggles[p] !== false; // default enabled
+                        return (
+                          <div key={p} className="flex items-center justify-between p-4 border rounded-lg bg-card/40 hover:bg-card/60 transition-colors">
+                            <div>
+                              <div className="font-medium capitalize">{p.replace(/-/g,' ')}</div>
+                              <div className="text-xs text-muted-foreground">{enabled ? 'Visible to users' : 'Disabled (redirected)'}</div>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className={`text-xs font-semibold ${enabled ? 'text-green-400' : 'text-red-400'}`}>{enabled ? 'ON' : 'OFF'}</span>
+                              <Switch checked={enabled} onCheckedChange={async (val) => {
+                                const res = await fetch('/api/admin/page-toggles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: p, enabled: val }) });
+                                if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); } else { const d = await res.json(); alert(d.error || 'Update failed'); }
+                              }} />
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -2165,7 +2024,7 @@ export default function AdminDashboardPage() {
                         </div>
                         <div className="space-y-2">
                           <Label>Max Items to Show</Label>
-                          <select className="w-full px-3 py-2 border rounded">
+                          <select className="w-full px-3 py-2 border rounded bg-secondary text-foreground">
                             <option value="3">3 items</option>
                             <option value="6">6 items</option>
                             <option value="9">9 items</option>
@@ -2900,100 +2759,266 @@ export default function AdminDashboardPage() {
         )}
 
         {activeNav === 'matches' && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Matches</h2>
-            <div className="mb-3">
-              <Button onClick={() => setShowCreateMatch(true)}>Create Match</Button>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold mb-1">Match Management</h2>
+              <div className="flex gap-2">
+                <Button variant="destructive" onClick={async () => {
+                  if (matches.length === 0) return;
+                  if (!confirm('Delete ALL matches? This cannot be undone.')) return;
+                  const res = await fetch('/api/admin/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deleteAll: true }) });
+                  if (res.ok) {
+                    setMatches([]);
+                  } else {
+                    const d = await res.json();
+                    alert(d.error || 'Bulk delete failed');
+                  }
+                }}>Delete All</Button>
+                <Button onClick={async () => {
+                  try {
+                    const res = await fetch('/api/matches/sync', { method: 'POST' });
+                    if (res.ok) {
+                      alert('Matches synced with Pandascore successfully');
+                      const refreshRes = await fetch('/api/admin/matches');
+                      if (refreshRes.ok) {
+                        const refreshData = await refreshRes.json();
+                        setMatches(refreshData.matches || []);
+                      }
+                    } else {
+                      const data = await res.json();
+                      alert(data.error || 'Sync failed');
+                    }
+                  } catch (error) {
+                    alert('Sync failed');
+                  }
+                }}>
+                  <RefreshCw className="w-4 h-4 mr-2" /> Sync Pandascore
+                </Button>
+                <Button onClick={() => setShowCreateMatch(true)}>
+                  <Plus className="w-4 h-4 mr-2" /> Create Match
+                </Button>
+                <Button variant="outline" onClick={async () => {
+                  try {
+                    const res = await fetch('/api/matches/sync-odds', { method: 'POST' });
+                    if (res.ok) {
+                      alert('HLTV odds synced successfully');
+                      const refreshRes = await fetch('/api/admin/matches');
+                      if (refreshRes.ok) {
+                        const refreshData = await refreshRes.json();
+                        setMatches(refreshData.matches || []);
+                      }
+                    } else {
+                      const data = await res.json();
+                      alert(data.error || 'Odds sync failed');
+                    }
+                  } catch (e) {
+                    alert('Odds sync failed');
+                  }
+                }}>
+                  Sync HLTV Odds
+                </Button>
+              </div>
             </div>
-            {loading ? <div>Loading...</div> : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Teams</TableHead>
-                    <TableHead>Event</TableHead>
-                    <TableHead>Map</TableHead>
-                    <TableHead>Date/Time</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {matches.map((match: any) => (
-                    <TableRow key={match.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <div className="flex items-center gap-1">
-                            {match.team_a_logo && <img src={match.team_a_logo} className="h-6 w-6 rounded" alt="A" />}
-                            <span className="font-semibold">{match.team_a_name}</span>
-                            <span className="text-sm text-muted-foreground">({match.team_a_odds})</span>
-                          </div>
-                          <span>vs</span>
-                          <div className="flex items-center gap-1">
-                            {match.team_b_logo && <img src={match.team_b_logo} className="h-6 w-6 rounded" alt="B" />}
-                            <span className="font-semibold">{match.team_b_name}</span>
-                            <span className="text-sm text-muted-foreground">({match.team_b_odds})</span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{match.event_name}</TableCell>
-                      <TableCell>{match.map || 'TBD'}</TableCell>
-                      <TableCell>
-                        <div className="text-sm">
-                          {match.match_date && <div>{new Date(match.match_date).toLocaleDateString()}</div>}
-                          {match.start_time && <div>{match.start_time}</div>}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className={`px-2 py-1 rounded text-xs ${
-                          match.status === 'live' ? 'bg-green-100 text-green-800' :
-                          match.status === 'completed' ? 'bg-gray-100 text-gray-800' :
-                          'bg-blue-100 text-blue-800'
-                        }`}>
-                          {match.status}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
-                          <Button variant="secondary" size="sm" onClick={() => {
-                            setEditingMatch(match);
-                            setNewMatch({
-                              team_a_name: match.team_a_name || '',
-                              team_a_logo: match.team_a_logo || '',
-                              team_a_odds: match.team_a_odds || 1.0,
-                              team_b_name: match.team_b_name || '',
-                              team_b_logo: match.team_b_logo || '',
-                              team_b_odds: match.team_b_odds || 1.0,
-                              event_name: match.event_name || '',
-                              map: match.map || '',
-                              start_time: match.start_time || '',
-                              match_date: match.match_date || '',
-                              stream_url: match.stream_url || '',
-                              status: match.status || 'upcoming'
-                            });
-                            setShowEditMatch(true);
-                          }}>Edit</Button>
-                          <Button variant="destructive" size="sm" onClick={async () => {
-                            if (!confirm('Delete this match? This will also delete all related bets.')) return;
-                            const res = await fetch('/api/admin/matches', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ matchId: match.id })
-                            });
-                            if (res.ok) {
-                              setMatches(matches.filter((m: any) => m.id !== match.id));
-                              alert('Match deleted');
-                            } else {
-                              const data = await res.json();
-                              alert(data.error || 'Delete failed');
-                            }
-                          }}>Delete</Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
+            <Card>
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex gap-4">
+                    <Input placeholder="Search matches..." className="max-w-sm" onChange={(e) => { /* future filter */ }} />
+                    <select className="px-3 py-2 border rounded max-w-xs bg-secondary text-foreground" onChange={(e) => { /* future status filter */ }}>
+                      <option value="">All Status</option>
+                      <option value="upcoming">Upcoming</option>
+                      <option value="live">Live</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                  <div className="border rounded-lg overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-10"></TableHead>
+                          <TableHead>Teams</TableHead>
+                          <TableHead>Event</TableHead>
+                          <TableHead>Map</TableHead>
+                          <TableHead>Date/Time</TableHead>
+                          <TableHead>Odds</TableHead>
+                          <TableHead>Stream</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Visible to Users</TableHead>
+                          <TableHead>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {matches.map((match: any) => (
+                          <TableRow key={match.id}>
+                            <TableCell>
+                              <input type="checkbox" onChange={(e) => {
+                                const checked = e.target.checked;
+                                setMatches(matches.map((m: any) => m.id === match.id ? { ...m, __selected: checked } : m));
+                              }} checked={!!match.__selected} />
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1">
+                                  {match.team_a_logo && <img src={match.team_a_logo} className="w-6 h-6 rounded" alt={match.team_a_name} />}
+                                  <span className="font-medium">{match.team_a_name}</span>
+                                </div>
+                                <span className="text-muted-foreground">vs</span>
+                                <div className="flex items-center gap-1">
+                                  {match.team_b_logo && <img src={match.team_b_logo} className="w-6 h-6 rounded" alt={match.team_b_name} />}
+                                  <span className="font-medium">{match.team_b_name}</span>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell>{match.event_name}</TableCell>
+                            <TableCell>{match.map || 'TBD'}</TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{match.match_date ? new Date(match.match_date).toLocaleDateString() : 'TBD'}</div>
+                                <div className="text-muted-foreground">{match.start_time || 'TBD'}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div>{match.team_a_odds?.toFixed(2)} : {match.team_b_odds?.toFixed(2)}</div>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {match.stream_url ? (
+                                <a className="text-green-600 text-sm underline" href={match.stream_url} target="_blank" rel="noreferrer">View Stream</a>
+                              ) : (
+                                <span className="text-red-500 text-sm">No Stream</span>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${match.status === 'live' ? 'bg-green-100 text-green-800' : match.status === 'completed' ? 'bg-blue-100 text-blue-800' : match.status === 'cancelled' ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'}`}>{match.status || 'upcoming'}</span>
+                            </TableCell>
+                            <TableCell>
+                              <Button title="Toggle whether this match is shown on the user betting page" variant="ghost" size="sm" onClick={async () => {
+                                try {
+                                  const newVisibility = !match.is_visible;
+                                  const res = await fetch('/api/admin/matches', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, is_visible: newVisibility }) });
+                                  if (res.ok) {
+                                    setMatches(matches.map((m: any) => m.id === match.id ? { ...m, is_visible: newVisibility } : m));
+                                  } else {
+                                    const data = await res.json();
+                                    alert(data.error || 'Update failed');
+                                  }
+                                } catch (error) { alert('Update failed'); }
+                              }} className={match.is_visible ? 'text-green-600' : 'text-gray-400'}>
+                                {match.is_visible ? '👁️' : '🙈'}
+                              </Button>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex gap-2 flex-wrap">
+                                <Button variant="ghost" size="sm" onClick={() => {
+                                  setEditingMatch(match);
+                                  setNewMatch({
+                                    team_a_name: match.team_a_name || '',
+                                    team_a_logo: match.team_a_logo || '',
+                                    team_a_odds: match.team_a_odds || 1.0,
+                                    team_b_name: match.team_b_name || '',
+                                    team_b_logo: match.team_b_logo || '',
+                                    team_b_odds: match.team_b_odds || 1.0,
+                                    event_name: match.event_name || '',
+                                    map: match.map || '',
+                                    start_time: match.start_time || '',
+                                    match_date: match.match_date || '',
+                                    stream_url: match.stream_url || '',
+                                    status: match.status || 'upcoming'
+                                  });
+                                  setShowEditMatch(true);
+                                }}><Edit className="w-4 h-4" /></Button>
+                                {/* Manual winner set */}
+                                <Button variant="outline" size="sm" onClick={async () => {
+                                  const ok = confirm(`Set winner: ${match.team_a_name}? This will settle bets.`);
+                                  if (!ok) return;
+                                  const res = await fetch('/api/admin/matches', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, winner: 'team_a' }) });
+                                  if (res.ok) {
+                                    const refreshed = await fetch('/api/admin/matches');
+                                    const data = await refreshed.json();
+                                    setMatches(data.matches || []);
+                                    alert('Winner set to Team A and bets processed');
+                                  } else {
+                                    const d = await res.json();
+                                    alert(d.error || 'Failed to set winner');
+                                  }
+                                }}>Set A Winner</Button>
+                                <Button variant="outline" size="sm" onClick={async () => {
+                                  const ok = confirm(`Set winner: ${match.team_b_name}? This will settle bets.`);
+                                  if (!ok) return;
+                                  const res = await fetch('/api/admin/matches', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, winner: 'team_b' }) });
+                                  if (res.ok) {
+                                    const refreshed = await fetch('/api/admin/matches');
+                                    const data = await refreshed.json();
+                                    setMatches(data.matches || []);
+                                    alert('Winner set to Team B and bets processed');
+                                  } else {
+                                    const d = await res.json();
+                                    alert(d.error || 'Failed to set winner');
+                                  }
+                                }}>Set B Winner</Button>
+                                {/* Auto resolve via PandaScore */}
+                                <Button variant="secondary" size="sm" onClick={async () => {
+                                  const res = await fetch('/api/admin/matches', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, autoResolve: true }) });
+                                  if (res.ok) {
+                                    const refreshed = await fetch('/api/admin/matches');
+                                    const data = await refreshed.json();
+                                    setMatches(data.matches || []);
+                                    alert('Auto resolve triggered');
+                                  } else {
+                                    const d = await res.json();
+                                    alert(d.error || 'Auto resolve failed');
+                                  }
+                                }}>Auto Resolve</Button>
+                                <Button variant="ghost" size="sm" onClick={async () => {
+                                  if (!confirm('Are you sure you want to delete this match? This will also delete all related bets.')) return;
+                                  try {
+                                    const res = await fetch('/api/admin/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id }) });
+                                    if (res.ok) {
+                                      setMatches(matches.filter((m: any) => m.id !== match.id));
+                                      alert('Match deleted successfully');
+                                    } else {
+                                      const data = await res.json();
+                                      alert(data.error || 'Delete failed');
+                                    }
+                                  } catch (error) { alert('Delete failed'); }
+                                }}><Trash2 className="w-4 h-4" /></Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                    <div className="flex items-center justify-between mt-3">
+                      <div>
+                        <Button variant="outline" size="sm" onClick={() => {
+                          setMatches(matches.map((m: any) => ({ ...m, __selected: true })));
+                        }}>Select All</Button>
+                        <Button variant="outline" size="sm" className="ml-2" onClick={() => {
+                          setMatches(matches.map((m: any) => ({ ...m, __selected: false })));
+                        }}>Clear</Button>
+                      </div>
+                      <div>
+                        <Button variant="destructive" size="sm" onClick={async () => {
+                          const ids = matches.filter((m: any) => m.__selected).map((m: any) => m.id);
+                          if (ids.length === 0) return;
+                          if (!confirm(`Delete ${ids.length} selected matches?`)) return;
+                          const res = await fetch('/api/admin/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
+                          if (res.ok) {
+                            setMatches(matches.filter((m: any) => !ids.includes(m.id)));
+                          } else {
+                            const d = await res.json();
+                            alert(d.error || 'Bulk delete failed');
+                          }
+                        }}>Delete Selected</Button>
+                      </div>
+                    </div>
+                  </div>
+                  {matches.length === 0 && (<div className="text-center py-8 text-muted-foreground"><p>No matches found. Create your first match or sync with Pandascore.</p></div>)}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 
@@ -3547,7 +3572,7 @@ export default function AdminDashboardPage() {
             </DialogHeader>
             <div className="space-y-2">
               <Label>Action</Label>
-              <select value={modAction} onChange={(e) => setModAction(e.target.value as any)} className="w-full p-2 border rounded">
+              <select value={modAction} onChange={(e) => setModAction(e.target.value as any)} className="w-full p-2 border rounded bg-secondary text-foreground">
                 <option value="ban">Ban</option>
                 <option value="unban">Unban</option>
                 <option value="mute">Mute</option>
@@ -3670,105 +3695,15 @@ export default function AdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
-        {/* Create match dialog */}
-        <Dialog open={showCreateMatch} onOpenChange={setShowCreateMatch}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Create Match</DialogTitle>
-            </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Team A Name *</Label>
-                <Input value={newMatch.team_a_name} onChange={(e) => setNewMatch({ ...newMatch, team_a_name: e.target.value })} />
-                <Label>Team A Logo URL</Label>
-                <Input value={newMatch.team_a_logo} onChange={(e) => setNewMatch({ ...newMatch, team_a_logo: e.target.value })} />
-                <Label>Team A Odds</Label>
-                <Input type="number" step="0.1" value={newMatch.team_a_odds} onChange={(e) => setNewMatch({ ...newMatch, team_a_odds: parseFloat(e.target.value) || 1.0 })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Team B Name *</Label>
-                <Input value={newMatch.team_b_name} onChange={(e) => setNewMatch({ ...newMatch, team_b_name: e.target.value })} />
-                <Label>Team B Logo URL</Label>
-                <Input value={newMatch.team_b_logo} onChange={(e) => setNewMatch({ ...newMatch, team_b_logo: e.target.value })} />
-                <Label>Team B Odds</Label>
-                <Input type="number" step="0.1" value={newMatch.team_b_odds} onChange={(e) => setNewMatch({ ...newMatch, team_b_odds: parseFloat(e.target.value) || 1.0 })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Event Name *</Label>
-                <Input value={newMatch.event_name} onChange={(e) => setNewMatch({ ...newMatch, event_name: e.target.value })} />
-                <Label>Map</Label>
-                <Input value={newMatch.map} onChange={(e) => setNewMatch({ ...newMatch, map: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label>Match Date</Label>
-                <Input type="date" value={newMatch.match_date} onChange={(e) => setNewMatch({ ...newMatch, match_date: e.target.value })} />
-                <Label>Start Time</Label>
-                <Input type="time" value={newMatch.start_time} onChange={(e) => setNewMatch({ ...newMatch, start_time: e.target.value })} />
-              </div>
-              <div className="space-y-2 col-span-2">
-                <Label>Stream URL</Label>
-                <Input value={newMatch.stream_url} onChange={(e) => setNewMatch({ ...newMatch, stream_url: e.target.value })} />
-                <Label>Status</Label>
-                <select value={newMatch.status} onChange={(e) => setNewMatch({ ...newMatch, status: e.target.value })} className="w-full p-2 border rounded">
-                  <option value="upcoming">Upcoming</option>
-                  <option value="live">Live</option>
-                  <option value="completed">Completed</option>
-                  <option value="cancelled">Cancelled</option>
-                </select>
-              </div>
-            </div>
-            <DialogFooter>
-              <Button onClick={async () => {
-                if (!newMatch.team_a_name || !newMatch.team_b_name || !newMatch.event_name) {
-                  alert('Please fill in required fields (Team A Name, Team B Name, Event Name)');
-                  return;
-                }
-                const res = await fetch('/api/admin/matches', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(newMatch)
-                });
-                if (res.ok) {
-                  const data = await res.json();
-                  // Refresh matches
-                  const refreshRes = await fetch('/api/admin/matches');
-                  if (refreshRes.ok) {
-                    const refreshData = await refreshRes.json();
-                    setMatches(refreshData.matches || []);
-                  }
-                  setShowCreateMatch(false);
-                  setNewMatch({
-                    team_a_name: '',
-                    team_a_logo: '',
-                    team_a_odds: 1.0,
-                    team_b_name: '',
-                    team_b_logo: '',
-                    team_b_odds: 1.0,
-                    event_name: '',
-                    map: '',
-                    start_time: '',
-                    match_date: '',
-                    stream_url: '',
-                    status: 'upcoming'
-                  });
-                  alert('Match created successfully');
-                } else {
-                  const d = await res.json();
-                  alert(d.error || 'Create failed');
-                }
-              }}>Create</Button>
-              <Button variant="ghost" onClick={() => setShowCreateMatch(false)}>Cancel</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Removed duplicate Create match dialog (kept a single version below) */}
 
         {/* Edit match dialog */}
         <Dialog open={showEditMatch} onOpenChange={setShowEditMatch}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="flex w-[95vw] flex-col sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[85vh]">
             <DialogHeader>
               <DialogTitle>Edit Match</DialogTitle>
             </DialogHeader>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label>Team A Name *</Label>
                 <Input value={newMatch.team_a_name} onChange={(e) => setNewMatch({ ...newMatch, team_a_name: e.target.value })} />
@@ -3797,7 +3732,7 @@ export default function AdminDashboardPage() {
                 <Label>Start Time</Label>
                 <Input type="time" value={newMatch.start_time} onChange={(e) => setNewMatch({ ...newMatch, start_time: e.target.value })} />
               </div>
-              <div className="space-y-2 col-span-2">
+              <div className="space-y-2 col-span-1 md:col-span-2">
                 <Label>Stream URL</Label>
                 <Input value={newMatch.stream_url} onChange={(e) => setNewMatch({ ...newMatch, stream_url: e.target.value })} />
                 <Label>Status</Label>
@@ -4576,7 +4511,7 @@ export default function AdminDashboardPage() {
 
                 <div>
                   <Label className="font-semibold">Description</Label>
-                  <div className="mt-2 p-4 bg-gray-50 rounded border">
+                  <div className="mt-2 p-4 bg-gray-800 rounded border">
                     <p className="whitespace-pre-wrap">{selectedTicket.description}</p>
                   </div>
                 </div>
@@ -4704,26 +4639,34 @@ export default function AdminDashboardPage() {
             <DialogFooter>
               <Button onClick={async () => {
                 if (!newMessage.subject.trim() || !newMessage.content.trim()) {
-                  alert('Please fill in both subject and content');
+                  setInlineStatus({ type: 'error', message: 'Please fill in both subject and content' });
                   return;
                 }
-                const res = await fetch('/api/admin/messages', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(newMessage)
-                });
-                if (res.ok) {
-                  alert('Message sent successfully');
-                  setShowSendMessage(false);
-                  setNewMessage({
-                    type: 'info',
-                    subject: '',
-                    content: '',
-                    targetUsers: 'all'
+                setInlineStatus({ type: 'loading', message: 'Sending...' });
+                try {
+                  const res = await fetch('/api/admin/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newMessage)
                   });
-                } else {
-                  const data = await res.json();
-                  alert(data.error || 'Failed to send message');
+                  const data = await res.json().catch(() => ({}));
+                  if (res.ok) {
+                    setInlineStatus({ type: 'success', message: `Message sent to ${data.sentTo || 'selected'} users` });
+                    setTimeout(() => {
+                      setShowSendMessage(false);
+                      setInlineStatus(null);
+                    }, 1000);
+                    setNewMessage({
+                      type: 'info',
+                      subject: '',
+                      content: '',
+                      targetUsers: 'all'
+                    });
+                  } else {
+                    setInlineStatus({ type: 'error', message: data.error || 'Failed to send message' });
+                  }
+                } catch (e) {
+                  setInlineStatus({ type: 'error', message: 'Network error sending message' });
                 }
               }}>Send Message</Button>
               <Button variant="ghost" onClick={() => setShowSendMessage(false)}>Cancel</Button>
@@ -5491,11 +5434,11 @@ export default function AdminDashboardPage() {
 
         {/* Create match dialog */}
         <Dialog open={showCreateMatch} onOpenChange={setShowCreateMatch}>
-          <DialogContent className="max-w-md">
+          <DialogContent className="flex w-[95vw] flex-col sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[85vh]">
             <DialogHeader>
               <DialogTitle>Create Match</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label>Team A Name *</Label>
                 <Input

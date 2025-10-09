@@ -16,10 +16,19 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to fetch ranks' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      ranks: ranks || []
-    });
+    // Normalize to UI shape expected by admin page
+    const normalized = (ranks || []).map((r: any) => ({
+      id: r.id,
+      name: r.name,
+      tier: r.tier,
+      min_xp: r.min_level,    // map min_level -> min_xp
+      max_xp: r.max_level,    // map max_level -> max_xp
+      image_url: r.icon_url,  // map icon_url -> image_url
+      rank_number: r.rank_number,
+      prestige_icon_url: r.prestige_icon_url
+    }));
+
+    return NextResponse.json({ success: true, ranks: normalized });
 
   } catch (error) {
     console.error('Error fetching ranks:', error);
@@ -33,10 +42,27 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { rank_number, name, tier, min_level, max_level, icon_url, prestige_icon_url } = body;
+    // Accept UI-style fields and map to DB columns
+    const {
+      rank_number,
+      name,
+      tier,
+      min_xp,
+      max_xp,
+      image_url,
+      prestige_icon_url,
+      // Also accept DB-style fields just in case
+      min_level,
+      max_level,
+      icon_url,
+    } = body;
 
-    if (!name || !tier || min_level === undefined || max_level === undefined) {
-      return NextResponse.json({ error: 'Name, tier, min_level, and max_level are required' }, { status: 400 });
+    const minLevel = min_level !== undefined ? min_level : min_xp;
+    const maxLevel = max_level !== undefined ? max_level : max_xp;
+    const iconUrl = icon_url || image_url;
+
+    if (!name || tier === undefined || minLevel === undefined) {
+      return NextResponse.json({ error: 'Name, tier, and min_xp (min_level) are required' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
@@ -48,9 +74,9 @@ export async function POST(request: NextRequest) {
         rank_number,
         name,
         tier,
-        min_level,
-        max_level,
-        icon_url,
+        min_level: minLevel,
+        max_level: maxLevel,
+        icon_url: iconUrl,
         prestige_icon_url
       }])
       .select()
@@ -61,10 +87,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to create rank' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      rank: data
-    });
+    // Normalize response to UI shape
+    const normalized = data && {
+      id: data.id,
+      name: data.name,
+      tier: data.tier,
+      min_xp: data.min_level,
+      max_xp: data.max_level,
+      image_url: data.icon_url,
+      rank_number: data.rank_number,
+    };
+
+    return NextResponse.json({ success: true, rank: normalized });
 
   } catch (error) {
     console.error('Error creating rank:', error);
@@ -94,10 +128,10 @@ export async function PUT(request: NextRequest) {
       .from('ranks')
       .update({
         name,
-        min_xp,
-        max_xp,
+        min_level: min_xp,
+        max_level: max_xp,
         tier,
-        image_url
+        icon_url: image_url
       })
       .eq('id', id)
       .select()
@@ -108,10 +142,17 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to update rank' }, { status: 500 });
     }
 
-    return NextResponse.json({
-      success: true,
-      rank: data
-    });
+    const normalized = data && {
+      id: data.id,
+      name: data.name,
+      tier: data.tier,
+      min_xp: data.min_level,
+      max_xp: data.max_level,
+      image_url: data.icon_url,
+      rank_number: data.rank_number,
+    };
+
+    return NextResponse.json({ success: true, rank: normalized });
 
   } catch (error) {
     console.error('Error updating rank:', error);

@@ -26,11 +26,12 @@ export async function GET(request: NextRequest) {
           .eq('user_id', user.id);
 
         // Get current rank
+        // Use min_level as the XP threshold field (normalized in admin/ranks API)
         const { data: rankData } = await supabase
           .from('ranks')
-          .select('name, tier')
-          .lte('min_xp', user.xp || 0)
-          .order('min_xp', { ascending: false })
+          .select('name, tier, min_level')
+          .lte('min_level', user.xp || 0)
+          .order('min_level', { ascending: false })
           .limit(1)
           .single();
 

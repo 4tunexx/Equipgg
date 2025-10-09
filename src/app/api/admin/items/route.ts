@@ -14,13 +14,24 @@ export async function GET(request: NextRequest) {
       return createForbiddenResponse('You do not have permission to access admin functions.');
     }
 
-    // Get all items from database
-    let items = await secureDb.findMany('user_inventory', {}, { orderBy: 'acquired_at' });
-    items = (items || []).reverse();
-    return NextResponse.json({
-      success: true,
-      items
-    });
+    // Get all items from database (stored in user_inventory table as admin-created entries)
+    let rawItems = await secureDb.findMany('user_inventory', {}, { orderBy: 'acquired_at' });
+    rawItems = (rawItems || []).reverse();
+
+    // Normalize to UI shape expected by admin page (name/type/image_url/value)
+    const items = (rawItems || []).map((it: any) => ({
+      id: it.id,
+      name: it.item_name || it.name,
+      type: it.item_type || it.type,
+      rarity: it.rarity,
+      value: it.value,
+      image_url: it.image_url,
+      acquired_at: it.acquired_at,
+      description: it.description,
+      user_id: it.user_id,
+    }));
+
+    return NextResponse.json({ success: true, items });
 
   } catch (error) {
     console.error('Error fetching admin items:', error);
