@@ -62,7 +62,7 @@ import { DashboardTutorialOverlayWrapper } from "./DashboardTutorialOverlayWrapp
 import { BalanceProvider, useBalance } from "../../contexts/balance-context";
 import { SteamVerificationGate } from "../../components/steam-verification-gate";
 
-const navLinks = [
+const baseNavLinks = [
   { href: '/dashboard', label: 'Dashboard', icon: Home },
   { href: '/dashboard/betting', label: 'Betting', icon: Swords },
   { href: '/dashboard/arcade', label: 'Arcade', icon: Puzzle },
@@ -268,12 +268,45 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   }, [user?.id]); // Only depend on user ID, not role to prevent re-renders during login
 
   
+  const [pageToggles, setPageToggles] = React.useState<Record<string, boolean>>({});
+  const [navLinks, setNavLinks] = React.useState(baseNavLinks);
+  // Role flags (declare before effects that use them)
+  const isAdmin = Boolean(user?.role === 'admin');
+  const isModerator = Boolean(user?.role === 'moderator');
+
+  // Fetch page toggles (public endpoint) and filter for non-admin users
+  React.useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await fetch('/api/page-toggles', { cache: 'no-store' });
+        if (res.ok) {
+          const data = await res.json();
+          const toggles: Record<string, boolean> = data.toggles || {};
+          setPageToggles(toggles);
+          // Allow admin to preview as user when ?preview=1 is present
+          const url = new URL(window.location.href);
+          const preview = url.searchParams.get('preview') === '1';
+          if (!isAdmin || preview) {
+            // Keep links where toggle is not explicitly false
+            setNavLinks(baseNavLinks.filter(l => {
+              const seg = l.href.replace('/dashboard','').split('/').filter(Boolean)[0] || '';
+              if (!seg) return true; // root dashboard always visible
+              return toggles[seg] !== false;
+            }));
+          } else {
+            setNavLinks(baseNavLinks);
+          }
+        }
+      } catch {/* ignore */}
+    };
+    load();
+  }, [isAdmin]);
+
   const currentPage = navLinks.find((link) => pathname?.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard'));
   const pageTitle = currentPage ? currentPage.label : 'Dashboard';
   const isAdminPage = pathname?.startsWith('/dashboard/admin') ?? false;
   const isModeratorPage = pathname?.startsWith('/dashboard/moderator') ?? false;
-  const isAdmin = Boolean(user?.role === 'admin');
-  const isModerator = Boolean(user?.role === 'moderator');
+  // (moved isAdmin / isModerator declarations above to satisfy TS ordering)
 
 
   // Authentication is now handled by middleware - no client-side redirects needed

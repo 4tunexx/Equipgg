@@ -3,6 +3,13 @@ import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } f
 import { secureDb } from "../../../../lib/secure-db";
 import { v4 as uuidv4 } from 'uuid';
 
+// Map textual tier labels (bronze/silver/gold/platinum) to numeric tiers if needed
+function tierToNumeric(value: string): number {
+  const map: Record<string, number> = { bronze: 1, silver: 2, gold: 3, platinum: 4 };
+  const lower = value.toLowerCase();
+  return map[lower] || parseInt(value) || 1;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthSession(request);
@@ -14,8 +21,8 @@ export async function GET(request: NextRequest) {
       return createForbiddenResponse('You do not have permission to access admin functions.');
     }
 
-    // Fetch missions from Supabase
-    const missions = await secureDb.findMany('missions', {}, { orderBy: 'createdAt DESC' });
+    // Fetch missions from Supabase (order by created_at desc)
+    const missions = await secureDb.findMany('missions', {}, { orderBy: 'created_at DESC' });
     return NextResponse.json({
       success: true,
       missions
@@ -43,25 +50,25 @@ export async function POST(request: NextRequest) {
 
     const { title, description, type, tier, target_value, reward_coins, reward_xp, reward_item, is_active } = await request.json();
 
-    if (!title || !description || !type || !tier) {
+    if (!title || !description || !type || typeof tier === 'undefined') {
       return NextResponse.json({ error: 'Required fields missing' }, { status: 400 });
     }
 
-    const missionId = uuidv4();
-    const timestamp = new Date().toISOString();
+    // Map UI fields to DB schema
+    // UI: title -> missions.name, type -> missions.mission_type
+    const missionId = undefined; // missions.id is serial; let DB assign
 
     const newMission = await secureDb.create('missions', {
-      id: missionId,
-      title,
+      name: String(title).slice(0, 200),
       description,
-      type,
-      tier,
+      mission_type: type,
+      tier: typeof tier === 'string' ? tierToNumeric(tier) : tier,
       target_value: target_value || 1,
-      reward_coins: reward_coins || 0,
-      reward_xp: reward_xp || 0,
-      reward_item: reward_item || null,
-      is_active: is_active !== false,
-      created_at: timestamp
+      xp_reward: reward_xp || 0,
+      coin_reward: reward_coins || 0,
+      requirement_type: reward_item ? 'item' : null,
+      requirement_value: reward_item ? 1 : 1,
+      is_active: is_active !== false
     });
     return NextResponse.json({
       success: true,
@@ -89,20 +96,28 @@ export async function PUT(request: NextRequest) {
       return createForbiddenResponse('Only admins can update missions.');
     }
 
-    const { id, title, description, type, reward, requirement, isActive } = await request.json();
+    const { id, title, description, type, tier, target_value, reward_coins, reward_xp, reward_item, is_active } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Mission ID is required' }, { status: 400 });
     }
 
-    const updatedMission = await secureDb.update('missions', { id }, {
-      title,
-      description,
-      type,
-      reward,
-      requirement,
-      isActive
-    });
+    const updateData: Record<string, unknown> = {};
+    if (title) updateData.name = String(title).slice(0, 200);
+    if (description) updateData.description = description;
+    if (type) updateData.mission_type = type;
+    if (typeof tier !== 'undefined') updateData.tier = typeof tier === 'string' ? tierToNumeric(tier) : tier;
+    if (typeof target_value !== 'undefined') updateData.target_value = target_value;
+    if (typeof reward_xp !== 'undefined') updateData.xp_reward = reward_xp;
+    if (typeof reward_coins !== 'undefined') updateData.coin_reward = reward_coins;
+    if (typeof is_active !== 'undefined') updateData.is_active = is_active;
+    // reward_item mapping: could be separate item grant system; store requirement fields only if relevant
+    if (reward_item) {
+      updateData.requirement_type = 'item';
+      updateData.requirement_value = 1;
+    }
+
+    const updatedMission = await secureDb.update('missions', { id }, updateData);
     return NextResponse.json({
       success: true,
       message: 'Mission updated successfully',
@@ -129,15 +144,13 @@ export async function PATCH(request: NextRequest) {
       return createForbiddenResponse('Only admins can update mission status.');
     }
 
-    const { missionId, isActive } = await request.json();
+  const { missionId, isActive } = await request.json();
 
     if (!missionId) {
       return NextResponse.json({ error: 'Mission ID is required' }, { status: 400 });
     }
 
-    const updatedMission = await secureDb.update('missions', { id: missionId }, {
-      is_active: isActive
-    });
+    const updatedMission = await secureDb.update('missions', { id: missionId }, { is_active: isActive });
 
     return NextResponse.json({
       success: true,
@@ -172,7 +185,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Mission ID is required' }, { status: 400 });
     }
 
-    await secureDb.delete('missions', { id: missionId });
+  await secureDb.delete('missions', { id: missionId });
     return NextResponse.json({
       success: true,
       message: 'Mission deleted successfully'

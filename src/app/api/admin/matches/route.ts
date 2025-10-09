@@ -1,298 +1,130 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { secureDb } from "../../../../lib/secure-db";
-import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
-import { parse } from 'cookie';
-import { addXP } from "../../../../lib/xp-service";
+import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from '../../../../lib/auth-utils';
+import { secureDb } from '../../../../lib/secure-db';
+import { processMatchResults, syncMatchesFromPandaScore } from '../../../../lib/pandascore';
+import { processBetsForMatch } from '../../../../lib/bet-result-processor';
 
-// GET /api/admin/matches - Get all matches for admin management
+// GET: list matches (admin)
 export async function GET(request: NextRequest) {
-  try {
-    const session = await getAuthSession(request);
-    
-    if (!session) {
-      return createUnauthorizedResponse();
-    }
-    
-    // Fetch user role from database to ensure it's current
-    const users = await secureDb.findMany('users', { id: session.user_id });
-    const user = users[0];
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
-    }
-    
-    // Check if user is admin
-    if (user.role !== 'admin') {
-      return createForbiddenResponse('Admin access required');
-    }
-
-    // Get all matches (order by match_date DESC, start_time DESC)
-    let matches = await secureDb.findMany('matches', undefined, { orderBy: 'match_date DESC' });
-    // Secondary sort by start_time DESC (Supabase only allows one orderBy at a time)
-    matches = matches.sort((a, b) => {
-      const matchA = a as any;
-      const matchB = b as any;
-      if (matchA.match_date === matchB.match_date) {
-        return (matchB.start_time || '').localeCompare(matchA.start_time || '');
-      }
-      return (matchB.match_date || '').localeCompare(matchA.match_date || '');
-    });
-    return NextResponse.json({ matches });
-  } catch (error) {
-    console.error('Error fetching matches:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
+  const session = await getAuthSession(request);
+  if (!session) return createUnauthorizedResponse();
+  if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
+  const matches = await secureDb.findMany<any>('matches', {}, { orderBy: 'created_at DESC', limit: 500 });
+  return NextResponse.json({ matches: matches || [] });
 }
 
-// POST /api/admin/matches - Create new match
+// POST: create match (admin)
 export async function POST(request: NextRequest) {
+  const session = await getAuthSession(request);
+  if (!session) return createUnauthorizedResponse();
+  if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
   try {
-    const session = await getAuthSession(request);
-    
-    if (!session) {
-      return createUnauthorizedResponse();
-    }
-    
-    // Check if user is admin
-    if (session.role !== 'admin') {
-      return createForbiddenResponse('Admin access required');
-    }
-
-    const {
-      team_a_name,
-      team_a_logo,
-      team_a_odds,
-      team_b_name,
-      team_b_logo,
-      team_b_odds,
-      event_name,
-      map,
-      start_time,
-      match_date,
-      stream_url,
-      status = 'upcoming'
-    } = await request.json();
-
-    if (!team_a_name || !team_b_name || !event_name) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
-    // Create match
-    const match = await secureDb.create('matches', {
-      team_a_name,
-      team_a_logo,
-      team_a_odds,
-      team_b_name,
-      team_b_logo,
-      team_b_odds,
-      event_name,
-      map,
-      start_time,
-      match_date,
-      stream_url,
-      status
-    });
-    return NextResponse.json({
-      success: true,
-      message: 'Match created successfully',
-      matchId: match?.id
-    });
-  } catch (error) {
-    console.error('Error creating match:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// PUT /api/admin/matches - Update match
-export async function PUT(request: NextRequest) {
-  try {
-    // Get session from cookies
-    const cookieHeader = request.headers.get('cookie');
-    if (!cookieHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const cookies = parse(cookieHeader);
-    const sessionToken = cookies['equipgg_session'];
-    
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Use getAuthSession for session validation
-    const fakeRequest = { headers: { get: (h: string) => h === 'cookie' ? cookieHeader : undefined } } as NextRequest;
-    const session = await getAuthSession(fakeRequest);
-    if (!session) {
-      return createUnauthorizedResponse();
-    }
-    if (session.role !== 'admin') {
-      return createForbiddenResponse('Admin access required');
-    }
-
-    const { matchId, updates } = await request.json();
-    
-    if (!matchId || !updates) {
-      return NextResponse.json({ error: 'Missing matchId or updates' }, { status: 400 });
-    }
-
-    // Only allow certain fields to be updated
-    const allowedFields = [
-      'team_a_name', 'team_a_logo', 'team_a_odds',
-      'team_b_name', 'team_b_logo', 'team_b_odds',
-      'event_name', 'map', 'start_time', 'match_date', 'stream_url', 'status',
-      'winner', 'team_a_score', 'team_b_score', 'completed_at'
-    ];
-    const filteredUpdates: Record<string, any> = {};
-    for (const [field, value] of Object.entries(updates)) {
-      if (allowedFields.includes(field)) {
-        filteredUpdates[field] = value;
-      }
-    }
-    if (Object.keys(filteredUpdates).length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
-    }
-
-    // Update the match
-    const updated = await secureDb.update('matches', { id: matchId }, filteredUpdates);
-
-    // If match status is being set to 'completed' and winner is specified, process bet payouts
-    if (filteredUpdates.status === 'completed' && (filteredUpdates.winner || (updated && updated.winner))) {
-      const winner = filteredUpdates.winner || (updated ? updated.winner : null);
-
-      if (winner) {
-        try {
-          // Get all active bets for this match
-          const bets = await secureDb.findMany('user_bets', {
-            match_id: matchId,
-            status: 'active'
-          });
-
-          if (bets && bets.length > 0) {
-            // Process each bet
-            for (const bet of bets) {
-              const isWinner = bet.team_choice === winner;
-              const newStatus = isWinner ? 'won' : 'lost';
-
-              // Update bet status
-              await secureDb.update('user_bets', { id: bet.id }, {
-                status: newStatus,
-                settled_at: new Date().toISOString()
-              });
-
-              // If winner, payout the winnings
-              if (isWinner) {
-                // Get current user balance
-                const user = await secureDb.findOne('users', { id: bet.user_id });
-                if (user) {
-                  const currentCoins = Number(user.coins || 0);
-                  const payoutAmount = Number(bet.potential_payout || 0);
-                  const newBalance = currentCoins + payoutAmount;
-                  await secureDb.update('users', { id: bet.user_id }, { coins: newBalance });
-
-                  // Award XP for winning a bet
-                  try {
-                    const teamAName = updated?.team_a_name || 'Team A';
-                    const teamBName = updated?.team_b_name || 'Team B';
-                    await addXP(
-                      String(bet.user_id),
-                      25, // 25 XP for winning a bet
-                      'betting',
-                      `Won bet on ${teamAName} vs ${teamBName} (+${payoutAmount} coins)`
-                    );
-                  } catch (xpError) {
-                    console.warn('Failed to award XP for winning bet:', xpError);
-                  }
-                }
-              }
-            }
-          }
-        } catch (payoutError) {
-          console.error('Error processing bet payouts:', payoutError);
-          // Don't fail the entire request if payouts fail, just log it
-        }
-      }
-    }
-
-    return NextResponse.json({ success: true, message: 'Match updated successfully', match: updated });
-  } catch (error) {
-    console.error('Error updating match:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// DELETE /api/admin/matches - Delete match
-export async function DELETE(request: NextRequest) {
-  try {
-    // Get session from cookies
-    const cookieHeader = request.headers.get('cookie');
-    if (!cookieHeader) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const cookies = parse(cookieHeader);
-    const sessionToken = cookies['equipgg_session'];
-    
-    if (!sessionToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    // Use getAuthSession for session validation
-    const fakeRequest = { headers: { get: (h: string) => h === 'cookie' ? cookieHeader : undefined } } as NextRequest;
-    const session = await getAuthSession(fakeRequest);
-    if (!session) {
-      return createUnauthorizedResponse();
-    }
-    if (session.role !== 'admin') {
-      return createForbiddenResponse('Admin access required');
-    }
-
-    const { matchId } = await request.json();
-    
-    if (!matchId) {
-      return NextResponse.json({ error: 'Missing matchId' }, { status: 400 });
-    }
-
-  // Delete related bets first
-  await secureDb.delete('user_bets', { match_id: matchId });
-  // Delete match
-  await secureDb.delete('matches', { id: matchId });
-  return NextResponse.json({ success: true, message: 'Match deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting match:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-// PATCH /api/admin/matches - Update match visibility
-export async function PATCH(request: NextRequest) {
-  try {
-    const session = await getAuthSession(request);
-    
-    if (!session) {
-      return createUnauthorizedResponse();
-    }
-    
-    // Check if user is admin
-    if (session.role !== 'admin') {
-      return createForbiddenResponse('Admin access required');
-    }
-
     const body = await request.json();
-    const { matchId, is_visible } = body;
-
-    if (!matchId) {
-      return NextResponse.json({ error: 'Missing matchId' }, { status: 400 });
+    const required = ['team_a_name','team_b_name','event_name'];
+    for (const k of required) {
+      if (!body?.[k] || String(body[k]).trim() === '') {
+        return NextResponse.json({ error: `Missing required field: ${k}` }, { status: 400 });
+      }
     }
-
-    if (typeof is_visible !== 'boolean') {
-      return NextResponse.json({ error: 'is_visible must be a boolean' }, { status: 400 });
+    const payload: any = {
+      team_a_name: body.team_a_name,
+      team_a_logo: body.team_a_logo || '',
+      team_a_odds: typeof body.team_a_odds === 'number' ? body.team_a_odds : 1.0,
+      team_b_name: body.team_b_name,
+      team_b_logo: body.team_b_logo || '',
+      team_b_odds: typeof body.team_b_odds === 'number' ? body.team_b_odds : 1.0,
+      event_name: body.event_name,
+      map: body.map || '',
+      start_time: body.start_time || '',
+      match_date: body.match_date || '',
+      stream_url: body.stream_url || '',
+      status: body.status || 'upcoming',
+      is_visible: body.is_visible !== undefined ? !!body.is_visible : true,
+    };
+    const created = await secureDb.create('matches', payload);
+    if (!created) return NextResponse.json({ error: 'Failed to create match' }, { status: 500 });
+    return NextResponse.json({ success: true, match: created });
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+}
+// End of file
+// PUT: update a match (admin)
+export async function PUT(request: NextRequest) {
+  const session = await getAuthSession(request);
+  if (!session) return createUnauthorizedResponse();
+  if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
+  try {
+    const { matchId, updates } = await request.json();
+    if (!matchId || !updates || typeof updates !== 'object') {
+      return NextResponse.json({ error: 'matchId and updates are required' }, { status: 400 });
     }
+    const updated = await secureDb.update('matches', { id: matchId }, updates);
+    if (!updated) return NextResponse.json({ error: 'Failed to update match' }, { status: 500 });
+    return NextResponse.json({ success: true, match: updated });
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+}
 
-    // Update match visibility
-    await secureDb.update('matches', { id: matchId }, { is_visible });
-    
-    return NextResponse.json({ success: true, message: 'Match visibility updated successfully' });
-  } catch (error) {
-    console.error('Error updating match visibility:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+// PATCH: toggle visibility or small updates (admin)
+export async function PATCH(request: NextRequest) {
+  const session = await getAuthSession(request);
+  if (!session) return createUnauthorizedResponse();
+  if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
+  try {
+    const body = await request.json();
+    const { matchId, is_visible, updates } = body || {};
+    if (matchId && typeof is_visible === 'boolean') {
+      const updated = await secureDb.update('matches', { id: matchId }, { is_visible });
+      if (!updated) return NextResponse.json({ error: 'Failed to update visibility' }, { status: 500 });
+      return NextResponse.json({ success: true, match: updated });
+    }
+    if (matchId && updates && typeof updates === 'object') {
+      const updated = await secureDb.update('matches', { id: matchId }, updates);
+      if (!updated) return NextResponse.json({ error: 'Failed to update match' }, { status: 500 });
+      return NextResponse.json({ success: true, match: updated });
+    }
+    return NextResponse.json({ error: 'Invalid PATCH payload' }, { status: 400 });
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+  }
+}
+
+// DELETE: delete one, many, or all matches (admin)
+export async function DELETE(request: NextRequest) {
+  const session = await getAuthSession(request);
+  if (!session) return createUnauthorizedResponse();
+  if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
+  try {
+    const body = await request.json();
+    const { matchId, ids, deleteAll } = body || {};
+    let deletedCount = 0;
+    // helper to delete a single match with dependent cleanup
+    const deleteOne = async (id: string) => {
+      await secureDb.delete('user_bets', { match_id: id });
+      const ok = await secureDb.delete('matches', { id });
+      return ok;
+    };
+    if (deleteAll) {
+      const all = await secureDb.findMany<{ id: string }>('matches');
+      for (const m of all) {
+        if (await deleteOne(m.id)) deletedCount += 1;
+      }
+      return NextResponse.json({ success: true, deleted: deletedCount });
+    }
+    if (Array.isArray(ids) && ids.length > 0) {
+      for (const id of ids) {
+        if (await deleteOne(id)) deletedCount += 1;
+      }
+      return NextResponse.json({ success: true, deleted: deletedCount });
+    }
+    if (matchId) {
+      if (!(await deleteOne(matchId))) return NextResponse.json({ error: 'Failed to delete match' }, { status: 500 });
+      return NextResponse.json({ success: true, deleted: 1 });
+    }
+    return NextResponse.json({ error: 'Provide matchId, ids[], or deleteAll: true' }, { status: 400 });
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 }

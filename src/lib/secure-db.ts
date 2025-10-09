@@ -62,11 +62,16 @@ export class SecureDatabase {
     'completed_at', 'setting_key', 'setting_value', 'setting_type',
     'admin_id', 'details', 'target_id', 'seed', 'hashed_seed',
     'is_revealed', 'revealed_at', 'nonce', 'result',
-    'team_a_name', 'team_a_logo', 'team_a_odds', 'team_b_name',
-    'team_b_logo', 'team_b_odds', 'event_name', 'map', 'match_date',
-    'start_time', 'stream_url', 'pandascore_id', 'is_visible', 'trigger_condition',
+  'team_a_name', 'team_a_logo', 'team_a_odds', 'team_b_name',
+  'team_b_logo', 'team_b_odds', 'event_name', 'map', 'match_date',
+  'start_time', 'stream_url', 'pandascore_id', 'is_visible', 'trigger_condition',
+  // Match resolution fields
+  'winner', 'winner_source', 'team_a_score', 'team_b_score',
     'reward_coins', 'reward_xp', 'reward_gems', 'reward_item',
-    'max_claims_per_user', 'cooldown_hours', 'claimed_at'
+    'max_claims_per_user', 'cooldown_hours', 'claimed_at',
+    // Missions table additional columns
+    'name', 'mission_type', 'order_index', 'xp_reward', 'coin_reward',
+    'requirement_type', 'requirement_value', 'is_repeatable', 'target_value'
   ]);
 
   private validateTableName(table: string): boolean {
