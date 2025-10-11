@@ -24,7 +24,8 @@ export class SecureDatabase {
     'exchange_rates', 'gem_packages', 'cs2_skins', 'payment_settings',
     'gem_transactions', 'payment_intents', 'site_settings',
     'admin_logs', 'server_seeds', 'client_seeds', 'game_results',
-    'matches', 'user_rewards', 'user_reward_claims'
+    'matches', 'user_rewards', 'user_reward_claims', 'items', 'shop_items',
+    'badges', 'user_badges', 'ranks', 'crates', 'crate_items'
   ]);
 
   // Allowed column names for security
@@ -71,7 +72,11 @@ export class SecureDatabase {
     'max_claims_per_user', 'cooldown_hours', 'claimed_at',
     // Missions table additional columns
     'name', 'mission_type', 'order_index', 'xp_reward', 'coin_reward',
-    'requirement_type', 'requirement_value', 'is_repeatable', 'target_value'
+    'requirement_type', 'requirement_value', 'is_repeatable', 'target_value',
+    // Items table additional columns
+    'coin_price', 'gem_price', 'image', 'weapon_type', 'is_tradeable',
+    'is_sellable', 'is_equipable', 'sell_price', 'featured', 'stock',
+    'purchase_limit', 'discount_percentage', 'original_price'
   ]);
 
   private validateTableName(table: string): boolean {
@@ -170,7 +175,10 @@ export class SecureDatabase {
     const sanitizedData: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data)) {
       if (this.validateColumnName(key)) {
-        if (typeof value === 'string') {
+        // Special handling for JSON fields - don't sanitize setting_value
+        if (key === 'setting_value' && typeof value === 'string') {
+          sanitizedData[key] = value;
+        } else if (typeof value === 'string') {
           sanitizedData[key] = value.replace(/['";\\]/g, '');
         } else {
           sanitizedData[key] = value;
@@ -206,7 +214,10 @@ export class SecureDatabase {
     
     for (const [key, value] of Object.entries(data)) {
       if (this.validateColumnName(key)) {
-        if (typeof value === 'string') {
+        // Special handling for JSON fields - don't sanitize setting_value
+        if (key === 'setting_value' && typeof value === 'string') {
+          sanitizedData[key] = value;
+        } else if (typeof value === 'string') {
           sanitizedData[key] = value.replace(/['";\\]/g, '');
         } else {
           sanitizedData[key] = value;

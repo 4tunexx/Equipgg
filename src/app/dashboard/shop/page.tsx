@@ -58,17 +58,20 @@ export default function ShopPage() {
   const [categories, setCategories] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSubTab, setActiveSubTab] = useState('all');
+  const [isLoadingItems, setIsLoadingItems] = useState(true);
   const { user } = useSupabase();
   const { balance: userBalance, isLoading } = useBalance();
 
   // Fetch shop items using API endpoint with fallback data
   const fetchShopItems = async () => {
+    setIsLoadingItems(true);
     try {
       const response = await fetch('/api/shop');
 
       if (response.ok) {
         const data = await response.json();
         const items = data.items || [];
+        
         setShopItems(items);
 
         // Extract unique categories
@@ -84,6 +87,8 @@ export default function ShopPage() {
       // Clear items and indicate error state; UI will show friendly message
       setShopItems([]);
       setCategories([]);
+    } finally {
+      setIsLoadingItems(false);
     }
   };
 
@@ -166,6 +171,16 @@ export default function ShopPage() {
   // renderItemGroup function removed - using renderPaginatedItems instead
 
   const renderPaginatedItems = () => {
+    // Show loading state while fetching
+    if (isLoadingItems) {
+      return (
+        <div className="text-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading shop items...</p>
+        </div>
+      );
+    }
+
     let filteredItems = shopItems;
     
     if (activeSubTab !== 'all') {

@@ -14,21 +14,21 @@ export async function GET(request: NextRequest) {
       return createForbiddenResponse('You do not have permission to access admin functions.');
     }
 
-    // Get all items from database (stored in user_inventory table as admin-created entries)
-    let rawItems = await secureDb.findMany('user_inventory', {}, { orderBy: 'acquired_at' });
-    rawItems = (rawItems || []).reverse();
+    // Get all items from the items table
+    let rawItems = await secureDb.findMany('items', {}, { orderBy: 'created_at DESC' });
 
-    // Normalize to UI shape expected by admin page (name/type/image_url/value)
+    // Normalize to UI shape expected by admin page
     const items = (rawItems || []).map((it: any) => ({
       id: it.id,
-      name: it.item_name || it.name,
-      type: it.item_type || it.type,
+      name: it.name,
+      type: it.type,
       rarity: it.rarity,
-      value: it.value,
-      image_url: it.image_url,
-      acquired_at: it.acquired_at,
+      value: it.coin_price || it.value || 0,
+      image_url: it.image,
+      created_at: it.created_at,
       description: it.description,
-      user_id: it.user_id,
+      category: it.category,
+      weapon_type: it.weapon_type
     }));
 
     return NextResponse.json({ success: true, items });
@@ -53,36 +53,47 @@ export async function POST(request: NextRequest) {
       return createForbiddenResponse('Only admins can create items.');
     }
 
-    const { name, type, rarity, value, image_url, description } = await request.json();
+    const { name, type, rarity, value, image_url, description, category, weapon_type } = await request.json();
 
     if (!name || !type || !rarity) {
       return NextResponse.json({ error: 'Name, type, and rarity are required' }, { status: 400 });
     }
 
-    const itemId = uuidv4();
     const timestamp = new Date().toISOString();
-    await secureDb.create('user_inventory', {
-      id: itemId,
-      user_id: 'admin-created',
-      item_id: itemId,
-      item_name: name,
-      item_type: type,
+    const newItem = await secureDb.create('items', {
+      name,
+      type,
+      category: category || type,
+      weapon_type: weapon_type || null,
       rarity,
-      value: value || 0,
-      image_url: image_url || 'https://picsum.photos/300/200',
-      acquired_at: timestamp,
-      description: description || ''
+      coin_price: value || 0,
+      gem_price: 0,
+      image: image_url || '/assets/placeholder.svg',
+      description: description || `${name} - ${type} weapon`,
+      is_tradeable: true,
+      is_sellable: true,
+      is_equipable: true,
+      sell_price: Math.floor((value || 0) * 0.7),
+      is_active: true,
+      featured: false,
+      created_at: timestamp,
+      updated_at: timestamp
     });
+    
+    if (!newItem) {
+      return NextResponse.json({ error: 'Failed to create item' }, { status: 500 });
+    }
+    
     return NextResponse.json({
       success: true,
       message: 'Item created successfully',
       item: {
-        id: itemId,
+        id: newItem.id,
         name,
         type,
         rarity,
         value: value || 0,
-        image_url: image_url || 'https://picsum.photos/300/200',
+        image_url: image_url || '/assets/placeholder.svg',
         description: description || ''
       }
     });
@@ -107,25 +118,32 @@ export async function PUT(request: NextRequest) {
       return createForbiddenResponse('Only admins can update items.');
     }
 
-    const { id, name, type, rarity, value, image_url, description } = await request.json();
+    const { id, name, type, category, rarity, value, image_url, description } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
     }
 
-    // Check if item exists
-    const existingItem = await secureDb.findOne('user_inventory', { id });
-    if (!existingItem) {
+    // Check if item exists in items table
+    const existingItems = await secureDb.findMany('items', { id });
+    if (!existingItems || existingItems.length === 0) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
-    await secureDb.update('user_inventory', { id }, {
-      item_name: name || existingItem.item_name,
-      item_type: type || existingItem.item_type,
+    
+    const existingItem = existingItems[0];
+    
+    // Update the item
+    await secureDb.update('items', { id }, {
+      name: name || existingItem.name,
+      type: type || existingItem.type,
+      category: category || type || existingItem.category,
       rarity: rarity || existingItem.rarity,
-      value: value !== undefined ? value : existingItem.value,
-      image_url: image_url || existingItem.image_url,
-      description: description || existingItem.description
+      coin_price: value !== undefined ? value : existingItem.coin_price,
+      image: image_url || existingItem.image,
+      description: description || existingItem.description,
+      updated_at: new Date().toISOString()
     });
+    
     return NextResponse.json({
       success: true,
       message: 'Item updated successfully'
@@ -159,11 +177,13 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Check if item exists
-    const existingItem = await secureDb.findOne('user_inventory', { id: itemId });
-    if (!existingItem) {
+    const existingItems = await secureDb.findMany('items', { id: itemId });
+    if (!existingItems || existingItems.length === 0) {
       return NextResponse.json({ error: 'Item not found' }, { status: 404 });
     }
-    await secureDb.delete('user_inventory', { id: itemId });
+    
+    await secureDb.delete('items', { id: itemId });
+    
     return NextResponse.json({
       success: true,
       message: 'Item deleted successfully'

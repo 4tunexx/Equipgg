@@ -272,44 +272,57 @@ export class SupabaseQueries {
 
   // Shop queries
   async getShopItems() {
-    // First try to get from shop_items table with items joined
-    const { data: shopItems, error: shopError } = await this.supabase
-      .from('shop_items')
-      .select('*, item:items(*)')
-      .gt('stock', 0);
+    // Use items table directly - this is the single source of truth managed by admin
+    const { data: items, error: itemsError } = await this.supabase
+      .from('items')
+      .select('*')
+      .eq('is_active', true) // Only show active items
+      .order('created_at', { ascending: false });
     
-    if (shopError && shopError.code !== 'PGRST116') {
-      throw shopError;
+    if (itemsError) {
+      console.error('Error fetching items:', itemsError);
+      throw itemsError;
     }
     
-    // If shop_items table is empty or doesn't exist, use items table directly
-    if (!shopItems || shopItems.length === 0) {
-      console.log('shop_items table empty, using items table directly');
-      const { data: items, error: itemsError } = await this.supabase
-        .from('items')
-        .select('*')
-        .limit(50); // Limit to first 50 items for shop
-      
-      if (itemsError) throw itemsError;
-      
-      // Transform items to shop format with generated prices
-      return (items || []).map((item, index) => ({
-        id: `shop_${item.id}`,
+    // Transform items to shop format
+    return (items || []).map((item, index) => ({
+      id: `shop_${item.id}`,
+      name: item.name,
+      description: item.description || `${item.type} weapon in ${item.rarity} quality`,
+      price: item.coin_price || this.generateItemPrice(item.rarity),
+      item_id: item.id,
+      stock: item.stock || 999, // Unlimited stock if not specified
+      discount_percentage: item.discount_percentage || 0,
+      is_featured: item.featured || index < 5, // Use featured flag or first 5 items
+      is_active: item.is_active !== false,
+      created_at: item.created_at,
+      updated_at: item.updated_at,
+      item: {
+        id: item.id,
         name: item.name,
-        description: item.description || `${item.type} weapon in ${item.rarity} quality`,
-        price: this.generateItemPrice(item.rarity),
-        item_id: item.id,
-        stock: 999, // Unlimited stock
-        discount_percentage: 0,
-        is_featured: index < 5, // First 5 items are featured
-        is_active: true,
+        type: item.type,
+        category: item.category,
+        weapon_type: item.weapon_type,
+        rarity: item.rarity as Rarity,
+        image: item.image,
+        description: item.description,
+        coin_price: item.coin_price,
+        gem_price: item.gem_price,
+        is_tradeable: item.is_tradeable,
+        is_sellable: item.is_sellable,
+        is_equipable: item.is_equipable,
+        sell_price: item.sell_price,
+        is_active: item.is_active,
+        featured: item.featured,
+        stock: item.stock,
+        purchase_limit: item.purchase_limit,
+        discount_percentage: item.discount_percentage,
+        original_price: item.original_price,
+        data_ai_hint: null,
         created_at: item.created_at,
-        updated_at: item.updated_at,
-        item: item
-      })) as DBShopItem[];
-    }
-    
-    return shopItems as DBShopItem[];
+        updated_at: item.updated_at
+      }
+    })) as DBShopItem[];
   }
   
   // Helper function to generate prices based on rarity

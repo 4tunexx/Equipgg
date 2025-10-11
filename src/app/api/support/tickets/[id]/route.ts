@@ -28,7 +28,7 @@ export async function GET(
     // Get ticket details (with user and assigned info)
     const { data: ticket, error: ticketError } = await supabase
       .from('support_tickets')
-      .select(`*, user:users!support_tickets_user_id_fkey(displayName, email), assigned:users!support_tickets_assigned_to_fkey(displayName)`) // adjust join keys as needed
+      .select(`*, user:users!support_tickets_user_id_fkey(displayname, email), assigned:users!support_tickets_assigned_to_fkey(displayname)`) // adjust join keys as needed
       .eq('id', params.id)
       .single();
     if (ticketError || !ticket) {
@@ -43,7 +43,7 @@ export async function GET(
     // Get ticket replies (with user info)
     const { data: replies, error: repliesError } = await supabase
       .from('support_ticket_replies')
-      .select('*, user:users!support_ticket_replies_user_id_fkey(displayName, role)') // adjust join keys as needed
+      .select('*, user:users!support_ticket_replies_user_id_fkey(displayname, role)') // adjust join keys as needed
       .eq('ticket_id', params.id)
       .order('created_at', { ascending: true });
     if (repliesError) {
@@ -53,13 +53,13 @@ export async function GET(
     // Flatten user fields for compatibility
     const ticketOut = {
       ...ticket,
-      user_name: ticket.user?.displayName ?? null,
+  user_name: ticket.user?.displayname ?? null,
       user_email: ticket.user?.email ?? null,
-      assigned_to_name: ticket.assigned?.displayName ?? null,
+  assigned_to_name: ticket.assigned?.displayname ?? null,
     };
     const repliesOut = (replies || []).map(r => ({
       ...r,
-      user_name: r.user?.displayName ?? null,
+  user_name: r.user?.displayname ?? null,
       user_role: r.user?.role ?? null,
     }));
 

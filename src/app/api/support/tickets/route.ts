@@ -27,7 +27,11 @@ export async function GET(request: NextRequest) {
         // Admins and moderators can see all tickets
         const { data, error } = await supabase
           .from('support_tickets')
-          .select('*, users:user_id(id, displayName, email), assigned:assigned_to(id, displayName)')
+          .select(`
+            *,
+            user:users!support_tickets_user_id_fkey(id, displayname, email),
+            assigned:users!support_tickets_assigned_to_fkey(id, displayname)
+          `)
           .order('created_at', { ascending: false });
         if (error) {
           // If table doesn't exist, return empty array
@@ -41,7 +45,11 @@ export async function GET(request: NextRequest) {
         // Regular users can only see their own tickets
         const { data, error } = await supabase
           .from('support_tickets')
-          .select('*, users:user_id(id, displayName, email), assigned:assigned_to(id, displayName)')
+          .select(`
+            *,
+            user:users!support_tickets_user_id_fkey(id, displayname, email),
+            assigned:users!support_tickets_assigned_to_fkey(id, displayname)
+          `)
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
         if (error) {

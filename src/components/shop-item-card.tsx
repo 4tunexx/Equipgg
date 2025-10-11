@@ -11,19 +11,35 @@ import { cn } from "../lib/utils";
 
 // Define utility constants locally
 const rarityColors: Record<Rarity, string> = {
-  'Common': 'from-gray-500/20 to-gray-600/20 border-gray-500/30',
-  'Uncommon': 'from-green-500/20 to-green-600/20 border-green-500/30',
-  'Rare': 'from-blue-500/20 to-blue-600/20 border-blue-500/30',
-  'Epic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
-  'Legendary': 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30'
+  'Common': 'text-gray-400',
+  'Uncommon': 'text-indigo-400',
+  'Rare': 'text-blue-400',
+  'Epic': 'text-pink-400',
+  'Legendary': 'text-purple-400'
+};
+
+const rarityBorders: Record<Rarity, string> = {
+  'Common': 'border-gray-500/50',
+  'Uncommon': 'border-indigo-500/50',
+  'Rare': 'border-blue-500/50',
+  'Epic': 'border-pink-500/50',
+  'Legendary': 'border-purple-500/50'
+};
+
+const rarityGradients: Record<Rarity, string> = {
+  'Common': 'from-gray-500/20 to-gray-600/20',
+  'Uncommon': 'from-indigo-500/20 to-indigo-600/20',
+  'Rare': 'from-blue-500/20 to-blue-600/20',
+  'Epic': 'from-pink-500/20 to-pink-600/20',
+  'Legendary': 'from-purple-500/20 to-purple-600/20'
 };
 
 const rarityGlow: Record<Rarity, string> = {
   'Common': 'shadow-gray-500/50',
-  'Uncommon': 'shadow-green-500/50',
+  'Uncommon': 'shadow-indigo-500/50',
   'Rare': 'shadow-blue-500/50',
-  'Epic': 'shadow-purple-500/50',
-  'Legendary': 'shadow-yellow-500/50'
+  'Epic': 'shadow-pink-500/50',
+  'Legendary': 'shadow-purple-500/50'
 };
 
 import { useToast } from "../hooks/use-toast";
@@ -136,13 +152,19 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
     }
   
   return (
-    <Card className={cn("group overflow-hidden bg-card/50  transition-all flex flex-col hover:border-primary/50", item.rarity ? rarityGlow[item.rarity] : '')}>
+    <Card className={cn(
+      "group overflow-hidden bg-gradient-to-br transition-all flex flex-col border-2 hover:scale-105 hover:shadow-xl",
+      item.rarity ? rarityBorders[item.rarity] : 'border-gray-500/50',
+      item.rarity ? rarityGradients[item.rarity] : 'from-gray-500/20 to-gray-600/20',
+      item.rarity ? rarityGlow[item.rarity] : ''
+    )}>
       <CardContent className="p-4 flex-grow flex flex-col items-center text-center">
         <div className="relative w-32 h-32 mb-4 flex items-center justify-center">
-          {item.image ? (
+          {item.image || item.name ? (
             <ItemImage
               itemName={item.name}
               itemType={item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
+              imageUrl={item.image}
               width={128}
               height={128}
               className="object-contain transition-transform group-hover:scale-110"

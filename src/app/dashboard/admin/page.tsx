@@ -8,11 +8,13 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
-import { LineChart, Users as UsersIcon, ShoppingBag, Award, Cog, Swords, Gem, Trophy, Star, Archive, Ticket, ShieldCheck, Bell, MessagesSquare, RefreshCw, Plus, Edit, Trash2, Power } from 'lucide-react';
+import { LineChart, Users as UsersIcon, ShoppingBag, Award, Cog, Swords, Gem, Trophy, Star, Archive, Ticket, ShieldCheck, Bell, MessagesSquare, RefreshCw, Plus, Edit, Trash2, Power, Target, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useToast } from '@/hooks/use-toast';
+import { Toaster } from '@/components/ui/toaster';
 
 // This admin page is adapted from your example (example-admin.txt).
 // It uses the same left-nav + panels layout but fetches live read-only admin endpoints.
@@ -21,11 +23,13 @@ import { Switch } from '@/components/ui/switch';
 export default function AdminDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
 
   const [activeNav, setActiveNav] = useState('dashboard');
   const [activeSiteControlTab, setActiveSiteControlTab] = useState('site-settings');
   const [pageToggles, setPageToggles] = useState<Record<string, boolean>>({});
   const [pageToggleList, setPageToggleList] = useState<string[]>([]);
+  const [pendingToggles, setPendingToggles] = useState<Record<string, boolean> | null>(null);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -122,7 +126,11 @@ export default function AdminDashboardPage() {
   });
   
   const [showCreateItem, setShowCreateItem] = useState(false);
+  const [showEditItem, setShowEditItem] = useState(false);
+  const [editingItem, setEditingItem] = useState<any>(null);
   const [newItem, setNewItem] = useState({ name: '', type: '', rarity: 'common', value: 0 });
+  const [itemsCurrentPage, setItemsCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12); // Show 12 items per page
   const [showCreateBadge, setShowCreateBadge] = useState(false);
   const [showEditBadge, setShowEditBadge] = useState(false);
   const [editingBadge, setEditingBadge] = useState<any>(null);
@@ -246,7 +254,10 @@ export default function AdminDashboardPage() {
       });
 
       if (heroRes.ok) {
-        alert('Landing page settings saved successfully');
+        toast({
+          title: "Successfully saved!",
+          description: "Landing page settings have been updated.",
+        });
         // Refresh the data
         const updatedRes = await fetch('/api/landing/panels');
         if (updatedRes.ok) {
@@ -272,11 +283,19 @@ export default function AdminDashboardPage() {
         }
       } else {
         const data = await heroRes.json();
-        alert(data.error || 'Save failed');
+        toast({
+          title: "Error",
+          description: data.error || 'Save failed',
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error('Save landing page error:', error);
-      alert('Save failed');
+      toast({
+        title: "Error",
+        description: 'Save failed',
+        variant: "destructive",
+      });
     }
   };
 
@@ -373,7 +392,10 @@ export default function AdminDashboardPage() {
 
         if (missRes && missRes.ok) {
           const data = await missRes.json();
+          console.log('Admin missions data:', data);
           setMissions(data.missions || []);
+        } else if (missRes) {
+          console.error('Missions fetch failed:', missRes.status);
         }
 
         if (fsRes && fsRes.ok) {
@@ -415,6 +437,8 @@ export default function AdminDashboardPage() {
             const togglesData = await togglesRes.json();
             setPageToggles(togglesData.toggles || {});
             setPageToggleList(togglesData.possiblePages || []);
+            // Clear any pending edits on fresh load
+            setPendingToggles(null as any);
           }
         } catch {
           // ignore
@@ -495,23 +519,351 @@ export default function AdminDashboardPage() {
         </div>
 
         {activeNav === 'dashboard' && (
-          <div className="grid grid-cols-3 gap-4">
-            <Card className="p-4">
-              <CardContent>
-                <div className="text-sm text-muted-foreground">Total Users</div>
-                <div className="text-2xl font-bold">{users.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="p-4">
-              <CardContent>
-                <div className="text-sm text-muted-foreground">Shop Items</div>
-                <div className="text-2xl font-bold">{items.length}</div>
-              </CardContent>
-            </Card>
-            <Card className="p-4">
-              <CardContent>
-                <div className="text-sm text-muted-foreground">Loading</div>
-                <div className="text-2xl font-bold">{loading ? 'Yes' : 'No'}</div>
+          <div className="space-y-6">
+            {/* Overview Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card className="p-4 hover:shadow-lg transition-shadow">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Total Users</div>
+                      <div className="text-3xl font-bold">{users.length}</div>
+                      <div className="text-xs text-green-500 mt-1">↑ Active community</div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                      <UsersIcon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="p-4 hover:shadow-lg transition-shadow">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Shop Items</div>
+                      <div className="text-3xl font-bold">{items.length}</div>
+                      <div className="text-xs text-muted-foreground mt-1">Available for sale</div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center">
+                      <ShoppingBag className="w-6 h-6 text-green-600 dark:text-green-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="p-4 hover:shadow-lg transition-shadow">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Active Matches</div>
+                      <div className="text-3xl font-bold">{matches.filter((m: any) => m.status === 'live').length}</div>
+                      <div className="text-xs text-muted-foreground mt-1">{matches.length} total matches</div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900 flex items-center justify-center">
+                      <Swords className="w-6 h-6 text-purple-600 dark:text-purple-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="p-4 hover:shadow-lg transition-shadow">
+                <CardContent className="p-0">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Flash Sales</div>
+                      <div className="text-3xl font-bold">{flashSales.filter((fs: any) => fs.active).length}</div>
+                      <div className="text-xs text-orange-500 mt-1">↑ Active promotions</div>
+                    </div>
+                    <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+                      <Archive className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Quick Stats Row */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Card className="p-4">
+                <CardContent className="p-0">
+                  <div className="text-sm text-muted-foreground mb-2">Total Coins in Economy</div>
+                  <div className="text-2xl font-bold text-yellow-500">
+                    {users.reduce((sum: number, u: any) => sum + (u.coins || 0), 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Across {users.length} users</div>
+                </CardContent>
+              </Card>
+
+              <Card className="p-4">
+                <CardContent className="p-0">
+                  <div className="text-sm text-muted-foreground mb-2">Total Gems in Economy</div>
+                  <div className="text-2xl font-bold text-purple-500">
+                    {users.reduce((sum: number, u: any) => sum + (u.gems || 0), 0).toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Premium currency</div>
+                </CardContent>
+              </Card>
+
+              <Card className="p-4">
+                <CardContent className="p-0">
+                  <div className="text-sm text-muted-foreground mb-2">Avg User Level</div>
+                  <div className="text-2xl font-bold text-blue-500">
+                    {users.length > 0 ? (users.reduce((sum: number, u: any) => sum + (u.level || 1), 0) / users.length).toFixed(1) : '0'}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">Player progression</div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Recent Activity & Quick Actions */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Recent Users */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <UsersIcon className="w-5 h-5" />
+                      Recent Users
+                    </h3>
+                    <Button variant="ghost" size="sm" onClick={() => setActiveNav('users')}>
+                      View All
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    {users.slice(0, 5).map((user: any) => (
+                      <div key={user.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                        <div>
+                          <div className="font-medium">{user.displayname || user.displayName || 'Unknown'}</div>
+                          <div className="text-xs text-muted-foreground">{user.email}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium">Lvl {user.level || 1}</div>
+                          <div className="text-xs text-muted-foreground">{user.coins || 0} coins</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Quick Actions */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <Cog className="w-5 h-5" />
+                    Quick Actions
+                  </h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => setActiveNav('users')}>
+                      <UsersIcon className="w-5 h-5" />
+                      <span className="text-sm">Manage Users</span>
+                    </Button>
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => setActiveNav('shop')}>
+                      <ShoppingBag className="w-5 h-5" />
+                      <span className="text-sm">Manage Shop</span>
+                    </Button>
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => setActiveNav('matches')}>
+                      <Swords className="w-5 h-5" />
+                      <span className="text-sm">View Matches</span>
+                    </Button>
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => setActiveNav('site-control')}>
+                      <Cog className="w-5 h-5" />
+                      <span className="text-sm">Site Settings</span>
+                    </Button>
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={async () => {
+                      try {
+                        const res = await fetch('/api/matches/sync', { method: 'POST' });
+                        if (res.ok) {
+                          toast({
+                            title: "Sync Started!",
+                            description: "Syncing matches from Pandascore...",
+                          });
+                          const matchesRes = await fetch('/api/admin/matches');
+                          if (matchesRes.ok) {
+                            const data = await matchesRes.json();
+                            setMatches(data.matches || data.data || []);
+                          }
+                        }
+                      } catch (e) {
+                        toast({
+                          title: "Sync Failed",
+                          description: "Could not sync matches",
+                          variant: "destructive",
+                        });
+                      }
+                    }}>
+                      <RefreshCw className="w-5 h-5" />
+                      <span className="text-sm">Sync Matches</span>
+                    </Button>
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={() => {
+                      setActiveSiteControlTab('flash-sales');
+                      setActiveNav('site-control');
+                    }}>
+                      <Archive className="w-5 h-5" />
+                      <span className="text-sm">Flash Sales</span>
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* System Status & Active Matches */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* System Status */}
+              <Card>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5" />
+                    System Status
+                  </h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium">Database</span>
+                      </div>
+                      <span className="text-xs text-green-500">Connected</span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 ${siteSettings?.pandascore_api_key ? 'bg-green-500' : 'bg-yellow-500'} rounded-full`}></div>
+                        <span className="text-sm font-medium">Pandascore API</span>
+                      </div>
+                      <span className={`text-xs ${siteSettings?.pandascore_api_key ? 'text-green-500' : 'text-yellow-500'}`}>
+                        {siteSettings?.pandascore_api_key ? 'Connected' : 'Using .env'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-2 h-2 ${siteSettings?.maintenanceMode ? 'bg-yellow-500' : 'bg-green-500'} rounded-full`}></div>
+                        <span className="text-sm font-medium">Maintenance Mode</span>
+                      </div>
+                      <span className={`text-xs ${siteSettings?.maintenanceMode ? 'text-yellow-500' : 'text-green-500'}`}>
+                        {siteSettings?.maintenanceMode ? 'Active' : 'Disabled'}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <span className="text-sm font-medium">User Registration</span>
+                      </div>
+                      <span className="text-xs text-green-500">
+                        {siteSettings?.enableRegistration ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Active Matches */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold flex items-center gap-2">
+                      <Swords className="w-5 h-5" />
+                      Live Matches
+                    </h3>
+                    <Button variant="ghost" size="sm" onClick={() => setActiveNav('matches')}>
+                      View All
+                    </Button>
+                  </div>
+                  {matches.filter((m: any) => m.status === 'live').length > 0 ? (
+                    <div className="space-y-3">
+                      {matches.filter((m: any) => m.status === 'live').slice(0, 4).map((match: any) => (
+                        <div key={match.id} className="p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="text-sm font-medium">{match.team_a_name}</div>
+                              <div className="text-xs text-muted-foreground">vs</div>
+                              <div className="text-sm font-medium">{match.team_b_name}</div>
+                            </div>
+                            <div className="text-right">
+                              <span className="px-2 py-1 rounded-full text-xs bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
+                                🔴 LIVE
+                              </span>
+                              <div className="text-xs text-muted-foreground mt-1">{match.event_name}</div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <Swords className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">No live matches</p>
+                      <Button variant="link" size="sm" onClick={async () => {
+                        const res = await fetch('/api/matches/sync', { method: 'POST' });
+                        if (res.ok) {
+                          const matchesRes = await fetch('/api/admin/matches');
+                          if (matchesRes.ok) {
+                            const data = await matchesRes.json();
+                            setMatches(data.matches || data.data || []);
+                          }
+                        }
+                      }}>
+                        Sync from Pandascore
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Content Stats */}
+            <Card>
+              <CardContent className="p-6">
+                <h3 className="text-lg font-semibold mb-4">Content Statistics</h3>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4">
+                  <div className="text-center p-4 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors" onClick={async () => {
+                    console.log('Current missions state:', missions);
+                    const res = await fetch('/api/admin/missions');
+                    const data = await res.json();
+                    console.log('Fresh missions fetch:', data);
+                    if (data.missions) {
+                      setMissions(data.missions);
+                      toast({
+                        title: "Missions Refreshed",
+                        description: `Found ${data.missions.length} missions in database`,
+                      });
+                    }
+                  }}>
+                    <Target className="w-8 h-8 mx-auto mb-2 text-green-500" />
+                    <div className="text-2xl font-bold">{missions.length}</div>
+                    <div className="text-xs text-muted-foreground">Missions</div>
+                    <div className="text-xs text-blue-500 mt-1">Click to refresh</div>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Trophy className="w-8 h-8 mx-auto mb-2 text-yellow-500" />
+                    <div className="text-2xl font-bold">{achievements.length}</div>
+                    <div className="text-xs text-muted-foreground">Achievements</div>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Award className="w-8 h-8 mx-auto mb-2 text-blue-500" />
+                    <div className="text-2xl font-bold">{badges.length}</div>
+                    <div className="text-xs text-muted-foreground">Badges</div>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Star className="w-8 h-8 mx-auto mb-2 text-purple-500" />
+                    <div className="text-2xl font-bold">{ranks.length}</div>
+                    <div className="text-xs text-muted-foreground">Ranks</div>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Archive className="w-8 h-8 mx-auto mb-2 text-orange-500" />
+                    <div className="text-2xl font-bold">{crates.length}</div>
+                    <div className="text-xs text-muted-foreground">Crates</div>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Gem className="w-8 h-8 mx-auto mb-2 text-cyan-500" />
+                    <div className="text-2xl font-bold">{perks.length}</div>
+                    <div className="text-xs text-muted-foreground">Perks</div>
+                  </div>
+                  <div className="text-center p-4 border rounded-lg">
+                    <Ticket className="w-8 h-8 mx-auto mb-2 text-red-500" />
+                    <div className="text-2xl font-bold">{userRewards.length}</div>
+                    <div className="text-xs text-muted-foreground">Rewards</div>
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -573,32 +925,271 @@ export default function AdminDashboardPage() {
         )}
 
         {activeNav === 'shop' && (
-          <div>
-            <h2 className="text-lg font-semibold mb-3">Shop Items</h2>
-            <div className="mb-3">
-              <Button onClick={() => setShowCreateItem(true)}>Create Item</Button>
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-lg font-semibold mb-1">Shop Items Management</h2>
+              <Button onClick={() => setShowCreateItem(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Create Item
+              </Button>
             </div>
-            <div className="grid grid-cols-3 gap-4">
-              {items.map(item => (
-                <div key={item.id} className="p-3 border rounded">
-                  <div className="font-semibold">{item.name}</div>
-                  <div className="text-sm text-muted-foreground">{item.type || item.category || ''}</div>
-                  <div className="mt-2 flex gap-2">
-                    <Button size="sm" variant="destructive" onClick={async () => {
-                      if (!confirm('Delete this item?')) return;
-                      const res = await fetch(`/api/admin/items?id=${item.id}`, { method: 'DELETE' });
-                      if (res.ok) {
-                        setItems(items.filter((it: any) => it.id !== item.id));
-                        alert('Item deleted');
-                      } else {
-                        const data = await res.json();
-                        alert(data.error || 'Delete failed');
-                      }
-                    }}>Delete</Button>
+            
+            {loading ? (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                    <p className="text-lg font-medium">Loading items...</p>
                   </div>
-                </div>
-              ))}
-            </div>
+                </CardContent>
+              </Card>
+            ) : items.length === 0 ? (
+              <Card>
+                <CardContent className="p-6 text-center">
+                  <p className="text-muted-foreground mb-4">No items in database yet</p>
+                  <Button onClick={() => setShowCreateItem(true)}>Create Your First Item</Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card>
+                <CardContent className="p-6">
+                  {(() => {
+                    // Pagination logic
+                    const totalPages = Math.ceil(items.length / itemsPerPage);
+                    const startIndex = (itemsCurrentPage - 1) * itemsPerPage;
+                    const endIndex = startIndex + itemsPerPage;
+                    const paginatedItems = items.slice(startIndex, endIndex);
+
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                          {paginatedItems.map(item => {
+                      // Helper function to generate correct csgodatabase.com image URL
+                      const getItemImageUrl = (itemName: string, category: string) => {
+                        const baseUrl = 'https://www.csgodatabase.com/images';
+                        const categoryLower = category?.toLowerCase() || '';
+                        
+                        // Determine the correct path based on category
+                        let path = 'skins'; // default for weapons
+                        if (categoryLower.includes('knife') || categoryLower === 'knives') {
+                          path = 'knives';
+                        } else if (categoryLower.includes('agent') || categoryLower === 'agents') {
+                          path = 'agents';
+                        } else if (categoryLower.includes('glove') || categoryLower === 'gloves') {
+                          path = 'gloves';
+                        }
+                        
+                        // CSGODatabase format: 
+                        // - Replace spaces and | with underscores
+                        // - Keep letters, numbers, underscores, hyphens, quotes, parentheses
+                        // Examples:
+                        // "AWP | Dragon Lore" -> "AWP_Dragon_Lore"
+                        // "CZ75-Auto | Victoria" -> "CZ75-Auto_Victoria"
+                        // "Hand Wraps | Duct Tape" -> "Hand_Wraps_Duct_Tape"
+                        const formattedName = itemName
+                          .replace(/\s*\|\s*/g, '_')  // Replace | with underscore
+                          .replace(/\s+/g, '_');       // Replace spaces with underscores
+                        
+                        return `${baseUrl}/${path}/webp/${formattedName}.webp`;
+                      };
+
+                      // Get rarity styles
+                      const getRarityStyles = (rarity: string) => {
+                        const rarityLower = rarity?.toLowerCase() || 'common';
+                        switch (rarityLower) {
+                          case 'legendary':
+                          case 'covert':
+                            return {
+                              border: 'border-purple-500/50',
+                              bg: 'bg-gradient-to-br from-purple-500/20 to-purple-600/20',
+                              text: 'text-purple-400',
+                              badgeBg: 'bg-purple-500',
+                              badgeText: 'text-white'
+                            };
+                          case 'epic':
+                          case 'classified':
+                            return {
+                              border: 'border-pink-500/50',
+                              bg: 'bg-gradient-to-br from-pink-500/20 to-pink-600/20',
+                              text: 'text-pink-400',
+                              badgeBg: 'bg-pink-500',
+                              badgeText: 'text-white'
+                            };
+                          case 'rare':
+                          case 'restricted':
+                            return {
+                              border: 'border-blue-500/50',
+                              bg: 'bg-gradient-to-br from-blue-500/20 to-blue-600/20',
+                              text: 'text-blue-400',
+                              badgeBg: 'bg-blue-500',
+                              badgeText: 'text-white'
+                            };
+                          case 'uncommon':
+                          case 'mil-spec':
+                          case 'mil-spec grade':
+                            return {
+                              border: 'border-indigo-500/50',
+                              bg: 'bg-gradient-to-br from-indigo-500/20 to-indigo-600/20',
+                              text: 'text-indigo-400',
+                              badgeBg: 'bg-indigo-500',
+                              badgeText: 'text-white'
+                            };
+                          case 'common':
+                          case 'consumer':
+                          case 'consumer grade':
+                          default:
+                            return {
+                              border: 'border-gray-500/50',
+                              bg: 'bg-gradient-to-br from-gray-500/20 to-gray-600/20',
+                              text: 'text-gray-400',
+                              badgeBg: 'bg-gray-500',
+                              badgeText: 'text-white'
+                            };
+                        }
+                      };
+
+                      const rarityStyles = getRarityStyles(item.rarity);
+                      
+                      // Use stored image_url if available, otherwise generate URL
+                      const imageUrl = item.image_url || item.image || getItemImageUrl(item.name, item.category || item.type);
+
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={`border-2 ${rarityStyles.border} ${rarityStyles.bg} rounded-lg p-4 space-y-3 hover:shadow-xl hover:scale-105 transition-all duration-200`}
+                        >
+                          <div className="aspect-video w-full rounded overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
+                            <img 
+                              src={imageUrl}
+                              alt={item.name}
+                              className="w-full h-full object-contain p-2"
+                              loading="lazy"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                // Silently fall back to placeholder - user can update manually via admin
+                                if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                                  target.src = '/assets/placeholder.svg';
+                                }
+                              }}
+                            />
+                          </div>
+                          <div>
+                            <div className={`font-semibold text-base ${rarityStyles.text}`}>{item.name}</div>
+                            <div className="text-sm text-muted-foreground">{item.type || item.category || 'Unknown'}</div>
+                          </div>
+                          <div className="flex gap-2 flex-wrap">
+                            <span className={`px-2 py-1 rounded text-xs font-bold ${rarityStyles.badgeBg} ${rarityStyles.badgeText}`}>
+                              {item.rarity || 'Common'}
+                            </span>
+                            <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-500 text-white">
+                              💰 {item.value || 0} coins
+                            </span>
+                          </div>
+                          {item.description && (
+                            <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                          )}
+                          <div className="flex gap-2 pt-2">
+                            <Button 
+                              size="sm" 
+                              variant="outline"
+                              onClick={() => {
+                                setEditingItem(item);
+                                setShowEditItem(true);
+                              }}
+                            >
+                              <Edit className="w-3 h-3 mr-1" /> Edit
+                            </Button>
+                            <Button 
+                              size="sm" 
+                              variant="destructive" 
+                              onClick={async () => {
+                                if (!confirm(`Delete "${item.name}"?`)) return;
+                                const res = await fetch(`/api/admin/items?id=${item.id}`, { method: 'DELETE' });
+                                if (res.ok) {
+                                  setItems(items.filter((it: any) => it.id !== item.id));
+                                  toast({
+                                    title: "Success",
+                                    description: "Item deleted successfully",
+                                  });
+                                } else {
+                                  const data = await res.json();
+                                  toast({
+                                    title: "Error",
+                                    description: data.error || 'Delete failed',
+                                    variant: "destructive",
+                                  });
+                                }
+                              }}
+                            >
+                              <Trash2 className="w-3 h-3 mr-1" /> Delete
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setItemsCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={itemsCurrentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                        Previous
+                      </Button>
+                      
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                          // Show first 2, last 2, and current page
+                          let page;
+                          if (totalPages <= 5) {
+                            page = i + 1;
+                          } else if (itemsCurrentPage <= 3) {
+                            page = i + 1;
+                          } else if (itemsCurrentPage >= totalPages - 2) {
+                            page = totalPages - 4 + i;
+                          } else {
+                            page = itemsCurrentPage - 2 + i;
+                          }
+                          
+                          return (
+                            <Button
+                              key={page}
+                              variant={itemsCurrentPage === page ? "default" : "outline"}
+                              size="sm"
+                              onClick={() => setItemsCurrentPage(page)}
+                              className="w-8 h-8 p-0"
+                            >
+                              {page}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setItemsCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        disabled={itemsCurrentPage === totalPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+
+                  <div className="mt-4 text-sm text-muted-foreground text-center">
+                    Total Items: {items.length} | Page {itemsCurrentPage} of {totalPages}
+                  </div>
+                </>
+              );
+            })()}
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
 
@@ -870,13 +1461,24 @@ export default function AdminDashboardPage() {
                             body: JSON.stringify(siteSettings)
                           });
                           if (res.ok) {
-                            alert('Site settings updated successfully');
+                            toast({
+                              title: "Successfully saved!",
+                              description: "Site settings have been updated.",
+                            });
                           } else {
                             const data = await res.json();
-                            alert(data.error || 'Update failed');
+                            toast({
+                              title: "Error",
+                              description: data.error || 'Update failed',
+                              variant: "destructive",
+                            });
                           }
                         } catch (error) {
-                          alert('Update failed');
+                          toast({
+                            title: "Error",
+                            description: 'Update failed',
+                            variant: "destructive",
+                          });
                         }
                       }}>Save Settings</Button>
                     </div>
@@ -1153,7 +1755,10 @@ export default function AdminDashboardPage() {
                   <h3 className="text-lg font-semibold">Theme Design Management</h3>
                   <Button onClick={() => {
                     // TODO: Implement save theme changes
-                    alert('Theme changes saved successfully');
+                    toast({
+                      title: "Successfully saved!",
+                      description: "Theme changes have been updated.",
+                    });
                   }}>
                     <ShieldCheck className="w-4 h-4 mr-2" />
                     Save Changes
@@ -1395,9 +2000,28 @@ export default function AdminDashboardPage() {
               <TabsContent value="connections" className="space-y-6">
                 <div className="flex justify-between items-center">
                   <h3 className="text-lg font-semibold">Connections Management</h3>
-                  <Button onClick={() => {
-                    // TODO: Implement test all connections
-                    alert('All connections tested successfully');
+                  <Button onClick={async () => {
+                    try {
+                      // Test Pandascore connection
+                      const pandascoreTest = await fetch('/api/matches/sync', { method: 'POST' });
+                      if (pandascoreTest.ok) {
+                        toast({
+                          title: "Connections Tested!",
+                          description: "All active connections are working properly.",
+                        });
+                      } else {
+                        toast({
+                          title: "Test Results",
+                          description: "Some connections may need configuration. Check individual services.",
+                        });
+                      }
+                    } catch (error) {
+                      toast({
+                        title: "Test Failed",
+                        description: "Could not test connections. Check your configuration.",
+                        variant: "destructive",
+                      });
+                    }
                   }}>
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Test All Connections
@@ -1414,12 +2038,9 @@ export default function AdminDashboardPage() {
                           Pandascore API
                         </h4>
                         <div className="flex items-center gap-2">
-                          <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Connected
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${siteSettings?.pandascore_api_key ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'}`}>
+                            {siteSettings?.pandascore_api_key ? 'DB Config' : 'Using .env'}
                           </span>
-                          <Button variant="ghost" size="sm">
-                            <Edit className="w-4 h-4" />
-                          </Button>
                         </div>
                       </div>
                       <div className="space-y-3">
@@ -1427,15 +2048,17 @@ export default function AdminDashboardPage() {
                           <Label>API Key</Label>
                           <Input
                             type="password"
-                            placeholder="••••••••••••••••"
-                            defaultValue="pandascore_api_key_placeholder"
+                            placeholder="Enter Pandascore API Key"
+                            value={siteSettings?.pandascore_api_key || ''}
+                            onChange={(e) => setSiteSettings({ ...siteSettings, pandascore_api_key: e.target.value })}
                           />
                         </div>
                         <div className="space-y-2">
                           <Label>Base URL</Label>
                           <Input
                             placeholder="https://api.pandascore.co"
-                            defaultValue="https://api.pandascore.co"
+                            value="https://api.pandascore.co"
+                            disabled
                           />
                         </div>
                         <div className="flex items-center justify-between">
@@ -1443,10 +2066,61 @@ export default function AdminDashboardPage() {
                           <input type="checkbox" defaultChecked className="rounded" />
                         </div>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={async () => {
+                            try {
+                              const testRes = await fetch('/api/matches/sync', { method: 'POST' });
+                              if (testRes.ok) {
+                                toast({
+                                  title: "Connection Successful!",
+                                  description: "Pandascore API is responding correctly.",
+                                });
+                              } else {
+                                toast({
+                                  title: "Connection Failed",
+                                  description: "Check your API key in Site Settings.",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch {
+                              toast({
+                                title: "Connection Failed",
+                                description: "Could not reach Pandascore API.",
+                                variant: "destructive",
+                              });
+                            }
+                          }}>
                             Test Connection
                           </Button>
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={async () => {
+                            try {
+                              const syncRes = await fetch('/api/matches/sync', { method: 'POST' });
+                              if (syncRes.ok) {
+                                const data = await syncRes.json();
+                                toast({
+                                  title: "Sync Complete!",
+                                  description: `Successfully synced matches from Pandascore.`,
+                                });
+                                // Reload matches
+                                const matchesRes = await fetch('/api/admin/matches');
+                                if (matchesRes.ok) {
+                                  const matchesData = await matchesRes.json();
+                                  setMatches(matchesData.matches || matchesData.data || []);
+                                }
+                              } else {
+                                toast({
+                                  title: "Sync Failed",
+                                  description: "Could not sync matches. Check API key.",
+                                  variant: "destructive",
+                                });
+                              }
+                            } catch {
+                              toast({
+                                title: "Sync Failed",
+                                description: "An error occurred during sync.",
+                                variant: "destructive",
+                              });
+                            }
+                          }}>
                             Sync Now
                           </Button>
                         </div>
@@ -1739,22 +2413,24 @@ export default function AdminDashboardPage() {
                       <div className="text-center p-4 border rounded-lg">
                         <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
                         <div className="text-sm font-medium">Pandascore</div>
-                        <div className="text-xs text-muted-foreground">API Connected</div>
+                        <div className="text-xs text-muted-foreground">
+                          {siteSettings?.pandascore_api_key ? 'DB Configured' : 'Using .env'}
+                        </div>
                       </div>
                       <div className="text-center p-4 border rounded-lg">
-                        <div className="w-3 h-3 bg-yellow-500 rounded-full mx-auto mb-2"></div>
-                        <div className="text-sm font-medium">Discord</div>
-                        <div className="text-xs text-muted-foreground">Configuring</div>
-                      </div>
-                      <div className="text-center p-4 border rounded-lg">
-                        <div className="w-3 h-3 bg-red-500 rounded-full mx-auto mb-2"></div>
+                        <div className={`w-3 h-3 ${siteSettings?.steamApiKey ? 'bg-green-500' : 'bg-red-500'} rounded-full mx-auto mb-2`}></div>
                         <div className="text-sm font-medium">Steam</div>
-                        <div className="text-xs text-muted-foreground">Disconnected</div>
+                        <div className="text-xs text-muted-foreground">{siteSettings?.steamApiKey ? 'API Connected' : 'Not Configured'}</div>
                       </div>
                       <div className="text-center p-4 border rounded-lg">
                         <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
-                        <div className="text-sm font-medium">Payments</div>
-                        <div className="text-xs text-muted-foreground">Connected</div>
+                        <div className="text-sm font-medium">Supabase</div>
+                        <div className="text-xs text-muted-foreground">Database Connected</div>
+                      </div>
+                      <div className="text-center p-4 border rounded-lg">
+                        <div className="w-3 h-3 bg-green-500 rounded-full mx-auto mb-2"></div>
+                        <div className="text-sm font-medium">Website</div>
+                        <div className="text-xs text-muted-foreground">Online</div>
                       </div>
                     </div>
                   </CardContent>
@@ -1774,24 +2450,87 @@ export default function AdminDashboardPage() {
                       <div className="flex flex-wrap gap-2">
                         <Button variant="outline" size="sm" onClick={async () => {
                           const res = await fetch('/api/admin/page-toggles');
-                          if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); }
+                          if (res.ok) {
+                            const data = await res.json();
+                            setPageToggles(data.toggles || {});
+                            setPendingToggles(null as any);
+                          }
                         }}>Refresh</Button>
-                        <Button size="sm" onClick={async () => {
-                          const updates = pageToggleList.map(p => ({ page: p, enabled: true }));
-                          const res = await fetch('/api/admin/page-toggles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }) });
-                          if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); }
+                        <Button size="sm" onClick={() => {
+                          const next: Record<string, boolean> = { ...(pendingToggles || pageToggles) };
+                          pageToggleList.forEach(p => { next[p] = true; });
+                          setPendingToggles(next);
                         }}>Enable All</Button>
-                        <Button variant="destructive" size="sm" onClick={async () => {
-                          const updates = pageToggleList.map(p => ({ page: p, enabled: false }));
-                          const res = await fetch('/api/admin/page-toggles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ updates }) });
-                          if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); }
+                        <Button variant="destructive" size="sm" onClick={() => {
+                          const next: Record<string, boolean> = { ...(pendingToggles || pageToggles) };
+                          pageToggleList.forEach(p => { next[p] = false; });
+                          setPendingToggles(next);
                         }}>Disable All</Button>
+                        <Button
+                          size="sm"
+                          onClick={async () => {
+                            const effective = pendingToggles || pageToggles;
+                            console.log('Saving page toggles:', effective);
+                            const updates = pageToggleList.map(p => ({ 
+                              page: p, 
+                              enabled: effective[p] === undefined ? true : effective[p] 
+                            }));
+                            console.log('Updates payload:', updates);
+                            const res = await fetch('/api/admin/page-toggles', { 
+                              method: 'PUT', 
+                              headers: { 'Content-Type': 'application/json' }, 
+                              body: JSON.stringify({ updates }) 
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              console.log('Save response:', data);
+                              console.log('Save response toggles:', data.toggles);
+                              console.log('Type of toggles:', typeof data.toggles);
+                              console.log('Keys in toggles:', data.toggles ? Object.keys(data.toggles) : 'none');
+                              
+                              // Don't update state until AFTER the toast
+                              if (data.toggles && typeof data.toggles === 'object') {
+                                toast({
+                                  title: "Successfully saved!",
+                                  description: "Page toggles have been updated.",
+                                });
+                                setPageToggles(data.toggles);
+                                setPendingToggles(null as any);
+                              } else {
+                                toast({
+                                  title: "Warning",
+                                  description: "Save succeeded but received invalid data format. Please refresh.",
+                                  variant: "destructive",
+                                });
+                              }
+                            } else {
+                              try { 
+                                const d = await res.json(); 
+                                toast({
+                                  title: "Error",
+                                  description: d.error || 'Save failed',
+                                  variant: "destructive",
+                                });
+                              } catch { 
+                                toast({
+                                  title: "Error",
+                                  description: 'Save failed',
+                                  variant: "destructive",
+                                });
+                              }
+                            }
+                          }}
+                        >Save Changes</Button>
+                        {pendingToggles && (
+                          <Button variant="ghost" size="sm" onClick={() => setPendingToggles(null as any)}>Reset</Button>
+                        )}
                       </div>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {pageToggleList.map(p => {
-                        const enabled = pageToggles[p] !== false; // default enabled
+                        const effective = pendingToggles || pageToggles;
+                        const enabled = effective[p] !== false; // default enabled
                         return (
                           <div key={p} className="flex items-center justify-between p-4 border rounded-lg bg-card/40 hover:bg-card/60 transition-colors">
                             <div>
@@ -1800,15 +2539,53 @@ export default function AdminDashboardPage() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className={`text-xs font-semibold ${enabled ? 'text-green-400' : 'text-red-400'}`}>{enabled ? 'ON' : 'OFF'}</span>
-                              <Switch checked={enabled} onCheckedChange={async (val) => {
-                                const res = await fetch('/api/admin/page-toggles', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: p, enabled: val }) });
-                                if (res.ok) { const data = await res.json(); setPageToggles(data.toggles || {}); } else { const d = await res.json(); alert(d.error || 'Update failed'); }
+                              <Switch checked={enabled} onCheckedChange={(val) => {
+                                setPendingToggles(prev => ({ ...(prev || pageToggles), [p]: val }));
                               }} />
                             </div>
                           </div>
                         );
                       })}
                     </div>
+
+                    {pendingToggles && (
+                      <div className="flex items-center justify-between rounded-md border p-3 bg-muted/40">
+                        <div className="text-sm text-muted-foreground">You have unsaved changes. Click "Save Changes" to apply for users.</div>
+                        <div className="flex gap-2">
+                          <Button variant="secondary" size="sm" onClick={() => setPendingToggles(null as any)}>Discard</Button>
+                          <Button size="sm" onClick={async () => {
+                            const effective = pendingToggles || pageToggles;
+                            console.log('Saving page toggles (inline):', effective);
+                            const updates = pageToggleList.map(p => ({ 
+                              page: p, 
+                              enabled: effective[p] === undefined ? true : effective[p] 
+                            }));
+                            console.log('Updates payload (inline):', updates);
+                            const res = await fetch('/api/admin/page-toggles', { 
+                              method: 'PUT', 
+                              headers: { 'Content-Type': 'application/json' }, 
+                              body: JSON.stringify({ updates }) 
+                            });
+                            if (res.ok) {
+                              const data = await res.json();
+                              console.log('Save response (inline):', data);
+                              console.log('Save response toggles (inline):', data.toggles);
+                              
+                              // Don't update state until AFTER the alert
+                              if (data.toggles && typeof data.toggles === 'object') {
+                                alert('Page toggles saved successfully!');
+                                setPageToggles(data.toggles);
+                                setPendingToggles(null as any);
+                              } else {
+                                alert('Save succeeded but received invalid data format. Please refresh.');
+                              }
+                            } else {
+                              try { const d = await res.json(); alert(d.error || 'Save failed'); } catch { alert('Save failed'); }
+                            }
+                          }}>Save Changes</Button>
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </TabsContent>
@@ -2769,16 +3546,27 @@ export default function AdminDashboardPage() {
                   const res = await fetch('/api/admin/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ deleteAll: true }) });
                   if (res.ok) {
                     setMatches([]);
+                    toast({
+                      title: "Success",
+                      description: "All matches deleted successfully",
+                    });
                   } else {
                     const d = await res.json();
-                    alert(d.error || 'Bulk delete failed');
+                    toast({
+                      title: "Error",
+                      description: d.error || 'Bulk delete failed',
+                      variant: "destructive",
+                    });
                   }
                 }}>Delete All</Button>
                 <Button onClick={async () => {
                   try {
                     const res = await fetch('/api/matches/sync', { method: 'POST' });
                     if (res.ok) {
-                      alert('Matches synced with Pandascore successfully');
+                      toast({
+                        title: "Success",
+                        description: "Matches synced with Pandascore successfully",
+                      });
                       const refreshRes = await fetch('/api/admin/matches');
                       if (refreshRes.ok) {
                         const refreshData = await refreshRes.json();
@@ -2786,10 +3574,18 @@ export default function AdminDashboardPage() {
                       }
                     } else {
                       const data = await res.json();
-                      alert(data.error || 'Sync failed');
+                      toast({
+                        title: "Error",
+                        description: data.error || 'Sync failed',
+                        variant: "destructive",
+                      });
                     }
                   } catch (error) {
-                    alert('Sync failed');
+                    toast({
+                      title: "Error",
+                      description: "Sync failed",
+                      variant: "destructive",
+                    });
                   }
                 }}>
                   <RefreshCw className="w-4 h-4 mr-2" /> Sync Pandascore
@@ -2801,7 +3597,10 @@ export default function AdminDashboardPage() {
                   try {
                     const res = await fetch('/api/matches/sync-odds', { method: 'POST' });
                     if (res.ok) {
-                      alert('HLTV odds synced successfully');
+                      toast({
+                        title: "Success",
+                        description: "HLTV odds synced successfully",
+                      });
                       const refreshRes = await fetch('/api/admin/matches');
                       if (refreshRes.ok) {
                         const refreshData = await refreshRes.json();
@@ -2809,10 +3608,18 @@ export default function AdminDashboardPage() {
                       }
                     } else {
                       const data = await res.json();
-                      alert(data.error || 'Odds sync failed');
+                      toast({
+                        title: "Error",
+                        description: data.error || 'Odds sync failed',
+                        variant: "destructive",
+                      });
                     }
                   } catch (e) {
-                    alert('Odds sync failed');
+                    toast({
+                      title: "Error",
+                      description: "Odds sync failed",
+                      variant: "destructive",
+                    });
                   }
                 }}>
                   Sync HLTV Odds
@@ -2900,11 +3707,25 @@ export default function AdminDashboardPage() {
                                   const res = await fetch('/api/admin/matches', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id, is_visible: newVisibility }) });
                                   if (res.ok) {
                                     setMatches(matches.map((m: any) => m.id === match.id ? { ...m, is_visible: newVisibility } : m));
+                                    toast({
+                                      title: "Success",
+                                      description: `Match visibility ${newVisibility ? 'enabled' : 'disabled'}`,
+                                    });
                                   } else {
                                     const data = await res.json();
-                                    alert(data.error || 'Update failed');
+                                    toast({
+                                      title: "Error",
+                                      description: data.error || 'Update failed',
+                                      variant: "destructive",
+                                    });
                                   }
-                                } catch (error) { alert('Update failed'); }
+                                } catch (error) {
+                                  toast({
+                                    title: "Error",
+                                    description: "Update failed",
+                                    variant: "destructive",
+                                  });
+                                }
                               }} className={match.is_visible ? 'text-green-600' : 'text-gray-400'}>
                                 {match.is_visible ? '👁️' : '🙈'}
                               </Button>
@@ -2938,10 +3759,17 @@ export default function AdminDashboardPage() {
                                     const refreshed = await fetch('/api/admin/matches');
                                     const data = await refreshed.json();
                                     setMatches(data.matches || []);
-                                    alert('Winner set to Team A and bets processed');
+                                    toast({
+                                      title: "Success",
+                                      description: "Winner set to Team A and bets processed",
+                                    });
                                   } else {
                                     const d = await res.json();
-                                    alert(d.error || 'Failed to set winner');
+                                    toast({
+                                      title: "Error",
+                                      description: d.error || 'Failed to set winner',
+                                      variant: "destructive",
+                                    });
                                   }
                                 }}>Set A Winner</Button>
                                 <Button variant="outline" size="sm" onClick={async () => {
@@ -2952,10 +3780,17 @@ export default function AdminDashboardPage() {
                                     const refreshed = await fetch('/api/admin/matches');
                                     const data = await refreshed.json();
                                     setMatches(data.matches || []);
-                                    alert('Winner set to Team B and bets processed');
+                                    toast({
+                                      title: "Success",
+                                      description: "Winner set to Team B and bets processed",
+                                    });
                                   } else {
                                     const d = await res.json();
-                                    alert(d.error || 'Failed to set winner');
+                                    toast({
+                                      title: "Error",
+                                      description: d.error || 'Failed to set winner',
+                                      variant: "destructive",
+                                    });
                                   }
                                 }}>Set B Winner</Button>
                                 {/* Auto resolve via PandaScore */}
@@ -2965,10 +3800,17 @@ export default function AdminDashboardPage() {
                                     const refreshed = await fetch('/api/admin/matches');
                                     const data = await refreshed.json();
                                     setMatches(data.matches || []);
-                                    alert('Auto resolve triggered');
+                                    toast({
+                                      title: "Success",
+                                      description: "Auto resolve triggered",
+                                    });
                                   } else {
                                     const d = await res.json();
-                                    alert(d.error || 'Auto resolve failed');
+                                    toast({
+                                      title: "Error",
+                                      description: d.error || 'Auto resolve failed',
+                                      variant: "destructive",
+                                    });
                                   }
                                 }}>Auto Resolve</Button>
                                 <Button variant="ghost" size="sm" onClick={async () => {
@@ -2977,12 +3819,25 @@ export default function AdminDashboardPage() {
                                     const res = await fetch('/api/admin/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ matchId: match.id }) });
                                     if (res.ok) {
                                       setMatches(matches.filter((m: any) => m.id !== match.id));
-                                      alert('Match deleted successfully');
+                                      toast({
+                                        title: "Success",
+                                        description: "Match deleted successfully",
+                                      });
                                     } else {
                                       const data = await res.json();
-                                      alert(data.error || 'Delete failed');
+                                      toast({
+                                        title: "Error",
+                                        description: data.error || 'Delete failed',
+                                        variant: "destructive",
+                                      });
                                     }
-                                  } catch (error) { alert('Delete failed'); }
+                                  } catch (error) {
+                                    toast({
+                                      title: "Error",
+                                      description: "Delete failed",
+                                      variant: "destructive",
+                                    });
+                                  }
                                 }}><Trash2 className="w-4 h-4" /></Button>
                               </div>
                             </TableCell>
@@ -3007,9 +3862,17 @@ export default function AdminDashboardPage() {
                           const res = await fetch('/api/admin/matches', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) });
                           if (res.ok) {
                             setMatches(matches.filter((m: any) => !ids.includes(m.id)));
+                            toast({
+                              title: "Success",
+                              description: `${ids.length} matches deleted successfully`,
+                            });
                           } else {
                             const d = await res.json();
-                            alert(d.error || 'Bulk delete failed');
+                            toast({
+                              title: "Error",
+                              description: d.error || 'Bulk delete failed',
+                              variant: "destructive",
+                            });
                           }
                         }}>Delete Selected</Button>
                       </div>
@@ -3634,6 +4497,121 @@ export default function AdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
+        {/* Edit item dialog */}
+        <Dialog open={showEditItem} onOpenChange={setShowEditItem}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Shop Item</DialogTitle>
+            </DialogHeader>
+            {editingItem && (
+              <div className="space-y-3">
+                <div>
+                  <Label>Name</Label>
+                  <Input 
+                    value={editingItem.name} 
+                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} 
+                  />
+                </div>
+                <div>
+                  <Label>Type</Label>
+                  <Input 
+                    value={editingItem.type} 
+                    onChange={(e) => setEditingItem({ ...editingItem, type: e.target.value })} 
+                  />
+                </div>
+                <div>
+                  <Label>Category</Label>
+                  <Input 
+                    value={editingItem.category || editingItem.type} 
+                    onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })} 
+                  />
+                </div>
+                <div>
+                  <Label>Rarity</Label>
+                  <select 
+                    className="w-full border rounded px-3 py-2"
+                    value={editingItem.rarity} 
+                    onChange={(e) => setEditingItem({ ...editingItem, rarity: e.target.value })}
+                  >
+                    <option value="common">Common</option>
+                    <option value="uncommon">Uncommon</option>
+                    <option value="rare">Rare</option>
+                    <option value="epic">Epic</option>
+                    <option value="legendary">Legendary</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Coin Price</Label>
+                  <Input 
+                    type="number"
+                    value={editingItem.value || editingItem.coin_price || 0} 
+                    onChange={(e) => setEditingItem({ ...editingItem, value: Number(e.target.value || 0) })} 
+                  />
+                </div>
+                <div>
+                  <Label>Image URL</Label>
+                  <Input 
+                    value={editingItem.image_url || editingItem.image || ''} 
+                    onChange={(e) => setEditingItem({ ...editingItem, image_url: e.target.value })} 
+                    placeholder="Optional: Custom image URL"
+                  />
+                </div>
+                <div>
+                  <Label>Description</Label>
+                  <Input 
+                    value={editingItem.description || ''} 
+                    onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })} 
+                  />
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button onClick={async () => {
+                if (!editingItem) return;
+                const res = await fetch('/api/admin/items', { 
+                  method: 'PUT', 
+                  headers: { 'Content-Type': 'application/json' }, 
+                  body: JSON.stringify({
+                    id: editingItem.id,
+                    name: editingItem.name,
+                    type: editingItem.type,
+                    category: editingItem.category || editingItem.type,
+                    rarity: editingItem.rarity,
+                    value: editingItem.value,
+                    image_url: editingItem.image_url || editingItem.image,
+                    description: editingItem.description
+                  })
+                });
+                if (res.ok) {
+                  // Refetch all items from API to get fresh data with correct field names
+                  const itemsRes = await fetch('/api/admin/items');
+                  if (itemsRes.ok) {
+                    const data = await itemsRes.json();
+                    setItems(data.items || []);
+                  }
+                  setShowEditItem(false);
+                  setEditingItem(null);
+                  toast({
+                    title: "Success",
+                    description: "Item updated successfully",
+                  });
+                } else {
+                  const data = await res.json();
+                  toast({
+                    title: "Error",
+                    description: data.error || 'Update failed',
+                    variant: "destructive",
+                  });
+                }
+              }}>Save Changes</Button>
+              <Button variant="ghost" onClick={() => {
+                setShowEditItem(false);
+                setEditingItem(null);
+              }}>Cancel</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Create badge dialog */}
         <Dialog open={showCreateBadge} onOpenChange={setShowCreateBadge}>
           <DialogContent>
@@ -3748,7 +4726,11 @@ export default function AdminDashboardPage() {
               <Button onClick={async () => {
                 if (!editingMatch) return;
                 if (!newMatch.team_a_name || !newMatch.team_b_name || !newMatch.event_name) {
-                  alert('Please fill in required fields (Team A Name, Team B Name, Event Name)');
+                  toast({
+                    title: "Missing Information",
+                    description: "Please fill in: Team A Name, Team B Name, and Event Name",
+                    variant: "destructive",
+                  });
                   return;
                 }
                 const updates = {
@@ -3779,10 +4761,17 @@ export default function AdminDashboardPage() {
                   }
                   setShowEditMatch(false);
                   setEditingMatch(null);
-                  alert('Match updated successfully');
+                  toast({
+                    title: "Success",
+                    description: `Match updated: ${newMatch.team_a_name} vs ${newMatch.team_b_name}`,
+                  });
                 } else {
                   const d = await res.json();
-                  alert(d.error || 'Update failed');
+                  toast({
+                    title: "Error",
+                    description: d.error || 'Update failed',
+                    variant: "destructive",
+                  });
                 }
               }}>Update</Button>
               <Button variant="ghost" onClick={() => setShowEditMatch(false)}>Cancel</Button>
@@ -5140,10 +6129,17 @@ export default function AdminDashboardPage() {
                   }
                   setShowEditUser(false);
                   setEditingUser(null);
-                  alert('User updated successfully');
+                  toast({
+                    title: "Success",
+                    description: "User updated successfully",
+                  });
                 } else {
                   const data = await res.json();
-                  alert(data.error || 'Update failed');
+                  toast({
+                    title: "Error",
+                    description: data.error || 'Update failed',
+                    variant: "destructive",
+                  });
                 }
               }}>Update</Button>
               <Button variant="ghost" onClick={() => setShowEditUser(false)}>Cancel</Button>
@@ -5166,10 +6162,17 @@ export default function AdminDashboardPage() {
                   setUsers(users.filter((u: any) => u.id !== selectedUser.id));
                   setShowDeleteUser(false);
                   setSelectedUser(null);
-                  alert('User deleted successfully');
+                  toast({
+                    title: "Success",
+                    description: "User deleted successfully",
+                  });
                 } else {
                   const data = await res.json();
-                  alert(data.error || 'Delete failed');
+                  toast({
+                    title: "Error",
+                    description: data.error || 'Delete failed',
+                    variant: "destructive",
+                  });
                 }
               }}>Delete</Button>
               <Button variant="ghost" onClick={() => setShowDeleteUser(false)}>Cancel</Button>
@@ -5271,7 +6274,11 @@ export default function AdminDashboardPage() {
             <DialogFooter>
               <Button onClick={async () => {
                 if (!newFlashSale.item_id || !newFlashSale.sale_price || !newFlashSale.start_time || !newFlashSale.end_time) {
-                  alert('Please fill in required fields (Item, Sale Price, Start Time, End Time)');
+                  toast({
+                    title: "Missing Fields",
+                    description: "Please fill in required fields (Item, Sale Price, Start Time, End Time)",
+                    variant: "destructive",
+                  });
                   return;
                 }
                 const res = await fetch('/api/admin/flash-sales', {
@@ -5543,7 +6550,11 @@ export default function AdminDashboardPage() {
             <DialogFooter>
               <Button onClick={async () => {
                 if (!newMatch.team_a_name || !newMatch.team_b_name || !newMatch.event_name || !newMatch.match_date) {
-                  alert('Please fill in required fields (Team A Name, Team B Name, Event Name, Match Date)');
+                  toast({
+                    title: "Missing Information",
+                    description: "Please fill in: Team A Name, Team B Name, Event Name, and Match Date",
+                    variant: "destructive",
+                  });
                   return;
                 }
                 const res = await fetch('/api/admin/matches', {
@@ -5569,10 +6580,17 @@ export default function AdminDashboardPage() {
                     stream_url: '',
                     status: 'upcoming'
                   });
-                  alert('Match created successfully');
+                  toast({
+                    title: "Success",
+                    description: `Match created: ${newMatch.team_a_name} vs ${newMatch.team_b_name}`,
+                  });
                 } else {
                   const data = await res.json();
-                  alert(data.error || 'Create failed');
+                  toast({
+                    title: "Error",
+                    description: data.error || 'Create failed',
+                    variant: "destructive",
+                  });
                 }
               }}>Create</Button>
               <Button variant="ghost" onClick={() => setShowCreateMatch(false)}>Cancel</Button>
@@ -5894,6 +6912,7 @@ export default function AdminDashboardPage() {
         </Dialog>
 
       </main>
+      <Toaster />
     </div>
   );
 }

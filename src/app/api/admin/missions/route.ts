@@ -23,9 +23,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch missions from Supabase (order by created_at desc)
     const missions = await secureDb.findMany('missions', {}, { orderBy: 'created_at DESC' });
+    console.log('Admin missions count:', missions?.length);
     return NextResponse.json({
       success: true,
-      missions
+      missions: missions || []
     });
 
   } catch (error) {

@@ -36,7 +36,15 @@ export async function GET(request: NextRequest) {
       throw error;
     }
 
-    return NextResponse.json(data);
+    // Merge database settings with environment variables as fallback
+    const mergedSettings = {
+      ...data,
+      // Use database value if exists, otherwise fallback to env
+      steamApiKey: data?.steamApiKey || process.env.STEAM_API_KEY || '',
+      pandascore_api_key: data?.pandascore_api_key || process.env.PANDASCORE_API_KEY || ''
+    };
+
+    return NextResponse.json(mergedSettings);
   } catch (error) {
     console.error('Error fetching site settings:', error);
     return NextResponse.json({ 

@@ -7,6 +7,7 @@ import { getItemImage, getItemImageSync, preloadImage } from '../lib/itemImageUt
 interface ItemImageProps {
   itemName: string;
   itemType?: 'skins' | 'knives' | 'gloves' | 'agents';
+  imageUrl?: string | null; // Direct image URL from database
   width?: number;
   height?: number;
   className?: string;
@@ -20,6 +21,7 @@ interface ItemImageProps {
 export default function ItemImage({
   itemName,
   itemType,
+  imageUrl,
   width = 200,
   height = 150,
   className = '',
@@ -51,7 +53,23 @@ export default function ItemImage({
           return;
         }
 
-        // First, try the synchronous URL
+        // Priority 1: Use direct imageUrl if provided
+        if (imageUrl) {
+          try {
+            await preloadImage(imageUrl);
+            if (isMounted) {
+              setImageSrc(imageUrl);
+              setIsLoading(false);
+              onLoad?.();
+              return;
+            }
+          } catch (error) {
+            // Silently fall back to next option instead of logging warnings
+            console.debug(`Image not found: ${imageUrl}, using fallback`);
+          }
+        }
+
+        // Priority 2: Try the synchronous URL generation
         if (initialSrc !== fallbackSrc) {
           try {
             await preloadImage(initialSrc);
@@ -62,19 +80,34 @@ export default function ItemImage({
               return;
             }
           } catch (error) {
-            console.warn(`Failed to load image: ${initialSrc}`, error);
+            // Silently fall back
+            console.debug(`Generated image not found: ${initialSrc}, using fallback`);
           }
         }
 
-        // If synchronous URL failed, try the async method
-        const asyncSrc = await getItemImage(itemName, itemType);
+        // Priority 3: Try the async method
+        try {
+          const asyncSrc = await getItemImage(itemName, itemType);
+          if (isMounted && asyncSrc !== fallbackSrc) {
+            await preloadImage(asyncSrc);
+            setImageSrc(asyncSrc);
+            setIsLoading(false);
+            onLoad?.();
+            return;
+          }
+        } catch (error) {
+          // Silently fall back
+          console.debug(`Async image not found for: ${itemName}, using fallback`);
+        }
+
+        // Final fallback: use placeholder
         if (isMounted) {
-          setImageSrc(asyncSrc);
+          setImageSrc(fallbackSrc);
           setIsLoading(false);
-          onLoad?.();
         }
       } catch (error) {
-        console.error(`Error loading image for item: ${itemName}`, error);
+        // Only log actual errors, not missing images
+        console.debug(`Using placeholder for item: ${itemName}`);
         if (isMounted) {
           setImageSrc(fallbackSrc);
           setIsLoading(false);
@@ -89,7 +122,7 @@ export default function ItemImage({
     return () => {
       isMounted = false;
     };
-  }, [itemName, itemType, initialSrc, fallbackSrc, onLoad, onError]);
+  }, [itemName, itemType, imageUrl, initialSrc, fallbackSrc, onLoad, onError]);
 
   const handleImageError = useCallback(() => {
     if (imageSrc !== fallbackSrc) {

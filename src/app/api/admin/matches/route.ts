@@ -67,24 +67,96 @@ export async function PUT(request: NextRequest) {
   }
 }
 
-// PATCH: toggle visibility or small updates (admin)
+// PATCH: toggle visibility, set winner, or auto-resolve (admin)
 export async function PATCH(request: NextRequest) {
   const session = await getAuthSession(request);
   if (!session) return createUnauthorizedResponse();
   if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
   try {
     const body = await request.json();
-    const { matchId, is_visible, updates } = body || {};
+    const { matchId, is_visible, updates, winner, autoResolve } = body || {};
+    
+    // Toggle visibility
     if (matchId && typeof is_visible === 'boolean') {
       const updated = await secureDb.update('matches', { id: matchId }, { is_visible });
       if (!updated) return NextResponse.json({ error: 'Failed to update visibility' }, { status: 500 });
       return NextResponse.json({ success: true, match: updated });
     }
+    
+    // Set winner manually and process bets
+    if (matchId && winner && (winner === 'team_a' || winner === 'team_b')) {
+      const updated = await secureDb.update('matches', { id: matchId }, { 
+        winner,
+        status: 'finished'
+      });
+      
+      if (!updated) return NextResponse.json({ error: 'Failed to set winner' }, { status: 500 });
+      
+      // Process all bets for this match
+      try {
+        await processBetsForMatch(matchId, winner);
+      } catch (error) {
+        console.error('Error processing bets:', error);
+        return NextResponse.json({ error: 'Winner set but bet processing failed' }, { status: 500 });
+      }
+      
+      return NextResponse.json({ success: true, match: updated, betsProcessed: true });
+    }
+    
+    // Auto-resolve from Pandascore
+    if (matchId && autoResolve) {
+      try {
+        // Get match details
+        const matches = await secureDb.findMany('matches', { id: matchId });
+        const match = matches[0];
+        
+        if (!match) {
+          return NextResponse.json({ error: 'Match not found' }, { status: 404 });
+        }
+        
+        if (!match.pandascore_id) {
+          return NextResponse.json({ error: 'Match has no Pandascore ID' }, { status: 400 });
+        }
+        
+        // Process match results from Pandascore
+        await processMatchResults();
+        
+        // Get updated match
+        const updatedMatches = await secureDb.findMany('matches', { id: matchId });
+        const updatedMatch = updatedMatches[0];
+        
+        if (updatedMatch?.winner) {
+          // Process bets if winner was set
+          const matchWinner = updatedMatch.winner as 'team_a' | 'team_b';
+          await processBetsForMatch(matchId, matchWinner);
+          return NextResponse.json({ 
+            success: true, 
+            match: updatedMatch, 
+            winner: updatedMatch.winner,
+            betsProcessed: true 
+          });
+        } else {
+          return NextResponse.json({ 
+            success: false, 
+            error: 'Could not determine winner from Pandascore' 
+          }, { status: 400 });
+        }
+      } catch (error) {
+        console.error('Auto-resolve error:', error);
+        return NextResponse.json({ 
+          error: 'Auto-resolve failed',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        }, { status: 500 });
+      }
+    }
+    
+    // Generic updates
     if (matchId && updates && typeof updates === 'object') {
       const updated = await secureDb.update('matches', { id: matchId }, updates);
       if (!updated) return NextResponse.json({ error: 'Failed to update match' }, { status: 500 });
       return NextResponse.json({ success: true, match: updated });
     }
+    
     return NextResponse.json({ error: 'Invalid PATCH payload' }, { status: 400 });
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });

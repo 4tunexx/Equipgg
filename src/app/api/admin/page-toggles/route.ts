@@ -17,12 +17,18 @@ async function getStoredToggles(): Promise<PageTogglesMap> {
 }
 
 async function saveToggles(toggles: PageTogglesMap) {
+  console.log('saveToggles called with:', toggles);
   const existing = await secureDb.findOne<any>('site_settings', { setting_key: SETTING_KEY });
   const payload = { setting_value: JSON.stringify(toggles), setting_type: 'json' } as any;
+  console.log('Existing record:', existing);
+  console.log('Payload to save:', payload);
+  
   if (existing) {
-    await secureDb.update('site_settings', { setting_key: SETTING_KEY }, payload);
+    const result = await secureDb.update('site_settings', { setting_key: SETTING_KEY }, payload);
+    console.log('Update result:', result);
   } else {
-    await secureDb.create('site_settings', { setting_key: SETTING_KEY, ...payload });
+    const result = await secureDb.create('site_settings', { setting_key: SETTING_KEY, ...payload });
+    console.log('Create result:', result);
   }
 }
 
@@ -46,6 +52,8 @@ export async function PUT(request: NextRequest) {
   if (session.role !== 'admin') return createForbiddenResponse('Admin access required');
   try {
     const body = await request.json();
+    console.log('PUT /api/admin/page-toggles received:', body);
+    
     // Support single or bulk updates
     if ('updates' in body) {
       const { updates } = body as { updates: { page: string; enabled: boolean }[] };
@@ -53,13 +61,21 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'updates array required' }, { status: 400 });
       }
       const toggles = await getStoredToggles();
+      console.log('Current stored toggles:', toggles);
+      
       for (const u of updates) {
         if (u && POSSIBLE_PAGES.includes(u.page) && typeof u.enabled === 'boolean') {
           toggles[u.page] = u.enabled;
         }
       }
+      console.log('New toggles to save:', toggles);
       await saveToggles(toggles);
-      return NextResponse.json({ success: true, toggles });
+      
+      // Verify it was saved
+      const verified = await getStoredToggles();
+      console.log('Verified saved toggles:', verified);
+      
+      return NextResponse.json({ success: true, toggles: verified });
     } else {
       const { page, enabled } = body as { page?: string; enabled?: boolean };
       if (!page || typeof enabled !== 'boolean') {
@@ -74,6 +90,7 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ success: true, toggles });
     }
   } catch (e) {
+    console.error('Error in PUT /api/admin/page-toggles:', e);
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
   }
 }
