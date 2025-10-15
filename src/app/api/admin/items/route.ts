@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
       created_at: it.created_at,
       description: it.description,
       category: it.category,
-      weapon_type: it.weapon_type
+      weapon_type: it.weapon_type,
+      is_equipable: it.is_equipable,
+      for_crate: it.for_crate,
+      featured: it.featured
     }));
 
     return NextResponse.json({ success: true, items });
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
       return createForbiddenResponse('Only admins can create items.');
     }
 
-    const { name, type, rarity, value, image_url, description, category, weapon_type } = await request.json();
+    const { name, type, rarity, value, image_url, description, category, weapon_type, is_equipable, for_crate, featured } = await request.json();
 
     if (!name || !type || !rarity) {
       return NextResponse.json({ error: 'Name, type, and rarity are required' }, { status: 400 });
@@ -72,10 +75,11 @@ export async function POST(request: NextRequest) {
       description: description || `${name} - ${type} weapon`,
       is_tradeable: true,
       is_sellable: true,
-      is_equipable: true,
+      is_equipable: is_equipable !== undefined ? is_equipable : true,
+      for_crate: for_crate || false,
       sell_price: Math.floor((value || 0) * 0.7),
       is_active: true,
-      featured: false,
+      featured: featured || false,
       created_at: timestamp,
       updated_at: timestamp
     });
@@ -118,7 +122,7 @@ export async function PUT(request: NextRequest) {
       return createForbiddenResponse('Only admins can update items.');
     }
 
-    const { id, name, type, category, rarity, value, image_url, description } = await request.json();
+    const { id, name, type, category, rarity, value, image_url, description, is_equipable, for_crate, featured } = await request.json();
 
     if (!id) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
@@ -139,8 +143,11 @@ export async function PUT(request: NextRequest) {
       category: category || type || existingItem.category,
       rarity: rarity || existingItem.rarity,
       coin_price: value !== undefined ? value : existingItem.coin_price,
-      image: image_url || existingItem.image,
+      image: image_url !== undefined ? image_url : existingItem.image, // Allow empty string to clear image
       description: description || existingItem.description,
+      is_equipable: is_equipable !== undefined ? is_equipable : existingItem.is_equipable,
+      for_crate: for_crate !== undefined ? for_crate : existingItem.for_crate,
+      featured: featured !== undefined ? featured : existingItem.featured,
       updated_at: new Date().toISOString()
     });
     

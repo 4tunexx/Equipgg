@@ -116,27 +116,28 @@ export function HeroSection() {
         <div className="flex flex-col lg:flex-row items-center gap-8 lg:gap-12 w-full">
           
           {/* Main content with mobile logo + text */}
-          <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left order-1 lg:order-1 min-w-0">
+          <div className="flex-1 flex flex-col items-center lg:items-start text-center lg:text-left order-1 lg:order-1 min-w-0 w-full">
             
 {/* Mobile Logo ABOVE headline */}
-<div className="lg:hidden flex justify-center items-center mb-4 w-full">
-  <div className="relative h-40 w-full max-w-[220px] flex justify-center items-center">
+<div className="lg:hidden flex justify-center items-center mb-4 w-full px-4">
+  <div className="relative h-40 w-full max-w-[280px] mx-auto">
     {/* Always show layered logos (1.png and 2.png) on mobile */}
     <>
       {/* Character Logo (1.png) */}
       <div
-        className={`absolute flex justify-center items-center transition-all duration-1000 ${
+        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 ${
           isVisible
             ? 'animate-[dropFromTop_1s_ease-out_forwards]'
             : 'opacity-0 -translate-y-full'
         }`}
+        style={{ width: '200px', height: '150px' }}
       >
         <Image
           src={effectiveLogoLayer1}
           alt="Equip.gg Character Logo"
           width={200}
           height={150}
-          className="object-contain mx-auto"
+          className="object-contain w-full h-full"
           key={`logo1-mobile-${logoKey}`}
           priority
         />
@@ -144,18 +145,19 @@ export function HeroSection() {
 
       {/* Text Logo (2.png) */}
       <div
-        className={`absolute flex justify-center items-center transition-all duration-1000 delay-500 ${
+        className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-1000 delay-500 ${
           isVisible
             ? 'animate-[slideFromUnder_1s_ease-out_0.5s_forwards]'
             : 'opacity-0 translate-y-full'
         }`}
+        style={{ width: '210px', height: '95px' }}
       >
         <Image
           src={effectiveLogoLayer2}
           alt="Equip.gg Text Layer"
           width={210}
           height={95}
-          className="object-contain mx-auto"
+          className="object-contain w-full h-full"
           key={`logo2-mobile-${logoKey}`}
           priority
         />

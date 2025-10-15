@@ -76,7 +76,7 @@ export class SecureDatabase {
     // Items table additional columns
     'coin_price', 'gem_price', 'image', 'weapon_type', 'is_tradeable',
     'is_sellable', 'is_equipable', 'sell_price', 'featured', 'stock',
-    'purchase_limit', 'discount_percentage', 'original_price'
+    'purchase_limit', 'discount_percentage', 'original_price', 'for_crate'
   ]);
 
   private validateTableName(table: string): boolean {

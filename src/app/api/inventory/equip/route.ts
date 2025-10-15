@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 const validSlots = ['primary', 'secondary', 'knife', 'gloves', 'agent'] as const;
 type SlotType = typeof validSlots[number];
@@ -19,9 +19,26 @@ const slotMapping: Record<SlotType, string[]> = {
 
 export async function POST(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const supabase = createServerSupabaseClient();
     
-    if (authError || !session) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -50,7 +67,7 @@ export async function POST(request: NextRequest) {
       .from('user_inventory')
       .select('*, item:items(*)')
       .eq('id', itemId)
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .single();
 
     if (findError || !inventoryItem) {
@@ -71,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     // Start transaction to update equipped items
     const { data: equippedItem, error: equipError } = await supabase.rpc('equip_inventory_item', {
-      p_user_id: session.user.id,
+      p_user_id: userId,
       p_item_id: itemId,
       p_slot: slot
     });

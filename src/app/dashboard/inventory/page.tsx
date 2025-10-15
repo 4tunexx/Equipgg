@@ -2,12 +2,11 @@
 'use client';
 
 import Image from 'next/image';
-import ItemImage from "../../../components/ItemImage";
 import {
   Card,
   CardContent,
 } from "../../../components/ui/card";
-import { rarityGlow, equippedSlotsConfig, InventoryItem, Rarity } from "../../../lib/types";
+import { rarityGlow, rarityColors, rarityBorders, equippedSlotsConfig, InventoryItem, Rarity } from "../../../lib/types";
 import { cn } from "../../../lib/utils";
 import { ScrollArea } from "../../../components/ui/scroll-area";
 import {
@@ -67,6 +66,53 @@ const getInventorySlots = (level: number): number => {
     if (level <= 50) return 60;
     // For levels above 50, add 5 slots every 5 levels
     return Math.min(60 + Math.floor((level - 50) / 5) * 5, 100); // Max 100 slots
+};
+
+// EXACT SAME image URL function as admin/shop/landing pages
+const getItemImageUrl = (itemName: string, category: string, existingImage?: string) => {
+  // If item already has an image URL, use it
+  if (existingImage) return existingImage;
+  
+  const baseUrl = 'https://www.csgodatabase.com/images';
+  const categoryLower = category?.toLowerCase() || '';
+  const nameLower = itemName?.toLowerCase() || '';
+  
+  // List of knife names that should use knives folder
+  const knifeNames = ['karambit', 'bayonet', 'butterfly', 'falchion', 'flip', 'gut', 'huntsman', 
+                      'bowie', 'shadow daggers', 'navaja', 'stiletto', 'ursus', 'talon', 
+                      'classic knife', 'paracord', 'survival', 'nomad', 'skeleton', 'daggers'];
+  
+  // List of glove names that should use gloves folder
+  const gloveNames = ['hand wraps', 'driver gloves', 'sport gloves', 'specialist gloves', 
+                      'moto gloves', 'bloodhound gloves', 'hydra gloves', 'broken fang gloves'];
+  
+  // Agent names typically start with specific prefixes
+  const agentPrefixes = ['agent', 'cmdr', 'lt.', 'sir', 'enforcer', 'operator', 
+                         'ground rebel', 'osiris', 'ava', 'buckshot', 'two times', 
+                         'sergeant bombson', 'chef d', "'medium rare' crasswater"];
+  
+  let path = 'skins';
+  
+  // Check if it's a knife by name or category
+  if (categoryLower.includes('knife') || categoryLower === 'knives' || 
+      knifeNames.some(knife => nameLower.includes(knife))) {
+    path = 'knives';
+  } 
+  // Check if it's gloves by name or category
+  else if (categoryLower.includes('glove') || categoryLower === 'gloves' || 
+           gloveNames.some(glove => nameLower.includes(glove))) {
+    path = 'gloves';
+  }
+  // Check if it's an agent by name or category
+  else if (categoryLower.includes('agent') || categoryLower === 'agents' || 
+           agentPrefixes.some(prefix => nameLower.startsWith(prefix) || nameLower.includes(prefix))) {
+    path = 'agents';
+  }
+  
+  const formattedName = itemName
+    .replace(/\s*\|\s*/g, '_')
+    .replace(/\s+/g, '_');
+  return `${baseUrl}/${path}/webp/${formattedName}.webp`;
 };
 
 // Calculate slots per page (20 slots per page for better UX)
@@ -587,13 +633,7 @@ export default function InventoryPage() {
                 <div className="grid grid-cols-2 gap-3 text-xs">
                     <div>
                         <p className="text-muted-foreground">Rarity</p>
-                        <p className={`font-medium ${
-                            item.rarity === 'Legendary' ? 'text-yellow-500' :
-                            item.rarity === 'Epic' ? 'text-purple-500' :
-                            item.rarity === 'Rare' ? 'text-blue-500' :
-                            item.rarity === 'Uncommon' ? 'text-green-500' :
-                            'text-gray-500'
-                        }`}>{item.rarity}</p>
+                        <p className={cn("font-medium", rarityColors[item.rarity])}>{item.rarity}</p>
                     </div>
                     <div>
                         <p className="text-muted-foreground">Condition</p>
@@ -731,12 +771,16 @@ export default function InventoryPage() {
                                     isDragging && draggedItem?.id === item.id ? 'z-50' : ''
                                   )}
                                 >
-                                  <ItemImage
-                                    itemName={item.name}
-                                    itemType={item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-                                    width={56}
-                                    height={42}
-                                    className="object-contain transition-transform group-hover:scale-110 pointer-events-none"
+                                  <img
+                                    src={getItemImageUrl(item.name, item.type, item.image)}
+                                    alt={item.name}
+                                    className="w-14 h-10 object-contain transition-transform group-hover:scale-110 pointer-events-none"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                                        target.src = '/assets/placeholder.svg';
+                                      }
+                                    }}
                                   />
                                 </Card>
                               </DropdownMenuTrigger>
@@ -815,12 +859,16 @@ export default function InventoryPage() {
       >
         <div className="w-16 h-16 bg-secondary border-2 border-primary rounded-lg flex items-center justify-center shadow-lg">
           {draggedItem && (
-            <ItemImage
-              itemName={draggedItem.name}
-              itemType={draggedItem.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-              width={48}
-              height={48}
+            <img
+              src={getItemImageUrl(draggedItem.name, draggedItem.type, draggedItem.image)}
+              alt={draggedItem.name}
               className="w-12 h-12 object-contain"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                  target.src = '/assets/placeholder.svg';
+                }
+              }}
             />
           )}
         </div>
@@ -906,12 +954,16 @@ export default function InventoryPage() {
               >
                 <div className="w-16 h-full bg-secondary/50 rounded-md flex items-center justify-center relative overflow-hidden">
                   {item ? (
-                    <ItemImage
-                      itemName={item.name}
-                      itemType={item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-                      width={64}
-                      height={48}
-                      className="object-contain"
+                    <img
+                      src={getItemImageUrl(item.name, item.type, item.image)}
+                      alt={item.name}
+                      className="w-16 h-12 object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                          target.src = '/assets/placeholder.svg';
+                        }
+                      }}
                     />
                   ) : (
                     IconComponent && <IconComponent className="w-7 h-7 text-muted-foreground" />
@@ -949,11 +1001,11 @@ export default function InventoryPage() {
                 <p className="text-xs text-muted-foreground">Total Value</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-500">{inventoryStats?.rarityBreakdown?.Legendary || 0}</p>
+                <p className="text-2xl font-bold text-[#d32ce6]">{inventoryStats?.rarityBreakdown?.Legendary || 0}</p>
                 <p className="text-xs text-muted-foreground">Legendary</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-purple-500">{inventoryStats?.rarityBreakdown?.Epic || 0}</p>
+                <p className="text-2xl font-bold text-[#8847ff]">{inventoryStats?.rarityBreakdown?.Epic || 0}</p>
                 <p className="text-xs text-muted-foreground">Epic</p>
               </div>
             </div>
@@ -1016,12 +1068,16 @@ export default function InventoryPage() {
           {selectedItem && (
             <div className="flex items-center space-x-4 p-4 bg-card/50 rounded-lg">
               <div className="relative">
-                <ItemImage
-                  itemName={selectedItem.name}
-                  itemType={selectedItem.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-                  width={64}
-                  height={48}
-                  className="object-contain"
+                <img
+                  src={getItemImageUrl(selectedItem.name, selectedItem.type, selectedItem.image)}
+                  alt={selectedItem.name}
+                  className="w-16 h-12 object-contain"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement;
+                    if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                      target.src = '/assets/placeholder.svg';
+                    }
+                  }}
                 />
                 <div className={cn(
                   "absolute inset-0 rounded opacity-30",
@@ -1033,11 +1089,8 @@ export default function InventoryPage() {
                 <p className="text-sm text-muted-foreground">{selectedItem.type}</p>
                 <Badge variant="outline" className={cn(
                   "text-xs mt-1",
-                  selectedItem.rarity === 'Legendary' && "border-yellow-500 text-yellow-500",
-                  selectedItem.rarity === 'Epic' && "border-purple-500 text-purple-500",
-                  selectedItem.rarity === 'Rare' && "border-blue-500 text-blue-500",
-                  selectedItem.rarity === 'Uncommon' && "border-green-500 text-green-500",
-                  selectedItem.rarity === 'Common' && "border-gray-500 text-gray-500"
+                  rarityBorders[selectedItem.rarity].replace('border-', 'border-'),
+                  rarityColors[selectedItem.rarity]
                 )}>
                   {selectedItem.rarity}
                 </Badge>

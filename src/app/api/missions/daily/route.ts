@@ -5,9 +5,25 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient()
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    // If no custom session, return unauthorized
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -28,7 +44,7 @@ export async function GET(request: NextRequest) {
     const { data: progress, error: progressError } = await supabase
       .from('user_mission_progress')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (progressError) {
       console.error('Progress error:', progressError)

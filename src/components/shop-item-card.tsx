@@ -1,46 +1,15 @@
 
 'use client';
 
-import ItemImage from "./ItemImage";
+'use client';
+
 import { Card, CardContent, CardFooter } from "./ui/card";
 import { Button } from "./ui/button";
 import { Coins, ShoppingCart, Loader2 } from 'lucide-react';
-import type { Rarity } from "../lib/supabase/queries";
+import type { Rarity as QueryRarity } from "../lib/supabase/queries";
 import { ShopItem } from '../types/shop';
 import { cn } from "../lib/utils";
-
-// Define utility constants locally
-const rarityColors: Record<Rarity, string> = {
-  'Common': 'text-gray-400',
-  'Uncommon': 'text-indigo-400',
-  'Rare': 'text-blue-400',
-  'Epic': 'text-pink-400',
-  'Legendary': 'text-purple-400'
-};
-
-const rarityBorders: Record<Rarity, string> = {
-  'Common': 'border-gray-500/50',
-  'Uncommon': 'border-indigo-500/50',
-  'Rare': 'border-blue-500/50',
-  'Epic': 'border-pink-500/50',
-  'Legendary': 'border-purple-500/50'
-};
-
-const rarityGradients: Record<Rarity, string> = {
-  'Common': 'from-gray-500/20 to-gray-600/20',
-  'Uncommon': 'from-indigo-500/20 to-indigo-600/20',
-  'Rare': 'from-blue-500/20 to-blue-600/20',
-  'Epic': 'from-pink-500/20 to-pink-600/20',
-  'Legendary': 'from-purple-500/20 to-purple-600/20'
-};
-
-const rarityGlow: Record<Rarity, string> = {
-  'Common': 'shadow-gray-500/50',
-  'Uncommon': 'shadow-indigo-500/50',
-  'Rare': 'shadow-blue-500/50',
-  'Epic': 'shadow-pink-500/50',
-  'Legendary': 'shadow-purple-500/50'
-};
+import { rarityColors, rarityBorders, rarityGradients, rarityGlow, Rarity } from "../lib/types";
 
 import { useToast } from "../hooks/use-toast";
 import { useState } from 'react';
@@ -55,6 +24,15 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
     const { user } = useAuth();
     const [isLoading, setIsLoading] = useState(false);
 
+    // Normalize rarity to match the expected format (capitalize first letter)
+    const normalizedRarity = item.rarity 
+      ? (item.rarity.charAt(0).toUpperCase() + item.rarity.slice(1).toLowerCase()) as Rarity
+      : 'Common' as Rarity;
+    
+    // Debug log
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`🎨 CARD: ${item.name} | RAW: "${item.rarity}" → "${normalizedRarity}" | BORDER: ${rarityBorders[normalizedRarity]}`);
+    }
 
     const handlePurchase = async () => {
         if (!user) {
@@ -82,7 +60,14 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
             
             const balanceData = await balanceResponse.json();
 
-            const currentCoins = balanceData.coins || 0;
+            // API returns stats.coins not coins directly
+            const currentCoins = balanceData.stats?.coins || balanceData.coins || 0;
+            
+            console.log('💰 PURCHASE CHECK:', {
+                currentCoins,
+                itemPrice: item.price,
+                balanceData
+            });
 
             if (currentCoins < item.price) {
                 toast({
@@ -154,20 +139,24 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
   return (
     <Card className={cn(
       "group overflow-hidden bg-gradient-to-br transition-all flex flex-col border-2 hover:scale-105 hover:shadow-xl",
-      item.rarity ? rarityBorders[item.rarity] : 'border-gray-500/50',
-      item.rarity ? rarityGradients[item.rarity] : 'from-gray-500/20 to-gray-600/20',
-      item.rarity ? rarityGlow[item.rarity] : ''
+      rarityBorders[normalizedRarity],
+      rarityGradients[normalizedRarity],
+      rarityGlow[normalizedRarity]
     )}>
       <CardContent className="p-4 flex-grow flex flex-col items-center text-center">
-        <div className="relative w-32 h-32 mb-4 flex items-center justify-center">
+        <div className="relative w-32 h-32 mb-4 flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 rounded">
           {item.image || item.name ? (
-            <ItemImage
-              itemName={item.name}
-              itemType={item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-              imageUrl={item.image}
-              width={128}
-              height={128}
-              className="object-contain transition-transform group-hover:scale-110"
+            <img 
+              src={item.image || '/assets/placeholder.svg'}
+              alt={item.name}
+              className="w-full h-full object-contain p-2 transition-transform group-hover:scale-110"
+              loading="lazy"
+              onError={(e) => {
+                const target = e.target as HTMLImageElement;
+                if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                  target.src = '/assets/placeholder.svg';
+                }
+              }}
             />
           ) : (
             <div className="w-16 h-16 text-primary transition-transform group-hover:scale-110 flex items-center justify-center">
@@ -176,7 +165,7 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
           )}
         </div>
         <h3 className="font-semibold text-lg flex-grow">{item.name}</h3>
-        {item.rarity && <p className={cn("font-bold text-sm capitalize", rarityColors[item.rarity])}>{item.rarity}</p>}
+        <p className={cn("font-bold text-sm uppercase", rarityColors[normalizedRarity])}>{normalizedRarity}</p>
         <p className="text-xs text-muted-foreground mt-2">{item.description}</p>
       </CardContent>
       <CardFooter className="p-2 border-t mt-auto space-y-2 flex-col">

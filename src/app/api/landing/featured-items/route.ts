@@ -1,30 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
-    // Get featured items from Supabase
-    const { data, error } = await supabase
+    const supabase = createServerSupabaseClient();
+    
+    // Get items from the items table - same as shop
+    const { data: items, error: itemsError } = await supabase
       .from('items')
       .select('*')
-      .eq('featured', true)
-      .order('rarity_value', { ascending: false })
-      .limit(8);
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+      .limit(10);
 
-    if (error) {
-      console.error('Error fetching featured items:', error);
-      
-      // If table doesn't exist, return empty array
-      if (error.code === '42P01') {
-        return NextResponse.json([]);
-      }
-      
-      // For other errors, return empty array
+    if (itemsError) {
+      console.error('Error fetching featured items:', itemsError);
       return NextResponse.json([]);
     }
 
-    // Return data (empty array if no featured items)
-    return NextResponse.json(data || []);
+    // Return items in the SAME format as shop API
+    const formattedItems = (items || []).map(item => ({
+      id: item.id,
+      name: item.name,
+      description: item.description || `${item.type} weapon`,
+      price: item.coin_price || 0,
+      type: item.type,
+      rarity: item.rarity,
+      image: item.image, // This is the key field!
+      is_active: item.is_active,
+      featured: item.featured
+    }));
+
+    return NextResponse.json(formattedItems);
   } catch (error) {
     console.error('Error fetching featured items:', error);
     return NextResponse.json({ 

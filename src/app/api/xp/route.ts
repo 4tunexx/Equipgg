@@ -1,13 +1,41 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
 import { getLevelInfo, getLevelFromXP, defaultXPConfig, getXPForLevel } from '@/lib/xp-config'
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, error: authError } = await getAuthenticatedUser(request)
+    const supabase = createServerSupabaseClient();
     
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    // Get user data
+    const { data: user, error: userError } = await supabase
+      .from('users')
+      .select('xp')
+      .eq('id', userId)
+      .single();
+    
+    if (userError || !user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     const currentXP = user.xp || 0

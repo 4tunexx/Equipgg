@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -128,7 +129,16 @@ export default function AdminDashboardPage() {
   const [showCreateItem, setShowCreateItem] = useState(false);
   const [showEditItem, setShowEditItem] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
-  const [newItem, setNewItem] = useState({ name: '', type: '', rarity: 'common', value: 0 });
+  const [newItem, setNewItem] = useState({ 
+    name: '', 
+    type: '', 
+    rarity: 'Common', 
+    value: 0, 
+    image_url: '', 
+    is_equipable: false, 
+    for_crate: false,
+    featured: false
+  });
   const [itemsCurrentPage, setItemsCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // Show 12 items per page
   const [showCreateBadge, setShowCreateBadge] = useState(false);
@@ -953,6 +963,104 @@ export default function AdminDashboardPage() {
               <Card>
                 <CardContent className="p-6">
                   {(() => {
+                    // Helper functions moved outside map for clarity
+                    const getItemImageUrl = (itemName: string, category: string) => {
+                      const baseUrl = 'https://www.csgodatabase.com/images';
+                      const categoryLower = category?.toLowerCase() || '';
+                      const nameLower = itemName?.toLowerCase() || '';
+                      
+                      // List of knife names that should use knives folder
+                      const knifeNames = ['karambit', 'bayonet', 'butterfly', 'falchion', 'flip', 'gut', 'huntsman', 
+                                          'bowie', 'shadow daggers', 'navaja', 'stiletto', 'ursus', 'talon', 
+                                          'classic knife', 'paracord', 'survival', 'nomad', 'skeleton', 'daggers'];
+                      
+                      // List of glove names that should use gloves folder
+                      const gloveNames = ['hand wraps', 'driver gloves', 'sport gloves', 'specialist gloves', 
+                                          'moto gloves', 'bloodhound gloves', 'hydra gloves', 'broken fang gloves'];
+                      
+                      // Agent names typically start with specific prefixes
+                      const agentPrefixes = ['agent', 'cmdr', 'lt.', 'sir', 'enforcer', 'operator', 
+                                             'ground rebel', 'osiris', 'ava', 'buckshot', 'two times', 
+                                             'sergeant bombson', 'chef d', "'medium rare' crasswater"];
+                      
+                      let path = 'skins';
+                      
+                      // Check if it's a knife by name or category
+                      if (categoryLower.includes('knife') || categoryLower === 'knives' || 
+                          knifeNames.some(knife => nameLower.includes(knife))) {
+                        path = 'knives';
+                      } 
+                      // Check if it's gloves by name or category
+                      else if (categoryLower.includes('glove') || categoryLower === 'gloves' || 
+                               gloveNames.some(glove => nameLower.includes(glove))) {
+                        path = 'gloves';
+                      }
+                      // Check if it's an agent by name or category
+                      else if (categoryLower.includes('agent') || categoryLower === 'agents' || 
+                               agentPrefixes.some(prefix => nameLower.startsWith(prefix) || nameLower.includes(prefix))) {
+                        path = 'agents';
+                      }
+                      
+                      const formattedName = itemName
+                        .replace(/\s*\|\s*/g, '_')
+                        .replace(/\s+/g, '_');
+                      return `${baseUrl}/${path}/webp/${formattedName}.webp`;
+                    };
+
+                    const getRarityStyles = (rarity: string) => {
+                      const rarityLower = rarity?.toLowerCase() || 'common';
+                      switch (rarityLower) {
+                        case 'legendary':
+                        case 'covert':
+                          return {
+                            border: 'border-[#d32ce6]',
+                            bg: 'bg-gradient-to-br from-[#d32ce6]/20 to-[#d32ce6]/10',
+                            text: 'text-[#d32ce6]',
+                            badgeBg: 'bg-[#d32ce6]',
+                            badgeText: 'text-white'
+                          };
+                        case 'epic':
+                        case 'classified':
+                          return {
+                            border: 'border-[#8847ff]',
+                            bg: 'bg-gradient-to-br from-[#8847ff]/20 to-[#8847ff]/10',
+                            text: 'text-[#8847ff]',
+                            badgeBg: 'bg-[#8847ff]',
+                            badgeText: 'text-white'
+                          };
+                        case 'rare':
+                        case 'restricted':
+                          return {
+                            border: 'border-[#4b69ff]',
+                            bg: 'bg-gradient-to-br from-[#4b69ff]/20 to-[#4b69ff]/10',
+                            text: 'text-[#4b69ff]',
+                            badgeBg: 'bg-[#4b69ff]',
+                            badgeText: 'text-white'
+                          };
+                        case 'uncommon':
+                        case 'mil-spec':
+                        case 'mil-spec grade':
+                          return {
+                            border: 'border-[#5e98d9]',
+                            bg: 'bg-gradient-to-br from-[#5e98d9]/20 to-[#5e98d9]/10',
+                            text: 'text-[#5e98d9]',
+                            badgeBg: 'bg-[#5e98d9]',
+                            badgeText: 'text-white'
+                          };
+                        case 'common':
+                        case 'consumer':
+                        case 'consumer grade':
+                        default:
+                          return {
+                            border: 'border-[#b0c3d9]',
+                            bg: 'bg-gradient-to-br from-[#b0c3d9]/20 to-[#b0c3d9]/10',
+                            text: 'text-[#b0c3d9]',
+                            badgeBg: 'bg-[#b0c3d9]',
+                            badgeText: 'text-white'
+                          };
+                      }
+                    };
+
                     // Pagination logic
                     const totalPages = Math.ceil(items.length / itemsPerPage);
                     const startIndex = (itemsCurrentPage - 1) * itemsPerPage;
@@ -962,170 +1070,88 @@ export default function AdminDashboardPage() {
                     return (
                       <>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                          {paginatedItems.map(item => {
-                      // Helper function to generate correct csgodatabase.com image URL
-                      const getItemImageUrl = (itemName: string, category: string) => {
-                        const baseUrl = 'https://www.csgodatabase.com/images';
-                        const categoryLower = category?.toLowerCase() || '';
-                        
-                        // Determine the correct path based on category
-                        let path = 'skins'; // default for weapons
-                        if (categoryLower.includes('knife') || categoryLower === 'knives') {
-                          path = 'knives';
-                        } else if (categoryLower.includes('agent') || categoryLower === 'agents') {
-                          path = 'agents';
-                        } else if (categoryLower.includes('glove') || categoryLower === 'gloves') {
-                          path = 'gloves';
-                        }
-                        
-                        // CSGODatabase format: 
-                        // - Replace spaces and | with underscores
-                        // - Keep letters, numbers, underscores, hyphens, quotes, parentheses
-                        // Examples:
-                        // "AWP | Dragon Lore" -> "AWP_Dragon_Lore"
-                        // "CZ75-Auto | Victoria" -> "CZ75-Auto_Victoria"
-                        // "Hand Wraps | Duct Tape" -> "Hand_Wraps_Duct_Tape"
-                        const formattedName = itemName
-                          .replace(/\s*\|\s*/g, '_')  // Replace | with underscore
-                          .replace(/\s+/g, '_');       // Replace spaces with underscores
-                        
-                        return `${baseUrl}/${path}/webp/${formattedName}.webp`;
-                      };
+                          {paginatedItems.map((item) => {
+                            const rarityStyles = getRarityStyles(item.rarity);
+                            const imageUrl = item.image_url || item.image || getItemImageUrl(item.name, item.category || item.type);
 
-                      // Get rarity styles
-                      const getRarityStyles = (rarity: string) => {
-                        const rarityLower = rarity?.toLowerCase() || 'common';
-                        switch (rarityLower) {
-                          case 'legendary':
-                          case 'covert':
-                            return {
-                              border: 'border-purple-500/50',
-                              bg: 'bg-gradient-to-br from-purple-500/20 to-purple-600/20',
-                              text: 'text-purple-400',
-                              badgeBg: 'bg-purple-500',
-                              badgeText: 'text-white'
-                            };
-                          case 'epic':
-                          case 'classified':
-                            return {
-                              border: 'border-pink-500/50',
-                              bg: 'bg-gradient-to-br from-pink-500/20 to-pink-600/20',
-                              text: 'text-pink-400',
-                              badgeBg: 'bg-pink-500',
-                              badgeText: 'text-white'
-                            };
-                          case 'rare':
-                          case 'restricted':
-                            return {
-                              border: 'border-blue-500/50',
-                              bg: 'bg-gradient-to-br from-blue-500/20 to-blue-600/20',
-                              text: 'text-blue-400',
-                              badgeBg: 'bg-blue-500',
-                              badgeText: 'text-white'
-                            };
-                          case 'uncommon':
-                          case 'mil-spec':
-                          case 'mil-spec grade':
-                            return {
-                              border: 'border-indigo-500/50',
-                              bg: 'bg-gradient-to-br from-indigo-500/20 to-indigo-600/20',
-                              text: 'text-indigo-400',
-                              badgeBg: 'bg-indigo-500',
-                              badgeText: 'text-white'
-                            };
-                          case 'common':
-                          case 'consumer':
-                          case 'consumer grade':
-                          default:
-                            return {
-                              border: 'border-gray-500/50',
-                              bg: 'bg-gradient-to-br from-gray-500/20 to-gray-600/20',
-                              text: 'text-gray-400',
-                              badgeBg: 'bg-gray-500',
-                              badgeText: 'text-white'
-                            };
-                        }
-                      };
-
-                      const rarityStyles = getRarityStyles(item.rarity);
-                      
-                      // Use stored image_url if available, otherwise generate URL
-                      const imageUrl = item.image_url || item.image || getItemImageUrl(item.name, item.category || item.type);
-
-                      return (
-                        <div 
-                          key={item.id} 
-                          className={`border-2 ${rarityStyles.border} ${rarityStyles.bg} rounded-lg p-4 space-y-3 hover:shadow-xl hover:scale-105 transition-all duration-200`}
-                        >
-                          <div className="aspect-video w-full rounded overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
-                            <img 
-                              src={imageUrl}
-                              alt={item.name}
-                              className="w-full h-full object-contain p-2"
-                              loading="lazy"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                // Silently fall back to placeholder - user can update manually via admin
-                                if (target.src.indexOf('/assets/placeholder.svg') === -1) {
-                                  target.src = '/assets/placeholder.svg';
-                                }
-                              }}
-                            />
-                          </div>
-                          <div>
-                            <div className={`font-semibold text-base ${rarityStyles.text}`}>{item.name}</div>
-                            <div className="text-sm text-muted-foreground">{item.type || item.category || 'Unknown'}</div>
-                          </div>
-                          <div className="flex gap-2 flex-wrap">
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${rarityStyles.badgeBg} ${rarityStyles.badgeText}`}>
-                              {item.rarity || 'Common'}
-                            </span>
-                            <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-500 text-white">
-                              💰 {item.value || 0} coins
-                            </span>
-                          </div>
-                          {item.description && (
-                            <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
-                          )}
-                          <div className="flex gap-2 pt-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline"
-                              onClick={() => {
-                                setEditingItem(item);
-                                setShowEditItem(true);
-                              }}
-                            >
-                              <Edit className="w-3 h-3 mr-1" /> Edit
-                            </Button>
-                            <Button 
-                              size="sm" 
-                              variant="destructive" 
-                              onClick={async () => {
-                                if (!confirm(`Delete "${item.name}"?`)) return;
-                                const res = await fetch(`/api/admin/items?id=${item.id}`, { method: 'DELETE' });
-                                if (res.ok) {
-                                  setItems(items.filter((it: any) => it.id !== item.id));
-                                  toast({
-                                    title: "Success",
-                                    description: "Item deleted successfully",
-                                  });
-                                } else {
-                                  const data = await res.json();
-                                  toast({
-                                    title: "Error",
-                                    description: data.error || 'Delete failed',
-                                    variant: "destructive",
-                                  });
-                                }
-                              }}
-                            >
-                              <Trash2 className="w-3 h-3 mr-1" /> Delete
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
+                            return (
+                              <div 
+                                key={item.id} 
+                                className={`border-2 ${rarityStyles.border} ${rarityStyles.bg} rounded-lg p-4 space-y-3 hover:shadow-xl hover:scale-105 transition-all duration-200`}
+                              >
+                                <div className="aspect-video w-full rounded overflow-hidden bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center">
+                                  <img 
+                                    src={imageUrl}
+                                    alt={item.name}
+                                    className="w-full h-full object-contain p-2"
+                                    loading="lazy"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      if (target.src.indexOf('/assets/placeholder.svg') === -1) {
+                                        target.src = '/assets/placeholder.svg';
+                                      }
+                                    }}
+                                  />
+                                </div>
+                                <div>
+                                  <div className={`font-semibold text-base ${rarityStyles.text}`}>{item.name}</div>
+                                  <div className="text-sm text-muted-foreground">{item.type || item.category || 'Unknown'}</div>
+                                </div>
+                                <div className="flex gap-2 flex-wrap">
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${rarityStyles.badgeBg} ${rarityStyles.badgeText}`}>
+                                    {item.rarity || 'Common'}
+                                  </span>
+                                  <span className="px-2 py-1 rounded text-xs font-medium bg-yellow-500 text-white">
+                                    💰 {item.value || 0} coins
+                                  </span>
+                                  {item.featured && (
+                                    <span className="px-2 py-1 rounded text-xs font-bold bg-gradient-to-r from-yellow-400 to-orange-500 text-white animate-pulse">
+                                      ⭐ FEATURED
+                                    </span>
+                                  )}
+                                </div>
+                                {item.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>
+                                )}
+                                <div className="flex gap-2 pt-2">
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingItem(item);
+                                      setShowEditItem(true);
+                                    }}
+                                  >
+                                    <Edit className="w-3 h-3 mr-1" /> Edit
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="destructive" 
+                                    onClick={async () => {
+                                      if (!confirm(`Delete "${item.name}"?`)) return;
+                                      const res = await fetch(`/api/admin/items?id=${item.id}`, { method: 'DELETE' });
+                                      if (res.ok) {
+                                        setItems(items.filter((it: any) => it.id !== item.id));
+                                        toast({
+                                          title: "Success",
+                                          description: "Item deleted successfully",
+                                        });
+                                      } else {
+                                        const data = await res.json();
+                                        toast({
+                                          title: "Error",
+                                          description: data.error || 'Delete failed',
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Trash2 className="w-3 h-3 mr-1" /> Delete
+                                  </Button>
+                                </div>
+                              </div>
+                            );
+                          })}
                   </div>
 
                   {/* Pagination Controls */}
@@ -4464,32 +4490,159 @@ export default function AdminDashboardPage() {
 
         {/* Create item dialog */}
         <Dialog open={showCreateItem} onOpenChange={setShowCreateItem}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Shop Item</DialogTitle>
             </DialogHeader>
-            <div className="space-y-2">
-              <Label>Name</Label>
-              <Input value={newItem.name} onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} />
-              <Label>Type</Label>
-              <Input value={newItem.type} onChange={(e) => setNewItem({ ...newItem, type: e.target.value })} />
-              <Label>Rarity</Label>
-              <Input value={newItem.rarity} onChange={(e) => setNewItem({ ...newItem, rarity: e.target.value })} />
-              <Label>Value</Label>
-              <Input value={String(newItem.value)} onChange={(e) => setNewItem({ ...newItem, value: Number(e.target.value || 0) })} />
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Name</Label>
+                  <Input 
+                    value={newItem.name} 
+                    onChange={(e) => setNewItem({ ...newItem, name: e.target.value })} 
+                    placeholder="AWP | Dragon Lore"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Type</Label>
+                  <Select 
+                    value={newItem.type} 
+                    onValueChange={(value) => setNewItem({ ...newItem, type: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Weapon">Weapon</SelectItem>
+                      <SelectItem value="Knife">Knife</SelectItem>
+                      <SelectItem value="Gloves">Gloves</SelectItem>
+                      <SelectItem value="Agent">Agent</SelectItem>
+                      <SelectItem value="Sticker">Sticker</SelectItem>
+                      <SelectItem value="Case">Case</SelectItem>
+                      <SelectItem value="Key">Key</SelectItem>
+                      <SelectItem value="Patch">Patch</SelectItem>
+                      <SelectItem value="Graffiti">Graffiti</SelectItem>
+                      <SelectItem value="Music Kit">Music Kit</SelectItem>
+                      <SelectItem value="Collectible">Collectible</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Rarity</Label>
+                  <Select 
+                    value={newItem.rarity} 
+                    onValueChange={(value) => setNewItem({ ...newItem, rarity: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Common">
+                        <span className="text-[#b0c3d9] font-semibold">Common</span>
+                      </SelectItem>
+                      <SelectItem value="Uncommon">
+                        <span className="text-[#5e98d9] font-semibold">Uncommon</span>
+                      </SelectItem>
+                      <SelectItem value="Rare">
+                        <span className="text-[#4b69ff] font-semibold">Rare</span>
+                      </SelectItem>
+                      <SelectItem value="Epic">
+                        <span className="text-[#8847ff] font-semibold">Epic</span>
+                      </SelectItem>
+                      <SelectItem value="Legendary">
+                        <span className="text-[#d32ce6] font-semibold">Legendary</span>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Price (Coins)</Label>
+                  <Input 
+                    type="number" 
+                    value={String(newItem.value)} 
+                    onChange={(e) => setNewItem({ ...newItem, value: Number(e.target.value || 0) })} 
+                    placeholder="1000"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Image URL</Label>
+                <Input 
+                  value={newItem.image_url} 
+                  onChange={(e) => setNewItem({ ...newItem, image_url: e.target.value })} 
+                  placeholder="https://www.csgodatabase.com/..."
+                />
+              </div>
+
+              <div className="flex gap-6">
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="equipable" 
+                    checked={newItem.is_equipable}
+                    onCheckedChange={(checked) => setNewItem({ ...newItem, is_equipable: checked })}
+                  />
+                  <Label htmlFor="equipable" className="cursor-pointer">Can Equip</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="for_crate" 
+                    checked={newItem.for_crate}
+                    onCheckedChange={(checked) => setNewItem({ ...newItem, for_crate: checked })}
+                  />
+                  <Label htmlFor="for_crate" className="cursor-pointer">For Crate</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Switch 
+                    id="featured" 
+                    checked={newItem.featured || false}
+                    onCheckedChange={(checked) => setNewItem({ ...newItem, featured: checked })}
+                  />
+                  <Label htmlFor="featured" className="cursor-pointer">⭐ Featured</Label>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button onClick={async () => {
-                const res = await fetch('/api/admin/items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(newItem) });
+                const res = await fetch('/api/admin/items', { 
+                  method: 'POST', 
+                  headers: { 'Content-Type': 'application/json' }, 
+                  body: JSON.stringify({
+                    name: newItem.name,
+                    type: newItem.type,
+                    rarity: newItem.rarity,
+                    value: newItem.value,
+                    image_url: newItem.image_url,
+                    is_equipable: newItem.is_equipable,
+                    for_crate: newItem.for_crate,
+                    featured: newItem.featured || false
+                  }) 
+                });
                 if (res.ok) {
                   const data = await res.json();
-                  setItems([...(items || []), data.item]);
+                  toast({
+                    title: "Success",
+                    description: "Item created successfully",
+                  });
+                  // Refetch all items to get fresh data
+                  const refreshRes = await fetch('/api/admin/items');
+                  if (refreshRes.ok) {
+                    const refreshData = await refreshRes.json();
+                    setItems(refreshData.items || []);
+                  }
                   setShowCreateItem(false);
-                  setNewItem({ name: '', type: '', rarity: 'common', value: 0 });
-                  alert('Item created');
+                  setNewItem({ name: '', type: '', rarity: 'Common', value: 0, image_url: '', is_equipable: false, for_crate: false, featured: false });
                 } else {
                   const d = await res.json();
-                  alert(d.error || 'Create failed');
+                  toast({
+                    title: "Error",
+                    description: d.error || 'Create failed',
+                    variant: "destructive"
+                  });
                 }
               }}>Create</Button>
               <Button variant="ghost" onClick={() => setShowCreateItem(false)}>Cancel</Button>
@@ -4499,69 +4652,121 @@ export default function AdminDashboardPage() {
 
         {/* Edit item dialog */}
         <Dialog open={showEditItem} onOpenChange={setShowEditItem}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Shop Item</DialogTitle>
             </DialogHeader>
             {editingItem && (
-              <div className="space-y-3">
-                <div>
-                  <Label>Name</Label>
-                  <Input 
-                    value={editingItem.name} 
-                    onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} 
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Name</Label>
+                    <Input 
+                      value={editingItem.name} 
+                      onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })} 
+                      placeholder="AWP | Dragon Lore"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Type</Label>
+                    <Select 
+                      value={editingItem.type} 
+                      onValueChange={(value) => setEditingItem({ ...editingItem, type: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Weapon">Weapon</SelectItem>
+                        <SelectItem value="Knife">Knife</SelectItem>
+                        <SelectItem value="Gloves">Gloves</SelectItem>
+                        <SelectItem value="Agent">Agent</SelectItem>
+                        <SelectItem value="Sticker">Sticker</SelectItem>
+                        <SelectItem value="Case">Case</SelectItem>
+                        <SelectItem value="Key">Key</SelectItem>
+                        <SelectItem value="Patch">Patch</SelectItem>
+                        <SelectItem value="Graffiti">Graffiti</SelectItem>
+                        <SelectItem value="Music Kit">Music Kit</SelectItem>
+                        <SelectItem value="Collectible">Collectible</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <div>
-                  <Label>Type</Label>
-                  <Input 
-                    value={editingItem.type} 
-                    onChange={(e) => setEditingItem({ ...editingItem, type: e.target.value })} 
-                  />
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Rarity</Label>
+                    <Select 
+                      value={editingItem.rarity} 
+                      onValueChange={(value) => setEditingItem({ ...editingItem, rarity: value })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Common">
+                          <span className="text-[#b0c3d9] font-semibold">Common</span>
+                        </SelectItem>
+                        <SelectItem value="Uncommon">
+                          <span className="text-[#5e98d9] font-semibold">Uncommon</span>
+                        </SelectItem>
+                        <SelectItem value="Rare">
+                          <span className="text-[#4b69ff] font-semibold">Rare</span>
+                        </SelectItem>
+                        <SelectItem value="Epic">
+                          <span className="text-[#8847ff] font-semibold">Epic</span>
+                        </SelectItem>
+                        <SelectItem value="Legendary">
+                          <span className="text-[#d32ce6] font-semibold">Legendary</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Price (Coins)</Label>
+                    <Input 
+                      type="number"
+                      value={editingItem.value || editingItem.coin_price || 0} 
+                      onChange={(e) => setEditingItem({ ...editingItem, value: Number(e.target.value || 0) })} 
+                      placeholder="1000"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <Label>Category</Label>
-                  <Input 
-                    value={editingItem.category || editingItem.type} 
-                    onChange={(e) => setEditingItem({ ...editingItem, category: e.target.value })} 
-                  />
-                </div>
-                <div>
-                  <Label>Rarity</Label>
-                  <select 
-                    className="w-full border rounded px-3 py-2"
-                    value={editingItem.rarity} 
-                    onChange={(e) => setEditingItem({ ...editingItem, rarity: e.target.value })}
-                  >
-                    <option value="common">Common</option>
-                    <option value="uncommon">Uncommon</option>
-                    <option value="rare">Rare</option>
-                    <option value="epic">Epic</option>
-                    <option value="legendary">Legendary</option>
-                  </select>
-                </div>
-                <div>
-                  <Label>Coin Price</Label>
-                  <Input 
-                    type="number"
-                    value={editingItem.value || editingItem.coin_price || 0} 
-                    onChange={(e) => setEditingItem({ ...editingItem, value: Number(e.target.value || 0) })} 
-                  />
-                </div>
-                <div>
+
+                <div className="space-y-2">
                   <Label>Image URL</Label>
                   <Input 
                     value={editingItem.image_url || editingItem.image || ''} 
                     onChange={(e) => setEditingItem({ ...editingItem, image_url: e.target.value })} 
-                    placeholder="Optional: Custom image URL"
+                    placeholder="https://www.csgodatabase.com/..."
                   />
                 </div>
-                <div>
-                  <Label>Description</Label>
-                  <Input 
-                    value={editingItem.description || ''} 
-                    onChange={(e) => setEditingItem({ ...editingItem, description: e.target.value })} 
-                  />
+
+                <div className="flex gap-6">
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="edit_equipable" 
+                      checked={editingItem.is_equipable || false}
+                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, is_equipable: checked })}
+                    />
+                    <Label htmlFor="edit_equipable" className="cursor-pointer">Can Equip</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="edit_for_crate" 
+                      checked={editingItem.for_crate || false}
+                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, for_crate: checked })}
+                    />
+                    <Label htmlFor="edit_for_crate" className="cursor-pointer">For Crate</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Switch 
+                      id="edit_featured" 
+                      checked={editingItem.featured || false}
+                      onCheckedChange={(checked) => setEditingItem({ ...editingItem, featured: checked })}
+                    />
+                    <Label htmlFor="edit_featured" className="cursor-pointer">⭐ Featured</Label>
+                  </div>
                 </div>
               </div>
             )}
@@ -4575,15 +4780,16 @@ export default function AdminDashboardPage() {
                     id: editingItem.id,
                     name: editingItem.name,
                     type: editingItem.type,
-                    category: editingItem.category || editingItem.type,
                     rarity: editingItem.rarity,
                     value: editingItem.value,
                     image_url: editingItem.image_url || editingItem.image,
-                    description: editingItem.description
+                    is_equipable: editingItem.is_equipable || false,
+                    for_crate: editingItem.for_crate || false,
+                    featured: editingItem.featured || false
                   })
                 });
                 if (res.ok) {
-                  // Refetch all items from API to get fresh data with correct field names
+                  // Refetch all items from API to get fresh data
                   const itemsRes = await fetch('/api/admin/items');
                   if (itemsRes.ok) {
                     const data = await itemsRes.json();

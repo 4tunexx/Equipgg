@@ -62,20 +62,49 @@ export default function ShopPage() {
   const { user } = useSupabase();
   const { balance: userBalance, isLoading } = useBalance();
 
-  // Fetch shop items using API endpoint with fallback data
+  // DEBUG: Log balance values
+  useEffect(() => {
+    console.log('💰 SHOP BALANCE DEBUG:', {
+      userBalance,
+      coins: userBalance?.coins,
+      isLoading,
+      user: user?.id
+    });
+  }, [userBalance, isLoading, user]);
+
+  // Fetch shop items using PUBLIC ITEMS API - EXACT SAME DATA AS ADMIN PAGE
   const fetchShopItems = async () => {
     setIsLoadingItems(true);
     try {
-      const response = await fetch('/api/shop');
+      const response = await fetch('/api/items');
 
       if (response.ok) {
         const data = await response.json();
         const items = data.items || [];
         
-        setShopItems(items);
+        // Convert items to shop item format
+        const convertedItems = items.map((item: any) => ({
+          id: `shop_${item.id}`,
+          name: item.name,
+          description: item.description || 'No description available',
+          price: item.value || 0,
+          gem_price: 0,
+          item_id: item.id,
+          category: item.category || item.type || 'Unknown',
+          stock: 999,
+          discount_percentage: 0,
+          item: item // Keep full item data
+        }));
+        
+        console.log('🔍 ADMIN ITEMS COUNT:', convertedItems.length);
+        if (convertedItems.length > 0) {
+          console.log('🔍 FIRST ITEM:', convertedItems[0]);
+        }
+        
+        setShopItems(convertedItems);
 
         // Extract unique categories
-        const uniqueCategories = [...new Set(items.map((item: DBShopItem) => item.item?.type ?? 'Unknown'))] as string[];
+        const uniqueCategories = [...new Set(items.map((item: any) => item.type || item.category || 'Unknown'))] as string[];
         setCategories(uniqueCategories);
       } else {
         console.error(`API responded with status: ${response.status}`);
@@ -216,14 +245,64 @@ export default function ShopPage() {
         </div>
         
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-          {paginatedItems.map(shopItem => <ShopItemCard key={shopItem.id} item={{
-            ...shopItem,
-            description: shopItem.description ?? 'No description available',
-            type: shopItem.item?.type ?? 'Unknown',
-            rarity: (shopItem.item?.rarity ?? 'Common') as Rarity,
-            image: shopItem.item?.image ?? '/assets/placeholder.svg',
-            dataAiHint: shopItem.item?.data_ai_hint ?? ''
-          }} />)}
+          {paginatedItems.map(shopItem => {
+            // EXACT SAME logic as admin page - using item directly from database
+            const getItemImageUrl = (itemName: string, category: string) => {
+              const baseUrl = 'https://www.csgodatabase.com/images';
+              const categoryLower = category?.toLowerCase() || '';
+              const nameLower = itemName?.toLowerCase() || '';
+              
+              // List of knife names that should use knives folder
+              const knifeNames = ['karambit', 'bayonet', 'butterfly', 'falchion', 'flip', 'gut', 'huntsman', 
+                                  'bowie', 'shadow daggers', 'navaja', 'stiletto', 'ursus', 'talon', 
+                                  'classic knife', 'paracord', 'survival', 'nomad', 'skeleton', 'daggers'];
+              
+              // List of glove names that should use gloves folder
+              const gloveNames = ['hand wraps', 'driver gloves', 'sport gloves', 'specialist gloves', 
+                                  'moto gloves', 'bloodhound gloves', 'hydra gloves', 'broken fang gloves'];
+              
+              // Agent names typically start with specific prefixes
+              const agentPrefixes = ['agent', 'cmdr', 'lt.', 'sir', 'enforcer', 'operator', 
+                                     'ground rebel', 'osiris', 'ava', 'buckshot', 'two times', 
+                                     'sergeant bombson', 'chef d', "'medium rare' crasswater"];
+              
+              let path = 'skins';
+              
+              // Check if it's a knife by name or category
+              if (categoryLower.includes('knife') || categoryLower === 'knives' || 
+                  knifeNames.some(knife => nameLower.includes(knife))) {
+                path = 'knives';
+              } 
+              // Check if it's gloves by name or category
+              else if (categoryLower.includes('glove') || categoryLower === 'gloves' || 
+                       gloveNames.some(glove => nameLower.includes(glove))) {
+                path = 'gloves';
+              }
+              // Check if it's an agent by name or category
+              else if (categoryLower.includes('agent') || categoryLower === 'agents' || 
+                       agentPrefixes.some(prefix => nameLower.startsWith(prefix) || nameLower.includes(prefix))) {
+                path = 'agents';
+              }
+              
+              const formattedName = itemName
+                .replace(/\s*\|\s*/g, '_')
+                .replace(/\s+/g, '_');
+              return `${baseUrl}/${path}/webp/${formattedName}.webp`;
+            };
+            
+            // Access actual item from database - EXACT same as admin (cast as any)
+            const dbItem = shopItem.item as any;
+            const imageUrl = dbItem?.image_url || dbItem?.image || getItemImageUrl(dbItem?.name || shopItem.name, dbItem?.type || dbItem?.category || 'Weapon');
+            
+            return <ShopItemCard key={shopItem.id} item={{
+              ...shopItem,
+              description: dbItem?.description || shopItem.description || 'No description available',
+              type: dbItem?.type || dbItem?.category || 'Unknown',
+              rarity: (dbItem?.rarity || 'Common') as Rarity,
+              image: imageUrl,
+              dataAiHint: dbItem?.data_ai_hint || ''
+            }} />;
+          })}
         </div>
         
         {/* Pagination Controls */}

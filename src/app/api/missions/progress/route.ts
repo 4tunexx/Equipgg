@@ -1,19 +1,34 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedUser, createServerSupabaseClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase";
 
 // Get user's mission progress
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    const supabase = createServerSupabaseClient();
     
-    console.log('Mission progress endpoint - auth check:', { user: user?.id, error: authError });
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
     
-    if (authError || !user) {
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    console.log('Mission progress endpoint - auth check:', { userId });
+    
+    // If no custom session, return unauthorized
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = createServerSupabaseClient()
 
     const { searchParams } = new URL(request.url);
     const missionId = searchParams.get('missionId');
@@ -21,7 +36,7 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from('user_mission_progress')
       .select('*')
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (missionId) {
       query = query.eq('mission_id', missionId);
@@ -44,11 +59,26 @@ export async function GET(request: NextRequest) {
 // Update mission progress
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = createServerSupabaseClient();
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -62,7 +92,7 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('user_mission_progress')
       .upsert({
-        user_id: user.id,
+        user_id: userId,
         mission_id: missionId,
         progress,
         completed,
@@ -83,11 +113,26 @@ export async function POST(request: NextRequest) {
 // Complete a mission (award rewards)
 export async function PUT(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = createServerSupabaseClient();
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -112,7 +157,7 @@ export async function PUT(request: NextRequest) {
     const { error: progressError } = await supabase
       .from('user_mission_progress')
       .upsert({
-        user_id: user.id,
+        user_id: userId,
         mission_id: missionId,
         progress: mission.target_value || 1,
         completed: true,
@@ -126,7 +171,7 @@ export async function PUT(request: NextRequest) {
     const { data: currentUser, error: fetchError } = await supabase
       .from('users')
       .select('xp, coins')
-      .eq('id', user.id)
+      .eq('id', userId)
       .single();
 
     if (fetchError) throw fetchError;
@@ -138,7 +183,7 @@ export async function PUT(request: NextRequest) {
         xp: (currentUser.xp || 0) + (mission.xp_reward || 0),
         coins: (currentUser.coins || 0) + (mission.coin_reward || 0)
       })
-      .eq('id', user.id);
+      .eq('id', userId);
 
     if (userError) throw userError;
 
@@ -158,11 +203,26 @@ export async function PUT(request: NextRequest) {
 // Reset mission progress (admin only)
 export async function DELETE(request: NextRequest) {
   try {
-    const supabase = createServerSupabaseClient()
+    const supabase = createServerSupabaseClient();
     
-    // Get user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -171,9 +231,9 @@ export async function DELETE(request: NextRequest) {
     
     const { searchParams } = new URL(request.url);
     const missionId = searchParams.get('missionId');
-    const userId = searchParams.get('userId');
+    const targetUserId = searchParams.get('userId');
 
-    if (!missionId || !userId) {
+    if (!missionId || !targetUserId) {
       return NextResponse.json({ error: 'Mission ID and User ID are required' }, { status: 400 });
     }
 
@@ -181,7 +241,7 @@ export async function DELETE(request: NextRequest) {
       .from('user_mission_progress')
       .delete()
       .eq('mission_id', missionId)
-      .eq('user_id', userId);
+      .eq('user_id', targetUserId);
 
     if (error) throw error;
 

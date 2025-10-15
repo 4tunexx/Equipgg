@@ -1,16 +1,19 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import { getUserIdFromCookie } from '@/lib/session-utils';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    const supabase = createServerSupabaseClient();
     
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    // Get user ID from session cookie
+    const userId = getUserIdFromCookie(request);
+    
+    console.log('🔐 Missions Summary - userId:', userId);
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const supabase = createServerSupabaseClient()
     
     // Get all missions
     const { data: missions, error: missionsError } = await supabase
@@ -27,7 +30,7 @@ export async function GET(request: NextRequest) {
     const { data: userProgress, error: progressError } = await supabase
       .from('user_mission_progress')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (progressError) {
       console.error('Error fetching user progress:', progressError);

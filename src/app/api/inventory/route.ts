@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser, supabase } from "../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../lib/supabase";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 
+const supabase = createServerSupabaseClient();
 const queries = createSupabaseQueries(supabase);
 
 interface InventoryItem {
@@ -24,9 +25,26 @@ interface InventoryItem {
 // GET /api/inventory - Fetch user's inventory
 export async function GET(request: NextRequest) {
   try {
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    const supabase = createServerSupabaseClient();
     
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -53,7 +71,7 @@ export async function GET(request: NextRequest) {
         image_url,
         value
       `)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     // Apply filters
     if (filter && filter !== 'all') {
@@ -110,9 +128,26 @@ export async function GET(request: NextRequest) {
 // POST /api/inventory - Add item to inventory (from purchases, rewards, etc.)
 export async function POST(request: NextRequest) {
   try {
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    const supabase = createServerSupabaseClient();
     
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -156,7 +191,7 @@ export async function POST(request: NextRequest) {
     const { data: inventoryItem, error: insertError } = await supabase
       .from('user_inventory')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         item_id: itemId,
         equipped: false,
         acquired_at: new Date().toISOString(),
@@ -191,9 +226,26 @@ export async function POST(request: NextRequest) {
 // DELETE /api/inventory - Remove item from inventory
 export async function DELETE(request: NextRequest) {
   try {
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    const supabase = createServerSupabaseClient();
     
-    if (authError || !user) {
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -214,7 +266,7 @@ export async function DELETE(request: NextRequest) {
     const { data: inventoryItem, error: findError } = await supabase
       .from('user_inventory')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .eq('id', itemId)
       .single();
 
@@ -231,7 +283,7 @@ export async function DELETE(request: NextRequest) {
       .from('user_inventory')
       .delete()
       .eq('id', itemId)
-      .eq('user_id', user.id);
+      .eq('user_id', userId);
 
     if (deleteError) {
       console.error('Error removing item from inventory:', deleteError);

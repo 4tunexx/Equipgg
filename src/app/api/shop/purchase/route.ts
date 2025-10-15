@@ -1,15 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthSession, createUnauthorizedResponse } from "../../../../lib/auth-utils";
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 import { trackShopVisit } from "../../../../lib/mission-tracker";
 import { trackCollectionAchievement } from "../../../../lib/achievement-tracker";
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthSession(request);
+    const supabase = createServerSupabaseClient();
     
-    if (!session) {
-      return createUnauthorizedResponse();
+    // Try to get user from custom session cookie
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    
+    let userId: string | null = null;
+    
+    if (cookieMatch) {
+      try {
+        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
+          userId = sessionData.user_id;
+        }
+      } catch (e) {
+        console.error('Failed to parse session cookie:', e);
+      }
+    }
+    
+    if (!userId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const { itemId, itemName, price } = await request.json();
@@ -22,7 +38,7 @@ export async function POST(request: NextRequest) {
     const { data: user, error: userError } = await supabase
       .from('users')
       .select('id, displayname, coins, gems')
-      .eq('id', session.user_id)
+      .eq('id', userId)
       .single();
 
     if (userError || !user) {
@@ -77,7 +93,7 @@ export async function POST(request: NextRequest) {
         item_name: item.name,
         item_type: item.type || 'weapon',
         rarity: item.rarity || 'common',
-        image_url: item.image_url || '/default-item.png',
+        image_url: item.image || item.image_url || '/assets/placeholder.svg',
         value: price,
         obtained_from: 'shop_purchase',
         acquired_at: new Date().toISOString()

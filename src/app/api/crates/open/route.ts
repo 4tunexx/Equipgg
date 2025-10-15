@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
           rarity: wonItem.rarity,
           type: 'skin',
           value: wonItem.value,
-          image: '/default-item.png'
+          image: '/assets/placeholder.svg'
         },
         coinReward: wonItem.value,
         xpReward: 50
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
         rarity: 'common',
         type: 'skin',
         value: 100,
-        image: '/default-item.png'
+        image: '/assets/placeholder.svg'
       },
       coinReward: 100,
       xpReward: 50
