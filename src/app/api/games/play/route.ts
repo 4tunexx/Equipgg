@@ -222,6 +222,23 @@ export async function POST(request: NextRequest) {
       // Don't fail the game request if mission tracking fails
     }
 
+    // Log activity to activity feed if won (non-blocking)
+    if (won && winnings > 0) {
+      try {
+        await supabase
+          .from('activity_feed')
+          .insert({
+            user_id: session.user_id,
+            activity_type: 'win',
+            description: `won ${Math.floor(winnings)} coins on ${gameType}`,
+            amount: Math.floor(winnings),
+            created_at: new Date().toISOString()
+          });
+      } catch (activityError) {
+        console.warn('Failed to log activity:', activityError);
+      }
+    }
+
     return NextResponse.json({
       success: true,
       game: {

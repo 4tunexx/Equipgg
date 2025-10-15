@@ -1,20 +1,17 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { Progress } from "./ui/progress";
+import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Gem, TrendingUp } from 'lucide-react';
+import { Package } from 'lucide-react';
+import { useState } from 'react';
 
 interface InventoryLevelProgressionProps {
   currentLevel: number;
   currentSlots: number;
 }
 
-
-
 export function InventoryLevelProgression({ currentLevel, currentSlots }: InventoryLevelProgressionProps) {
-  const nextMilestone = Math.ceil(currentLevel / 5) * 5 + 1;
-  const progressToNext = ((currentLevel % 5) / 5) * 100;
+  const [isHovered, setIsHovered] = useState(false);
   
   const milestones = [
     { level: 1, slots: 10, label: 'Starter' },
@@ -32,73 +29,97 @@ export function InventoryLevelProgression({ currentLevel, currentSlots }: Invent
 
   const currentMilestone = milestones.find(m => currentLevel >= m.level) || milestones[0];
   const nextMilestoneData = milestones.find(m => m.level > currentLevel);
+  const progressToNext = nextMilestoneData ? ((currentLevel - currentMilestone.level) / (nextMilestoneData.level - currentMilestone.level)) * 100 : 100;
 
   return (
-    <Card className="bg-card/50">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Gem className="h-5 w-5 text-yellow-400" />
-          Inventory Progression
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {/* Current Status */}
-        <div className="text-center">
-          <div className="text-2xl font-bold text-primary">{currentSlots}</div>
-          <div className="text-sm text-muted-foreground">Current Slots</div>
-          <Badge variant="outline" className="mt-2">
-            Level {currentLevel} - {currentMilestone.label}
+    <div 
+      className="relative"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Compact Progression Display */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Package className="h-3.5 w-3.5 text-green-500" />
+            <span className="text-xs text-muted-foreground">Inventory Progression</span>
+          </div>
+          <Badge variant="outline" className="text-xs border-green-500/50 text-green-500">
+            {currentSlots} slots
           </Badge>
         </div>
-
-        {/* Progress to Next Milestone */}
+        
         {nextMilestoneData && (
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Progress to Level {nextMilestoneData.level}</span>
-              <span>{nextMilestoneData.slots} slots</span>
+          <>
+            <div className="w-full bg-muted/50 rounded-full h-1.5 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-green-600 to-green-400 h-1.5 rounded-full transition-all duration-500"
+                style={{ width: `${progressToNext}%` }}
+              ></div>
             </div>
-            <Progress value={progressToNext} className="h-2" />
-            <div className="text-xs text-muted-foreground text-center">
-              {nextMilestoneData.level - currentLevel} levels to go
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>Level {currentLevel} - {currentMilestone.label}</span>
+              <span>{nextMilestoneData.level - currentLevel} to go</span>
             </div>
-          </div>
+          </>
         )}
+      </div>
 
-        {/* Milestone Preview */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
-            <TrendingUp className="h-4 w-4" />
-            Upcoming Milestones
-          </div>
-          <div className="grid grid-cols-2 gap-2 text-xs">
-            {milestones
-              .filter(m => m.level > currentLevel)
-              .slice(0, 4)
-              .map((milestone) => (
-                <div
-                  key={milestone.level}
-                  className={`p-2 rounded border ${
-                    milestone.level === nextMilestone
-                      ? 'border-primary bg-primary/10'
-                      : 'border-muted bg-muted/20'
-                  }`}
-                >
-                  <div className="font-medium">Level {milestone.level}</div>
-                  <div className="text-muted-foreground">{milestone.slots} slots</div>
-                  <div className="text-muted-foreground">{milestone.label}</div>
+      {/* Floating Details Card on Hover */}
+      {isHovered && (
+        <Card className="absolute left-0 right-0 top-full mt-2 z-50 bg-card/95 backdrop-blur-sm border-green-500/50 shadow-xl shadow-green-500/20 animate-in fade-in slide-in-from-top-2 duration-200">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-green-500">
+              <Package className="h-4 w-4" />
+              Progression Details
+            </div>
+
+            {/* Current Status Highlight */}
+            <div className="text-center p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+              <div className="text-2xl font-bold text-green-500">{currentSlots} Slots</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                Level {currentLevel} - {currentMilestone.label}
+              </div>
+            </div>
+
+            {/* Next Milestone */}
+            {nextMilestoneData && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Next Milestone</span>
+                  <span className="font-medium text-green-500">Level {nextMilestoneData.level}</span>
                 </div>
-              ))}
-          </div>
-        </div>
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{nextMilestoneData.label}</span>
+                  <span>{nextMilestoneData.slots} slots</span>
+                </div>
+                <div className="w-full bg-muted/50 rounded-full h-2.5 overflow-hidden">
+                  <div 
+                    className="bg-gradient-to-r from-green-600 to-green-400 h-2.5 rounded-full transition-all duration-500"
+                    style={{ width: `${progressToNext}%` }}
+                  ></div>
+                </div>
+                <div className="text-xs text-center text-muted-foreground">
+                  {nextMilestoneData.level - currentLevel} {nextMilestoneData.level - currentLevel === 1 ? 'level' : 'levels'} remaining
+                </div>
+              </div>
+            )}
 
-        {/* Level Benefits */}
-        <div className="text-xs text-muted-foreground text-center">
-          <p>• Gain +5 inventory slots every 5 levels</p>
-          <p>• Maximum 100 slots at high levels</p>
-          <p>• Level up by earning XP through gameplay</p>
-        </div>
-      </CardContent>
-    </Card>
+            {/* Quick Info */}
+            <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted/20 rounded-lg">
+              <p className="flex items-center gap-1">
+                <span className="text-green-500">•</span> +5 slots every 5 levels
+              </p>
+              <p className="flex items-center gap-1">
+                <span className="text-green-500">•</span> Maximum 100 slots
+              </p>
+              <p className="flex items-center gap-1">
+                <span className="text-green-500">•</span> Level up by earning XP
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 }

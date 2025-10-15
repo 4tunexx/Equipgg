@@ -40,7 +40,6 @@ import {
   Percent,
   History,
   ArrowLeftRight,
-  MessageCircle,
   CreditCard,
 } from 'lucide-react';
 import { Button } from "../../components/ui/button";
@@ -74,7 +73,6 @@ const baseNavLinks = [
   { href: '/dashboard/payments', label: 'Payments', icon: CreditCard },
   { href: '/dashboard/leaderboard', label: 'Leaderboard', icon: Users },
   { href: '/dashboard/community', label: 'Community', icon: MessagesSquare },
-  { href: '/dashboard/chat', label: 'Chat', icon: MessageCircle },
   { href: '/dashboard/profile', label: 'Profile', icon: UserIcon },
   { href: '/dashboard/support', label: 'Support', icon: LifeBuoy },
 ];
@@ -85,7 +83,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast } = useToast();
   const router = useRouter();
-  const { balance } = useBalance();
+  const { balance, isLoading: balanceLoading } = useBalance();
 
   // All hooks must be called before any conditional returns
   const [summary, setSummary] = React.useState<{ xp: number; level: number; coins: number; gems: number; dailyCompleted: number; totalDaily: number } | null>(null);
@@ -451,16 +449,16 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                     <div className="flex items-center justify-between text-xs font-semibold">
                         <div className="flex items-center gap-1.5 text-yellow-400">
                             <Gem className="size-3" />
-                            <span>{balance?.gems ?? 0} Gems</span>
+                            <span>{balanceLoading ? 'Loading...' : `${balance?.gems ?? 0} Gems`}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-green-400">
                             <Coins className="size-3" />
-                            <span>{balance?.coins ?? 0} Coins</span>
+                            <span>{balanceLoading ? 'Loading...' : `${balance?.coins ?? 0} Coins`}</span>
                         </div>
                     </div>
                     <XpDisplay 
-                        xp={balance?.xp ?? 0} 
-                        level={balance?.level ?? 1}
+                        xp={balanceLoading ? 0 : (balance?.xp ?? 0)} 
+                        level={balanceLoading ? 1 : (balance?.level ?? 1)}
                         userId={user?.id}
                         autoFetch={false}
                         className=""

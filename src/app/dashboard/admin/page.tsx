@@ -4571,12 +4571,15 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Image URL</Label>
+                <Label>Image URL (Optional - Leave empty to auto-generate)</Label>
                 <Input 
                   value={newItem.image_url} 
                   onChange={(e) => setNewItem({ ...newItem, image_url: e.target.value })} 
-                  placeholder="https://www.csgodatabase.com/..."
+                  placeholder="Leave empty for auto-generation from item name"
                 />
+                <p className="text-xs text-muted-foreground">
+                  💡 Leave empty to auto-generate CSGODatabase URL from item name (recommended for weapons, knives, gloves, agents)
+                </p>
               </div>
 
               <div className="flex gap-6">

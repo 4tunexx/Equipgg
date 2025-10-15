@@ -71,7 +71,10 @@ const getInventorySlots = (level: number): number => {
 // EXACT SAME image URL function as admin/shop/landing pages
 const getItemImageUrl = (itemName: string, category: string, existingImage?: string) => {
   // If item already has an image URL, use it
-  if (existingImage) return existingImage;
+  if (existingImage) {
+    console.log(`✅ Using existing image for ${itemName}:`, existingImage);
+    return existingImage;
+  }
   
   const baseUrl = 'https://www.csgodatabase.com/images';
   const categoryLower = category?.toLowerCase() || '';
@@ -112,7 +115,9 @@ const getItemImageUrl = (itemName: string, category: string, existingImage?: str
   const formattedName = itemName
     .replace(/\s*\|\s*/g, '_')
     .replace(/\s+/g, '_');
-  return `${baseUrl}/${path}/webp/${formattedName}.webp`;
+  const finalUrl = `${baseUrl}/${path}/webp/${formattedName}.webp`;
+  console.log(`🎨 Generated URL for ${itemName} (${category}):`, finalUrl);
+  return finalUrl;
 };
 
 // Calculate slots per page (20 slots per page for better UX)
@@ -158,6 +163,13 @@ export default function InventoryPage() {
             const userData = await userResponse.json();
 
             if (inventoryResponse.ok) {
+                console.log('🔍 INVENTORY DEBUG - Raw data:', inventoryData.inventory);
+                if (inventoryData.inventory && inventoryData.inventory.length > 0) {
+                    console.log('🔍 FIRST ITEM:', inventoryData.inventory[0]);
+                    console.log('🔍 FIRST ITEM image:', inventoryData.inventory[0].image);
+                    console.log('🔍 FIRST ITEM name:', inventoryData.inventory[0].name);
+                    console.log('🔍 FIRST ITEM type:', inventoryData.inventory[0].type);
+                }
                 setLocalInventory(inventoryData.inventory || []);
                 setEquippedItems(inventoryData.equipped || {});
                 setInventoryStats(inventoryData.stats || null);
@@ -914,16 +926,12 @@ export default function InventoryPage() {
             </div>
           </div>
           
+          {/* Inventory Progression Bar */}
           <div className="mt-3 pt-3 border-t border-white/10">
-            <div className="text-xs text-muted-foreground">
-              <div className="flex justify-between">
-                <span>XP Progress</span>
-                <span>185 / 1000</span>
-              </div>
-              <div className="w-full bg-muted rounded-full h-1.5 mt-1">
-                <div className="bg-primary h-1.5 rounded-full" style={{ width: '18.5%' }}></div>
-              </div>
-            </div>
+            <InventoryLevelProgression 
+              currentLevel={userLevel} 
+              currentSlots={getInventorySlots(userLevel)} 
+            />
           </div>
         </div>
 
@@ -978,12 +986,6 @@ export default function InventoryPage() {
           })}
           </div>
         </div>
-        
-        {/* Inventory Progression */}
-        <InventoryLevelProgression 
-          currentLevel={userLevel} 
-          currentSlots={getInventorySlots(userLevel)} 
-        />
       </aside>
 
       {/* Right Column - Compact Stats & Tabs */}

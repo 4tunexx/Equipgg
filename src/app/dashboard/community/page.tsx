@@ -12,10 +12,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { UserProfileLink } from "../../../components/user-profile-link";
 import { Button } from "../../../components/ui/button";
 import { getRoleColors } from "../../../lib/role-colors";
-import { MessageSquare, Plus, Minus, ArrowRight, Rss } from "lucide-react";
-import { LiveChat } from "../../../components/live-chat";
+import { MessageSquare, Plus, Minus, ArrowRight, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
+import dynamic from 'next/dynamic';
+
+// Dynamically import the full chat page component
+const ChatPageContent = dynamic(() => import('../chat/page'), { ssr: false });
 
 interface ForumCategory {
   id: string;
@@ -103,7 +106,7 @@ export default function CommunityPage() {
                 <div className="flex justify-center mb-8">
                     <TabsList className="grid grid-cols-2 w-full max-w-md">
                         <TabsTrigger value="forums"><MessageSquare className="mr-2"/>Forums</TabsTrigger>
-                        <TabsTrigger value="chat"><Rss className="mr-2"/>Forum Chat</TabsTrigger>
+                        <TabsTrigger value="chat"><MessageCircle className="mr-2"/>Chat</TabsTrigger>
                     </TabsList>
                 </div>
 
@@ -185,9 +188,7 @@ export default function CommunityPage() {
                 </TabsContent>
 
                 <TabsContent value="chat">
-                    <Card className="h-[600px] max-w-4xl mx-auto">
-                       <LiveChat title="Forum Chat" lobby="forum" />
-                    </Card>
+                    <ChatPageContent />
                 </TabsContent>
             </Tabs>
         </div>

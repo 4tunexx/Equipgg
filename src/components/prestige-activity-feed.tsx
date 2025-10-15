@@ -86,29 +86,68 @@ export function PrestigeActivityFeed() {
 
 
   useEffect(() => {
-    // Skip the problematic browser fetch and show fallback activities immediately
-    console.log('Using fallback activities due to browser fetch issues');
-    try {
-      const fallbackActivities = generateFallbackActivities();
-      setActivities(fallbackActivities);
-      setLoading(false);
-      
-      // Set up carousel rotation with fallback data
-      if (fallbackActivities.length >= 5) {
-        const carouselTimeout = setInterval(() => {
-          setActivities(prevActivities => {
-            const rotated = [...prevActivities.slice(1), prevActivities[0]];
-            return rotated;
-          });
-        }, 4000);
+    const fetchActivities = async () => {
+      try {
+        const response = await fetch('/api/activities');
         
-        return () => clearInterval(carouselTimeout);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.activities && data.activities.length > 0) {
+            console.log('✅ Loaded real activities:', data.activities.length);
+            setActivities(data.activities);
+            setLoading(false);
+            
+            // Set up carousel rotation with real data
+            const carouselTimeout = setInterval(() => {
+              setActivities(prevActivities => {
+                if (prevActivities.length > 0) {
+                  const rotated = [...prevActivities.slice(1), prevActivities[0]];
+                  return rotated;
+                }
+                return prevActivities;
+              });
+            }, 4000);
+            
+            return () => clearInterval(carouselTimeout);
+          } else {
+            // No real activities, use fallback
+            console.log('⚠️ No real activities found, using fallback');
+            const fallbackActivities = generateFallbackActivities();
+            setActivities(fallbackActivities);
+            setLoading(false);
+          }
+        } else {
+          // API error, use fallback
+          console.log('⚠️ API error, using fallback activities');
+          const fallbackActivities = generateFallbackActivities();
+          setActivities(fallbackActivities);
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching activities:', error);
+        // Fetch failed, use fallback
+        const fallbackActivities = generateFallbackActivities();
+        setActivities(fallbackActivities);
+        setLoading(false);
       }
-    } catch (fallbackError) {
-      console.error('Fallback generation failed:', fallbackError);
-      setActivities([]); // Set empty array if fallback also fails
-      setLoading(false);
-    }
+    };
+
+    fetchActivities();
+
+    // Refresh activities every 30 seconds to get new data
+    const refreshInterval = setInterval(() => {
+      fetch('/api/activities')
+        .then(res => res.json())
+        .then(data => {
+          if (data.activities && data.activities.length > 0) {
+            console.log('🔄 Refreshed activities');
+            setActivities(data.activities);
+          }
+        })
+        .catch(err => console.error('Error refreshing activities:', err));
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(refreshInterval);
   }, []);
 
   // Show loading state
