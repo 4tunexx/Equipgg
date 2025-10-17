@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../lib/supabase";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
+import { getAuthSession } from "../../../lib/auth-utils";
 
 const supabase = createServerSupabaseClient();
 const queries = createSupabaseQueries(supabase);
@@ -27,29 +28,16 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
     
-    // Try to get user from custom session cookie
-    const cookieHeader = request.headers.get('cookie') || '';
-    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
-    
-    let userId: string | null = null;
-    
-    if (cookieMatch) {
-      try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
-        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
-          userId = sessionData.user_id;
-        }
-      } catch (e) {
-        console.error('Failed to parse session cookie:', e);
-      }
-    }
-    
-    if (!userId) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const userId = session.user_id;
 
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter');
@@ -130,29 +118,16 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
     
-    // Try to get user from custom session cookie
-    const cookieHeader = request.headers.get('cookie') || '';
-    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
-    
-    let userId: string | null = null;
-    
-    if (cookieMatch) {
-      try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
-        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
-          userId = sessionData.user_id;
-        }
-      } catch (e) {
-        console.error('Failed to parse session cookie:', e);
-      }
-    }
-    
-    if (!userId) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const userId = session.user_id;
 
     const body = await request.json();
     const { itemId, itemName, itemType, rarity, image, origin, value } = body;
@@ -228,29 +203,16 @@ export async function DELETE(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
     
-    // Try to get user from custom session cookie
-    const cookieHeader = request.headers.get('cookie') || '';
-    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
-    
-    let userId: string | null = null;
-    
-    if (cookieMatch) {
-      try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
-        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
-          userId = sessionData.user_id;
-        }
-      } catch (e) {
-        console.error('Failed to parse session cookie:', e);
-      }
-    }
-    
-    if (!userId) {
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const userId = session.user_id;
 
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('itemId');

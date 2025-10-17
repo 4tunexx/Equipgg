@@ -505,10 +505,10 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
-            {isAdmin ? (
+            {isAdmin && (
               <>
                 <SidebarSeparator />
-                <SidebarMenu className="px-2">
+                <SidebarMenu className="px-2 mt-auto">
                   <SidebarMenuItem>
                     <Link 
                       href="/dashboard/admin"
@@ -523,11 +523,11 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                   </SidebarMenuItem>
                 </SidebarMenu>
               </>
-            ) : null}
-            {isModerator && !isAdmin ? (
+            )}
+            {isModerator && !isAdmin && (
               <>
                 <SidebarSeparator />
-                <SidebarMenu className="px-2">
+                <SidebarMenu className="px-2 mt-auto">
                   <SidebarMenuItem>
                     <Link 
                       href="/dashboard/moderator"
@@ -542,7 +542,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                   </SidebarMenuItem>
                 </SidebarMenu>
               </>
-            ) : null}
+            )}
           </SidebarContent>
         </Sidebar>
         <SidebarInset>
