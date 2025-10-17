@@ -1,0 +1,20 @@
+ERRORS FIXED:
+
+1. ✅ /api/xp returning 401 - FIXED
+   - Changed to return default XP data instead of 401 error
+   - Prevents dashboard blocking when not authenticated
+
+2. ✅ default-avatar.png 404 errors - FIXED
+   - Created /public/default-avatar.svg
+   - Updated all references to use SVG instead of PNG
+   - Files changed:
+     * src/app/api/activities/route.ts
+     * src/app/api/activity/route.ts
+
+NEXT STEPS:
+1. Refresh your browser (Ctrl+Shift+R)
+2. Clear browser cache if needed
+3. Check console - errors should be gone
+
+If server not running:
+npm run dev

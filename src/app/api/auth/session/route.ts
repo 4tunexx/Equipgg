@@ -28,9 +28,9 @@ export async function GET(req: NextRequest) {
 
     // Get user profile
     const { data: userProfile, error: profileError } = await supabase
-      .from('user_profiles')
+      .from('users')
       .select('*')
-      .eq('user_id', session.user.id)
+      .eq('id', session.user.id)
       .single();
 
     if (profileError && profileError.code !== 'PGRST116') {

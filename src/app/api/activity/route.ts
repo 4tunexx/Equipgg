@@ -145,14 +145,14 @@ export async function GET() {
       timestamp: activity.created_at,
       user: activity.users ? {
         username: activity.users.username || 'Unknown User',
-        avatar: activity.users.avatar_url || '/default-avatar.png',
+        avatar: activity.users.avatar_url || '/default-avatar.svg',
         role: activity.users.role || 'user',
         xp: activity.users.xp || 0,
         level: activity.users.level || 1,
         isVip: activity.users.is_vip || false
       } : {
         username: 'Unknown User',
-        avatar: '/default-avatar.png',
+        avatar: '/default-avatar.svg',
         role: 'user',
         xp: 0,
         level: 1,

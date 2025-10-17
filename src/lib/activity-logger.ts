@@ -37,18 +37,54 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
       'level_up': 'leveled_up'
     };
     
-    // Use the activity_feed table that the API expects
+    // Build description based on activity type
+    let description = '';
+    let action = '';
+    switch (data.activityType) {
+      case 'game_win':
+        description = `${data.username} won ${data.amount || 0} coins on ${data.gameType || 'game'}`;
+        action = 'won_game';
+        break;
+      case 'game_loss':
+        description = `${data.username} lost game and earned ${data.amount || 0} XP`;
+        action = 'lost_game';
+        break;
+      case 'crate_open':
+        description = `${data.username} opened a crate and received ${data.itemName || 'item'}`;
+        action = 'opened_crate';
+        break;
+      case 'level_up':
+        description = `${data.username} reached level ${data.amount || 0}`;
+        action = 'leveled_up';
+        break;
+      case 'achievement_unlock':
+        description = `${data.username} unlocked achievement: ${data.itemName || 'achievement'}`;
+        action = 'unlocked_achievement';
+        break;
+      default:
+        description = `${data.username} performed ${data.activityType}`;
+        action = data.activityType;
+    }
+
+    // Insert into activity_feed table using EXISTING structure
     await supabase.from('activity_feed').insert([
       {
-        id,
         user_id: data.userId,
-        action: actionMap[data.activityType] || data.activityType,
-        xp: data.amount || 0,
-        icon: data.itemRarity || null,
+        action,
+        description,
+        metadata: {
+          amount: data.amount || 0,
+          xp: data.amount || 0,
+          itemName: data.itemName || null,
+          itemRarity: data.itemRarity || null,
+          gameType: data.gameType || null,
+          multiplier: data.multiplier || null,
+          activityData: data.activityData || null
+        },
         created_at: timestamp,
       },
     ]);
-    console.log('Activity logged successfully:', id);
+    console.log('Activity logged successfully');
   } catch (error) {
     console.error('Failed to log activity:', error);
   }
