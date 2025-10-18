@@ -1,19 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
+import { getAuthSession } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    // Get authenticated session
+    const session = await getAuthSession(request);
     
-    console.log('Ranks endpoint - auth check:', { user: user?.id, error: authError });
+    console.log('Ranks endpoint - auth check:', { userId: session?.user_id });
     
-    if (authError || !user) {
-      console.log('Ranks endpoint - unauthorized:', authError);
+    if (!session) {
+      console.log('Ranks endpoint - unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
-
-    const supabase = createServerSupabaseClient()
+    
+    // Get user data
+    const supabase = createServerSupabaseClient();
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user_id)
+      .single();
 
     // Get all ranks for progression display (no filters to ensure we get all 50)
     const { data: allRanks, error: ranksError } = await supabase

@@ -1,10 +1,9 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Progress } from "../../../components/ui/progress";
 // Removed mock data import - now using real API data
-import { CheckCircle, Gem, Star } from "lucide-react";
+import { CheckCircle, Coins, Star } from 'lucide-react';
 import { cn } from "../../../lib/utils";
 import { MissionSummaryCard } from "../../../components/mission-summary-card";
 import { useAuth } from "../../../components/auth-provider";
@@ -38,32 +37,31 @@ export default function MissionsPage() {
     const fetchMissionData = async () => {
       try {
         console.log('🔄 Fetching mission data...');
-        // Fetch missions, summary, and progress in parallel
-        const [missionsResponse, summaryResponse, progressResponse] = await Promise.all([
-          fetch('/api/missions', { credentials: 'include' }),
-          fetch('/api/missions/summary', { credentials: 'include' }),
-          fetch('/api/missions/progress', { credentials: 'include' })
-        ]);
+        
+        // First fetch missions
+        const missionsResponse = await fetch('/api/missions', { credentials: 'include' });
+        console.log('📡 Missions API Response:', missionsResponse.status);
 
-        console.log('📡 API Responses:', {
-          missions: missionsResponse.status,
-          summary: summaryResponse.status,
-          progress: progressResponse.status
-        });
-
-        // Handle missions data
+        let fetchedMissions: Mission[] = [];
         if (missionsResponse.ok) {
           const missionsData = await missionsResponse.json();
           console.log('✅ Missions data:', missionsData);
           if (missionsData.success) {
-            setMissions(missionsData.missions);
-            console.log(`📋 Set ${missionsData.missions.length} missions`);
+            fetchedMissions = missionsData.missions;
+            setMissions(fetchedMissions);
+            console.log(`📋 Set ${fetchedMissions.length} missions`);
           } else {
             console.error('❌ Missions API returned success: false');
           }
         } else {
           console.error('❌ Missions API failed:', missionsResponse.status);
         }
+
+        // Then fetch summary and progress in parallel
+        const [summaryResponse, progressResponse] = await Promise.all([
+          fetch('/api/missions/summary', { credentials: 'include' }),
+          fetch('/api/missions/progress', { credentials: 'include' })
+        ]);
 
         // Handle summary data
         if (summaryResponse.ok) {
@@ -79,10 +77,19 @@ export default function MissionsPage() {
           const progressData = await progressResponse.json();
           console.log('📈 Progress data:', progressData);
           if (progressData.success && progressData.progress) {
-            // Convert progress array to progress object
+            // Convert progress array to progress object with percentage calculation
             const progressMap: Record<string, number> = {};
             progressData.progress.forEach((item: any) => {
-              progressMap[item.mission_id] = item.progress || 0;
+              // Find the mission to get requirement_value
+              const mission = fetchedMissions.find((m: any) => m.id === item.mission_id);
+              if (mission) {
+                const currentProgress = item.current_progress || item.progress || 0;
+                const requirement = mission.requirement_value || 1;
+                const percentage = Math.min(100, Math.round((currentProgress / requirement) * 100));
+                progressMap[item.mission_id] = percentage;
+              } else {
+                progressMap[item.mission_id] = item.progress || 0;
+              }
             });
             setMissionProgress(progressMap);
             console.log('📈 Set mission progress:', progressMap);
@@ -207,16 +214,16 @@ export default function MissionsPage() {
                         <p className="font-semibold">{mission.name}</p>
                         <p className="text-xs text-muted-foreground">{mission.description}</p>
                         {progress > 0 && progress < 100 && (
-                           <Progress value={progress} className="h-2" />
+                           <Progress value={progress} variant="main-mission" className="h-2" />
                         )}
                       </div>
                       <div className="text-right space-y-1">
-                        <div className="flex items-center justify-end gap-2 text-sm font-semibold text-sky-400">
+                        <div className="flex items-center justify-end gap-2 text-sm font-semibold text-orange-500">
                            <Star className="w-4 h-4"/> +{mission.xp_reward} XP
                         </div>
                         {mission.coin_reward && (
-                          <div className="flex items-center justify-end gap-2 text-sm font-semibold text-yellow-400">
-                            <Gem className="w-4 h-4"/> +{mission.coin_reward} Coins
+                          <div className="flex items-center justify-end gap-2 text-sm font-semibold text-green-500">
+                            <Coins className="w-4 h-4"/> +{mission.coin_reward} Coins
                           </div>
                         )}
                       </div>
@@ -249,9 +256,9 @@ export default function MissionsPage() {
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold">{mission.name}</p>
-                      <Progress value={progress} className="h-2 mt-1" />
+                      <Progress value={progress} variant="xp" className="h-2 mt-1" />
                     </div>
-                    <span className="text-xs font-mono text-muted-foreground">+{mission.xp_reward} XP</span>
+                    <span className="text-xs font-mono text-orange-500">+{mission.xp_reward} XP</span>
                   </div>
                 )
               })}

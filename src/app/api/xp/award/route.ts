@@ -47,20 +47,8 @@ export async function POST(request: NextRequest) {
 
     if (updateError) throw updateError;
 
-    // Log the XP award activity
-    await supabase
-      .from('activity_feed')
-      .insert({
-        user_id: userId,
-        type: 'xp_awarded',
-        description: reason || `Earned ${amount} XP`,
-        metadata: { 
-          xp_amount: amount, 
-          total_xp: newXp,
-          level: newLevel,
-          leveled_up: leveledUp
-        }
-      });
+    // Don't log XP awards to activity feed - only log level ups
+    // XP is tracked internally but not shown in public activity feed
 
     // If user leveled up, award bonus coins
     if (leveledUp) {
@@ -83,12 +71,14 @@ export async function POST(request: NextRequest) {
         .from('activity_feed')
         .insert({
           user_id: userId,
-          type: 'level_up',
-          description: `Leveled up to Level ${newLevel}!`,
+          action: 'leveled_up',
+          description: `reached level ${newLevel}`,
           metadata: { 
             new_level: newLevel,
-            bonus_coins: bonusCoins
-          }
+            bonus_coins: bonusCoins,
+            amount: bonusCoins
+          },
+          created_at: new Date().toISOString()
         });
     }
 

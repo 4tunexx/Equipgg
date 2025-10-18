@@ -62,7 +62,7 @@ export default function DashboardPage() {
   const { user } = useAuth();
   const { balance } = useBalance();
   const [dailyMissions, setDailyMissions] = useState<Mission[]>([]);
-  const [dailyStats, setDailyStats] = useState({ dailyCompleted: 0, totalDaily: 0 });
+  const [dailyStats, setDailyStats] = useState({ dailyCompleted: 0, totalDaily: 0, completedMissions: 0, totalMissions: 0 });
   const [loading, setLoading] = useState(true);
   const [statsLoading, setStatsLoading] = useState(true);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -82,8 +82,13 @@ export default function DashboardPage() {
         if (response.ok) {
           const data = await response.json();
           setDailyStats(data);
+        } else if (response.status === 401) {
+          // Unauthorized - use default values
+          console.log('Session issue, using default mission stats');
+          setDailyStats({ dailyCompleted: 0, totalDaily: 0, completedMissions: 0, totalMissions: 0 });
         } else {
           console.error('Failed to fetch daily missions:', response.status, response.statusText);
+          setDailyStats({ dailyCompleted: 0, totalDaily: 0, completedMissions: 0, totalMissions: 0 });
         }
 
         // Skip direct Supabase queries from client-side for now
@@ -209,12 +214,14 @@ export default function DashboardPage() {
                 <StatCard 
                   label="Total Coins" 
                   value={balance?.coins || 0} 
-                  subtext={userStats?.totalWinnings ? `+${userStats.totalWinnings} from bets` : "No winnings yet"} 
+                  subtext={userStats?.totalWinnings ? `+${userStats.totalWinnings} from bets` : "No winnings yet"}
+                  valueClassName="text-green-500"
                 />
                 <StatCard 
                   label="XP" 
                   value={balance?.xp || 0} 
-                  subtext={`Level ${balance?.level || 1}`} 
+                  subtext={`Level ${balance?.level || 1}`}
+                  valueClassName="text-orange-500"
                 />
               </>
             )}
@@ -230,20 +237,39 @@ export default function DashboardPage() {
                 <p className="text-center text-muted-foreground">Loading missions...</p>
               ) : (
                 <>
-                  <div className='space-y-2 mb-6'>
-                    <div className='flex justify-between items-center text-sm font-semibold'>
-                      <span>Daily Progress</span>
-                      <span className='text-primary'>
-                        {dailyStats.totalDaily > 0 
-                          ? `${Math.round((dailyStats.dailyCompleted / dailyStats.totalDaily) * 100)}% Complete`
-                          : '0% Complete'
-                        }
-                      </span>
+                  <div className='space-y-4 mb-6'>
+                    <div className='space-y-2'>
+                      <div className='flex justify-between items-center text-sm font-semibold'>
+                        <span>Daily Progress</span>
+                        <span className='text-orange-500'>
+                          {dailyStats.totalDaily > 0 
+                            ? `${Math.round((dailyStats.dailyCompleted / dailyStats.totalDaily) * 100)}% Complete`
+                            : '0% Complete'
+                          }
+                        </span>
+                      </div>
+                      <Progress 
+                        value={dailyStats.totalDaily > 0 ? (dailyStats.dailyCompleted / dailyStats.totalDaily) * 100 : 0}
+                        variant="xp"
+                        className="h-3" 
+                      />
                     </div>
-                    <Progress 
-                      value={dailyStats.totalDaily > 0 ? (dailyStats.dailyCompleted / dailyStats.totalDaily) * 100 : 0} 
-                      className="h-3" 
-                    />
+                    <div className='space-y-2'>
+                      <div className='flex justify-between items-center text-sm font-semibold'>
+                        <span>Main Missions Progress</span>
+                        <span className='text-red-500'>
+                          {dailyStats.totalMissions > 0 
+                            ? `${Math.round((dailyStats.completedMissions / dailyStats.totalMissions) * 100)}% Complete`
+                            : '0% Complete'
+                          }
+                        </span>
+                      </div>
+                      <Progress 
+                        value={dailyStats.totalMissions > 0 ? (dailyStats.completedMissions / dailyStats.totalMissions) * 100 : 0}
+                        variant="main-mission"
+                        className="h-3" 
+                      />
+                    </div>
                   </div>
                   {dailyMissions.slice(0, 1).map((mission) => (
                     <Card key={mission.id} className="hover:shadow-md transition-shadow cursor-pointer flex items-center p-4 space-x-3">
@@ -254,7 +280,7 @@ export default function DashboardPage() {
                         <p className="font-semibold truncate">{mission.name}</p>
                         <p className="text-sm text-muted-foreground truncate">{mission.description}</p>
                       </div>
-                      <div className="text-sm font-medium text-primary">
+                      <div className="text-sm font-medium text-orange-500">
                         +{mission.xp_reward} XP
                       </div>
                     </Card>

@@ -6,6 +6,8 @@ export async function GET(request: NextRequest) {
     const supabase = createServerSupabaseClient();
     
     // Get recent activity feed entries using EXISTING structure
+    // Filter to only show wins, crate openings, achievements, and level ups
+    // Exclude: bet placements, losses, and XP-only awards
     const { data: activityFeed } = await supabase
       .from('activity_feed')
       .select(`
@@ -17,6 +19,8 @@ export async function GET(request: NextRequest) {
         user_id,
         users!inner(username, avatar_url)
       `)
+      .not('action', 'in', '("placed_bet","bet_placed","lost_game","xp_awarded")')
+      .not('type', 'in', '("xp_awarded","bet_placed","lost_game")')
       .order('created_at', { ascending: false })
       .limit(50);
 
@@ -31,8 +35,8 @@ export async function GET(request: NextRequest) {
         // Determine activity type icon from action
         let type = 'activity';
         if (activity.action?.includes('win') || activity.action?.includes('won')) type = 'win';
-        else if (activity.action?.includes('crate')) type = 'crate';
-        else if (activity.action?.includes('level')) type = 'level';
+        else if (activity.action?.includes('crate') || activity.action?.includes('opened_crate')) type = 'crate';
+        else if (activity.action?.includes('level')) type = 'achievement';
         else if (activity.action?.includes('achievement')) type = 'achievement';
         
         activities.push({

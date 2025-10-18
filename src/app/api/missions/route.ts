@@ -1,31 +1,18 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { getAuthSession } from '@/lib/auth-utils';
 
 export async function GET(request: NextRequest) {
   try {
     const supabase = createServerSupabaseClient();
     
-    // Try to get user from custom session cookie
-    const cookieHeader = request.headers.get('cookie') || '';
-    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
+    // Get authenticated session
+    const session = await getAuthSession(request);
     
-    let userId: string | null = null;
+    console.log('Missions endpoint - auth check:', { userId: session?.user_id });
     
-    if (cookieMatch) {
-      try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
-        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
-          userId = sessionData.user_id;
-        }
-      } catch (e) {
-        console.error('Failed to parse session cookie:', e);
-      }
-    }
-    
-    console.log('Missions endpoint - auth check:', { userId });
-    
-    // If no custom session, return unauthorized
-    if (!userId) {
+    // If no session, return unauthorized
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

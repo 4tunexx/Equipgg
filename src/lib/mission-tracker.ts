@@ -2,6 +2,90 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 
+// Helper function to check and award mission rewards
+async function checkAndAwardMissionRewards(userId: string, missionId: number, client: SupabaseClient) {
+  try {
+    // Get mission progress
+    const { data: progress } = await client
+      .from('user_mission_progress')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('mission_id', missionId)
+      .single();
+    
+    if (!progress) return;
+    
+    // Get mission details
+    const { data: mission } = await client
+      .from('missions')
+      .select('*')
+      .eq('id', missionId)
+      .single();
+    
+    if (!mission) return;
+    
+    // Check if mission is completed and not yet claimed
+    if (progress.current_progress >= mission.requirement_value && !progress.completed) {
+      console.log(`🎉 Mission ${mission.name} completed! Awarding rewards...`);
+      
+      // Mark mission as completed
+      await client
+        .from('user_mission_progress')
+        .update({
+          completed: true,
+          completed_at: new Date().toISOString()
+        })
+        .eq('id', progress.id);
+      
+      // Get current user data
+      const { data: user } = await client
+        .from('users')
+        .select('xp, coins, gems, level')
+        .eq('id', userId)
+        .single();
+      
+      if (!user) return;
+      
+      // Award rewards
+      const newXp = (user.xp || 0) + (mission.xp_reward || 0);
+      const newCoins = (user.coins || 0) + (mission.coin_reward || 0);
+      const newGems = (user.gems || 0) + (mission.gem_reward || 0);
+      
+      await client
+        .from('users')
+        .update({
+          xp: newXp,
+          coins: newCoins,
+          gems: newGems
+        })
+        .eq('id', userId);
+      
+      console.log(`✅ Rewards awarded: +${mission.xp_reward} XP, +${mission.coin_reward} coins, +${mission.gem_reward} gems`);
+      
+      // Create notification
+      await client
+        .from('activity_feed')
+        .insert({
+          user_id: userId,
+          action: 'mission_completed',
+          description: `Completed mission: ${mission.name}! Earned ${mission.xp_reward} XP and ${mission.coin_reward} coins`,
+          metadata: {
+            mission_id: missionId,
+            mission_name: mission.name,
+            xp_reward: mission.xp_reward,
+            coin_reward: mission.coin_reward,
+            gem_reward: mission.gem_reward
+          },
+          created_at: new Date().toISOString()
+        });
+      
+      return { success: true, rewards: { xp: mission.xp_reward, coins: mission.coin_reward, gems: mission.gem_reward } };
+    }
+  } catch (error) {
+    console.error('Error checking/awarding mission rewards:', error);
+  }
+}
+
 export async function trackShopVisit(userId: string, supabaseClient?: SupabaseClient) {
   try {
     const client = supabaseClient || supabase;
@@ -45,6 +129,9 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
             completed: false
           });
       }
+      
+      // Check if mission is now completed and award rewards
+      await checkAndAwardMissionRewards(userId, mission.id, client);
     }
     
     console.log(`Tracking shop visit for user ${userId}`);
@@ -98,6 +185,9 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
             completed: false
           });
       }
+      
+      // Check if mission is now completed and award rewards
+      await checkAndAwardMissionRewards(userId, mission.id, client);
     }
     
     // Log the crate opening activity
@@ -174,6 +264,9 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
             completed: false
           });
       }
+      
+      // Check if mission is now completed and award rewards
+      await checkAndAwardMissionRewards(userId, mission.id, client);
     }
     
     // Log the betting activity
@@ -238,6 +331,9 @@ export async function trackCrashGameEarnings(userId: string, earnings: number, s
             completed: false
           });
       }
+      
+      // Check if mission is now completed and award rewards
+      await checkAndAwardMissionRewards(userId, mission.id, client);
     }
     
     console.log(`Tracking crash game earnings for user ${userId}, earnings ${earnings}`);

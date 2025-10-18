@@ -86,7 +86,7 @@ export default function GemEconomyPage() {
             <span className="text-muted-foreground">Coins</span>
           </div>
           <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-lg">
-            <Gem className="h-5 w-5 text-yellow-400" />
+            <Gem className="h-5 w-5 text-purple-500" />
             <span className="font-bold">{userBalance?.gems?.toLocaleString() || 0}</span>
             <span className="text-muted-foreground">Gems</span>
           </div>
@@ -172,7 +172,7 @@ export default function GemEconomyPage() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Gem className="h-5 w-5 text-yellow-400" />
+              <Gem className="h-5 w-5 text-purple-500" />
               Gem Features
             </CardTitle>
             <CardDescription>

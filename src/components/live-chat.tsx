@@ -9,6 +9,7 @@ import { UserProfileLink } from "./user-profile-link";
 import { useAuth } from "./auth-provider";
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "../hooks/use-toast";
+import { useSocket } from "../contexts/socket-context";
 
 
 type LiveChatProps = {
@@ -22,6 +23,7 @@ const fallbackMessages = [];
 export function LiveChat({ title, lobby }: LiveChatProps) {
     const { user } = useAuth();
     const { toast } = useToast();
+    const { socket, isConnected } = useSocket();
     const [input, setInput] = useState('');
     const [isMinimized, setIsMinimized] = useState(false);
     interface ChatMessage {
@@ -79,6 +81,38 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }, [messages]);
 
+    // Socket.IO real-time chat
+    useEffect(() => {
+        if (!socket || !isConnected) return;
+
+        // Join the lobby room
+        socket.emit('join-lobby', lobby);
+        console.log(`🔌 Joined chat lobby: ${lobby}`);
+
+        // Listen for new messages
+        const handleNewMessage = (message: any) => {
+            console.log('📨 Received new message:', message);
+            setMessages(prev => [...prev, {
+                id: `socket-${message.id || Date.now()}`,
+                user: {
+                    rank: message.rank || 0,
+                    name: message.username || 'Anonymous',
+                    avatar: message.avatar || null,
+                    role: message.role || 'user',
+                },
+                message: message.content,
+                timestamp: message.timestamp || new Date().toISOString(),
+            }]);
+        };
+
+        socket.on('chat-message', handleNewMessage);
+
+        return () => {
+            socket.off('chat-message', handleNewMessage);
+            socket.emit('leave-lobby', lobby);
+        };
+    }, [socket, isConnected, lobby]);
+
     const sendMessage = async () => {
         if (!input.trim()) return;
         
@@ -97,6 +131,14 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.message) {
+                    // Emit message via Socket.IO for real-time delivery to other users
+                    if (socket && isConnected) {
+                        socket.emit('send-chat-message', {
+                            lobby,
+                            ...data.message
+                        });
+                    }
+                    
                     // Add the new message to the local state
                     setMessages(prev => [...prev, {
                         id: `sent-${data.message.id || Date.now()}`,

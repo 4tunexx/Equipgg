@@ -10,9 +10,10 @@ type StatCardProps = {
   value: number | undefined;
   subtext?: string;
   formatAsPercent?: boolean;
+  valueClassName?: string;
 };
 
-export function StatCard({ label, value, subtext, formatAsPercent = false }: StatCardProps) {
+export function StatCard({ label, value, subtext, formatAsPercent = false, valueClassName }: StatCardProps) {
   const ref = useRef<HTMLParagraphElement>(null);
   const { ref: inViewRef, inView } = useInView({
     threshold: 0.5,
@@ -56,7 +57,7 @@ export function StatCard({ label, value, subtext, formatAsPercent = false }: Sta
         <CardTitle>{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p ref={ref} className="text-3xl font-bold">
+        <p ref={ref} className={`text-3xl font-bold ${valueClassName || ''}`}>
           {formatAsPercent ? '0%' : '0'}
         </p>
         {subtext && <p className="text-xs text-muted-foreground">{subtext}</p>}

@@ -57,8 +57,8 @@ export function PrestigeActivityFeed() {
         const randomUser = usernames[Math.floor(Math.random() * usernames.length)];
         const randomItem = items[Math.floor(Math.random() * items.length)];
         const randomGame = gameTypes[Math.floor(Math.random() * gameTypes.length)];
-        const amount = Math.floor(Math.random() * 500) + 10;
-        const isWin = Math.random() > 0.5;
+        const amount = Math.floor(Math.random() * 500) + 50;
+        const isWin = Math.random() > 0.4; // 60% wins, 40% crate openings
         
         return {
           id: `fallback_${i}_${Date.now()}`,

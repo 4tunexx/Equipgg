@@ -65,7 +65,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     console.log('🔌 Socket.IO enabled for real-time features');
     
     // Enable Socket.IO for both development and production
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+    // In production, use the same origin (window.location.origin)
+    // In development, use localhost:3001
+    const socketUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
+      ? window.location.origin
+      : 'http://localhost:3001';
     
     console.log('🚀 Initializing Socket.io connection to:', socketUrl);
 

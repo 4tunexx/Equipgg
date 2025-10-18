@@ -448,11 +448,11 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
               <div className="space-y-3 group-data-[collapsible=icon]:hidden">
                 <div className="space-y-1">
                     <div className="flex items-center justify-between text-xs font-semibold">
-                        <div className="flex items-center gap-1.5 text-yellow-400">
+                        <div className="flex items-center gap-1.5 text-purple-400">
                             <Gem className="size-3" />
                             <span>{balanceLoading ? 'Loading...' : `${balance?.gems ?? 0} Gems`}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-green-400">
+                        <div className="flex items-center gap-1.5 text-green-500">
                             <Coins className="size-3" />
                             <span>{balanceLoading ? 'Loading...' : `${balance?.coins ?? 0} Coins`}</span>
                         </div>
@@ -462,14 +462,16 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                         level={balanceLoading ? 1 : (balance?.level ?? 1)}
                         userId={user?.id}
                         autoFetch={false}
+                        showProgress={true}
+                        showText={true}
                         className=""
                     />
                 </div>
                  <div className="space-y-1">
-                    <Progress value={summary && summary.totalDaily ? (summary.dailyCompleted / summary.totalDaily) * 100 : 0} className="h-2 [&>div]:bg-sky-400" />
+                    <Progress value={summary && summary.totalDaily ? (summary.dailyCompleted / summary.totalDaily) * 100 : 0} variant="xp" className="h-2" />
                     <div className="flex items-center justify-between text-xs font-semibold">
                         <span>Daily Missions</span>
-                        <span className="text-sky-400">{summary?.dailyCompleted ?? 0} / {summary?.totalDaily ?? 0}</span>
+                        <span className="text-orange-500">{summary?.dailyCompleted ?? 0} / {summary?.totalDaily ?? 0}</span>
                     </div>
                 </div>
                 
@@ -611,8 +613,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                             </ul>
                         </div>
                         <DialogFooter className="flex-col gap-2 sm:flex-row">
-                             <div className="flex items-center justify-center gap-2 text-lg font-bold text-yellow-400 bg-secondary/50 p-2 rounded-md w-full">
-                                <Gem className='w-5 h-5' />
+                             <div className="flex items-center justify-center gap-2 text-lg font-bold text-green-500 bg-secondary/50 p-2 rounded-md w-full">
+                                <Coins className='w-5 h-5' />
                                 <span>10,000 Coins</span>
                             </div>
                             <DialogTrigger asChild>

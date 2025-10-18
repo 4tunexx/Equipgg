@@ -1,7 +1,7 @@
 'use client';
 
 import { Progress } from "./ui/progress";
-import { getLevelInfo as getNewLevelInfo, getLevelFromXP, defaultXPConfig } from "../lib/xp-config";
+import { getLevelInfo as getNewLevelInfo, getLevelFromXP, getXPForLevel, defaultXPConfig } from "../lib/xp-config";
 import { useState, useEffect } from "react";
 
 interface XpDisplayProps {
@@ -113,9 +113,28 @@ export function XpDisplay({
   // Use the correct fields from the API response or calculate locally
   // For level progression display, we want to show progress toward NEXT level
   const xpEarnedThisLevel = Math.max(0, currentXP - levelInfo.totalXPNeeded);
-  const xpNeededForNext = levelInfo.xpToNext + xpEarnedThisLevel; // Total XP needed for next level
-  const safeXpNeededForNext = xpNeededForNext > 0 ? xpNeededForNext : 1;
+  
+  // Calculate XP needed for NEXT level (not current level)
+  const nextLevelTotalXP = getXPForLevel(currentLevel + 1, defaultXPConfig);
+  const xpNeededForNextLevel = nextLevelTotalXP - levelInfo.totalXPNeeded;
+  const safeXpNeededForNext = xpNeededForNextLevel > 0 ? xpNeededForNextLevel : 1;
   const safeXpEarned = Math.max(0, xpEarnedThisLevel);
+  
+  // Calculate progress percentage manually to ensure it's correct
+  const progressPercent = safeXpNeededForNext > 0 
+    ? Math.min(100, Math.max(0, (safeXpEarned / safeXpNeededForNext) * 100))
+    : 0;
+  
+  console.log('XP Display Debug:', {
+    currentXP,
+    currentLevel,
+    totalXPNeeded: levelInfo.totalXPNeeded,
+    nextLevelTotalXP,
+    xpEarnedThisLevel: safeXpEarned,
+    xpNeededForNextLevel: safeXpNeededForNext,
+    progressPercent,
+    levelInfo
+  });
 
   if (isLoading) {
     return (
@@ -141,14 +160,15 @@ export function XpDisplay({
       {showText && (
         <div className="flex justify-between text-xs font-semibold mb-1">
           <span>Level {currentLevel}</span>
-          <span className="text-primary">
+          <span className="text-orange-500">
             {safeXpEarned.toLocaleString?.() || '0'} / {safeXpNeededForNext.toLocaleString?.() || '1'} XP
           </span>
         </div>
       )}
       {showProgress && (
         <Progress 
-          value={levelInfo.progressPercent} 
+          value={progressPercent} 
+          variant="xp"
           className={`h-2 ${progressClassName}`} 
         />
       )}

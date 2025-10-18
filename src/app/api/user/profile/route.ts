@@ -1,13 +1,26 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser } from '@/lib/supabase'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerSupabaseClient } from '@/lib/supabase'
+import { getAuthSession } from '@/lib/auth-utils'
 import { getLevelFromXP } from '@/lib/xp-config'
 
 export async function GET(request: NextRequest) {
   try {
-    const { user, error: authError } = await getAuthenticatedUser(request)
+    const session = await getAuthSession(request)
     
-    if (authError || !user) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    
+    // Get user data
+    const supabase = createServerSupabaseClient();
+    const { data: user } = await supabase
+      .from('users')
+      .select('*')
+      .eq('id', session.user_id)
+      .single();
+    
+    if (!user) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 })
     }
 
     // Calculate level from XP to ensure consistency

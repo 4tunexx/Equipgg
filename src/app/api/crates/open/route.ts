@@ -127,6 +127,36 @@ export async function POST(request: NextRequest) {
         console.error('Failed to add item to inventory:', inventoryError);
       }
 
+      // Log activity to activity feed (non-blocking)
+      try {
+        // Get user info for activity feed
+        const { data: userData } = await supabaseAdmin
+          .from('users')
+          .select('username')
+          .eq('id', session.user_id)
+          .single();
+
+        const username = userData?.username || 'Player';
+
+        await supabaseAdmin
+          .from('activity_feed')
+          .insert({
+            user_id: session.user_id,
+            action: 'opened_crate',
+            description: `opened a crate and got ${wonItem.name}`,
+            metadata: {
+              itemName: wonItem.name,
+              itemRarity: wonItem.rarity,
+              itemValue: wonItem.value,
+              crateId: crateId,
+              crateName: mockCrate.name
+            },
+            created_at: new Date().toISOString()
+          });
+      } catch (activityError) {
+        console.warn('Failed to log crate opening activity:', activityError);
+      }
+
       return NextResponse.json({
         success: true,
         crate: {

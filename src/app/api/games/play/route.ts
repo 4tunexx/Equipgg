@@ -229,9 +229,13 @@ export async function POST(request: NextRequest) {
           .from('activity_feed')
           .insert({
             user_id: session.user_id,
-            activity_type: 'win',
+            action: 'won_game',
             description: `won ${Math.floor(winnings)} coins on ${gameType}`,
-            amount: Math.floor(winnings),
+            metadata: {
+              amount: Math.floor(winnings),
+              gameType: gameType,
+              multiplier: result
+            },
             created_at: new Date().toISOString()
           });
       } catch (activityError) {

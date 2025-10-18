@@ -215,12 +215,12 @@ function generateSampleActivities(): ActivityItem[] {
     const randomUser = usernames[Math.floor(Math.random() * usernames.length)];
     const randomItem = items[Math.floor(Math.random() * items.length)];
     const randomGame = gameTypes[Math.floor(Math.random() * gameTypes.length)];
-    const amount = Math.floor(Math.random() * 500) + 10;
-    const isWin = Math.random() > 0.3;
+    const amount = Math.floor(Math.random() * 500) + 50;
+    const isWin = Math.random() > 0.4; // 60% wins, 40% crate openings
     
     activities.push({
       id: `sample_${i}_${Date.now()}`,
-      type: isWin ? 'win' : Math.random() > 0.5 ? 'crate' : 'bet',
+      type: isWin ? 'win' : 'crate',
       message: isWin 
         ? `won ${amount} coins on ${randomGame}` 
         : `opened a crate and got ${randomItem}`,

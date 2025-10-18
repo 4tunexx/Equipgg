@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAuthenticatedUser, createServerSupabaseClient } from '@/lib/supabase'
+import { createServerSupabaseClient } from '@/lib/supabase'
+import { getAuthSession } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user from session cookie
-    const { user, error: authError } = await getAuthenticatedUser(request);
+    // Get authenticated session
+    const session = await getAuthSession(request);
     
-    if (authError || !user) {
+    if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     const { data: userAchievements, error: achievementsError } = await supabase
       .from('user_achievements')
       .select('achievement_id, unlocked_at')
-      .eq('user_id', user.id)
+      .eq('user_id', session.user_id)
 
     if (achievementsError) {
       console.error('Error fetching user achievements:', achievementsError)

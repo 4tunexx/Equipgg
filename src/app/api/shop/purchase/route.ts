@@ -125,21 +125,9 @@ export async function POST(request: NextRequest) {
       console.warn('Failed to track mission/achievement progress:', trackingError);
     }
     
-    // Log activity to activity feed (non-blocking)
-    try {
-      await supabase
-        .from('activity_feed')
-        .insert({
-          user_id: user.id,
-          activity_type: 'purchase',
-          description: `purchased ${item.name}`,
-          item_name: item.name,
-          amount: price,
-          created_at: new Date().toISOString()
-        });
-    } catch (activityError) {
-      console.warn('Failed to log activity:', activityError);
-    }
+    // Don't log shop purchases to activity feed
+    // Activity feed should only show wins, crate openings, achievements, and level ups
+    // Purchases are tracked in user_inventory instead
     
     return NextResponse.json({
       success: true,
