@@ -99,12 +99,18 @@ export default function ForumPage() {
 
   const fetchCategories = async () => {
     try {
-      // Fallback categories
-      setCategories([
-        { id: 'general', name: 'General Discussion', description: 'General gaming topics', postCount: 1 },
-        { id: 'cs2', name: 'CS2 Strategy', description: 'Tips and tactics', postCount: 0 },
-        { id: 'trading', name: 'Trading', description: 'Item trading', postCount: 0 }
-      ]);
+      const response = await fetch('/api/forum');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.categories && data.categories.length > 0) {
+          setCategories(data.categories.map((cat: any) => ({
+            id: cat.id,
+            name: cat.name || cat.title,
+            description: cat.description,
+            postCount: cat.post_count || cat.postCount || 0
+          })));
+        }
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
@@ -122,16 +128,36 @@ export default function ForumPage() {
 
     setSubmittingPost(true);
     try {
-      // For now just show success message
-      toast({
-        title: "Info",
-        description: "Forum API is not yet implemented. This is a preview of the forum interface.",
-        variant: "default"
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: newPost.title.trim(),
+          content: newPost.content.trim(),
+          categoryId: newPost.category
+        })
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to create topic');
+      }
+
+      toast({
+        title: "Success!",
+        description: "Your topic has been created successfully."
+      });
+      
       setIsCreateDialogOpen(false);
       setNewPost({ title: '', content: '', category: '' });
+      fetchPosts(); // Refresh posts
     } catch (error) {
       console.error('Error creating post:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create topic. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setSubmittingPost(false);
     }

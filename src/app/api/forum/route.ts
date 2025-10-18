@@ -1,5 +1,7 @@
-import { NextResponse } from 'next/server';
-import { secureDb } from "../../../lib/secure-db";
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from "../../../lib/supabase";
+import { getAuthSession } from "../../../lib/auth-utils";
+import { v4 as uuidv4 } from 'uuid';
 
 interface ForumCategory {
   id: string;
@@ -21,30 +23,71 @@ interface ForumTopic {
 export async function GET() {
   try {
     // Get forum categories
-    const categories = await secureDb.findMany<ForumCategory>('forum_categories', {}, { orderBy: 'display_order ASC' });
-    // Get recent topics (no join, so just get latest topics)
-    const recentTopics = await secureDb.findMany<ForumTopic>('forum_topics', {}, { orderBy: 'created_at DESC', limit: 10 });
-    
-    // If no data found, return empty lists; UI will render an empty state
-    if (categories.length === 0) {
+    const { data: categories, error: catError } = await supabase
+      .from('forum_categories')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+
+    if (catError) {
+      console.error('Error fetching categories:', catError);
       return NextResponse.json({ categories: [], recentTopics: [] });
     }
+
+    // Get recent topics with author info
+    const { data: topics, error: topicsError } = await supabase
+      .from('forum_topics')
+      .select(`
+        id,
+        title,
+        category_id,
+        reply_count,
+        reputation,
+        view_count,
+        created_at,
+        author:author_id(id, displayname, avatar_url),
+        category:category_id(name)
+      `)
+      .order('last_activity_at', { ascending: false })
+      .limit(10);
+
+    if (topicsError) {
+      console.error('Error fetching topics:', topicsError);
+    }
+
+    const recentTopics = (topics || []).map(topic => ({
+      id: topic.id,
+      title: topic.title,
+      category: topic.category?.name || 'General',
+      author: {
+        id: topic.author?.id || '',
+        displayName: topic.author?.displayname || 'Anonymous',
+        avatarUrl: topic.author?.avatar_url
+      },
+      replies: topic.reply_count || 0,
+      rep: topic.reputation || 0,
+      views: topic.view_count || 0,
+      lastActivity: topic.created_at
+    }));
     
     return NextResponse.json({
-      categories,
+      categories: categories || [],
       recentTopics
     });
     
   } catch (error) {
     console.error('Error fetching forum data:', error);
-    
-    // On error, return empty lists so the frontend shows an empty state and admin can seed data
     return NextResponse.json({ categories: [], recentTopics: [] });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    const session = await getAuthSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { title, content, categoryId } = await request.json();
     
     if (!title || !content || !categoryId) {
@@ -53,25 +96,86 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    // Check if category exists
+    const { data: category, error: catError } = await supabase
+      .from('forum_categories')
+      .select('*')
+      .eq('id', categoryId)
+      .single();
+
+    if (catError || !category) {
+      return NextResponse.json(
+        { error: 'Invalid category' },
+        { status: 400 }
+      );
+    }
     
-  // No DB init needed
-    
-    // For demo purposes, use a mock user ID
-    const mockUserId = 'user_123';
-    
+    const topicId = uuidv4();
+    const postId = uuidv4();
+    const now = new Date().toISOString();
+
     // Create new forum topic
-    const topic = await secureDb.create('forum_topics', {
-      title,
-      content,
-      category_id: categoryId,
-      author_id: mockUserId,
-      created_at: new Date().toISOString(),
-      reply_count: 0,
-      view_count: 0
-    });
+    const { data: topic, error: topicError } = await supabase
+      .from('forum_topics')
+      .insert({
+        id: topicId,
+        title: title.trim(),
+        category_id: categoryId,
+        author_id: session.user_id,
+        reply_count: 0,
+        view_count: 0,
+        reputation: 0,
+        created_at: now,
+        updated_at: now,
+        last_activity_at: now
+      })
+      .select()
+      .single();
+
+    if (topicError) {
+      console.error('Error creating topic:', topicError);
+      return NextResponse.json(
+        { error: 'Failed to create topic' },
+        { status: 500 }
+      );
+    }
+
+    // Create first post in the topic
+    const { error: postError } = await supabase
+      .from('forum_posts')
+      .insert({
+        id: postId,
+        topic_id: topicId,
+        author_id: session.user_id,
+        content: content.trim(),
+        reputation: 0,
+        created_at: now,
+        updated_at: now
+      });
+
+    if (postError) {
+      console.error('Error creating post:', postError);
+      // Rollback topic creation
+      await supabase.from('forum_topics').delete().eq('id', topicId);
+      return NextResponse.json(
+        { error: 'Failed to create post' },
+        { status: 500 }
+      );
+    }
+
+    // Update category topic count
+    await supabase
+      .from('forum_categories')
+      .update({ 
+        topic_count: (category.topic_count || 0) + 1,
+        post_count: (category.post_count || 0) + 1
+      })
+      .eq('id', categoryId);
+
     return NextResponse.json({
       success: true,
-      topicId: topic?.id,
+      topicId: topic.id,
       message: 'Topic created successfully'
     });
     

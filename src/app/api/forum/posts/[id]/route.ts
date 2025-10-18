@@ -1,73 +1,75 @@
 import { NextRequest, NextResponse } from 'next/server';
-import secureDb from "../../../../../lib/secureDb";
+import { supabase } from "../../../../../lib/supabase";
 
 export async function GET(request: NextRequest, { params }: any) {
   try {
-    const postId = params.id;
+    const topicId = params.id;
 
-    const query = `
-      SELECT 
-        fp.id,
-        fp.content,
-        fp.created_at,
-        fp.updated_at,
-        fp.is_edited,
-        fp.edited_at,
-        ft.title,
-        ft.is_pinned,
-        ft.is_locked,
-        ft.view_count,
-        ft.reply_count,
-        ft.last_reply_at,
-        fc.id as category_id,
-        fc.name as category_name,
-        u.id as author_id,
-        u.username as author_displayName,
-        u.avatar_url as author_avatarUrl,
-        u.role as author_role,
-        u.xp as author_xp,
-        u.level as author_level
-      FROM forum_posts fp
-      INNER JOIN forum_topics ft ON fp.topic_id = ft.id
-      INNER JOIN forum_categories fc ON ft.category_id = fc.id
-      INNER JOIN users u ON fp.author_id = u.id
-      WHERE fp.id = $1
-      LIMIT 1
-    `;
+    // Get the topic with first post
+    const { data: topic, error: topicError } = await supabase
+      .from('forum_topics')
+      .select(`
+        id,
+        title,
+        view_count,
+        reply_count,
+        reputation,
+        is_pinned,
+        is_locked,
+        created_at,
+        author:author_id (
+          id,
+          displayname,
+          avatar_url,
+          role,
+          xp,
+          level
+        ),
+        category:category_id (
+          id,
+          name
+        )
+      `)
+      .eq('id', topicId)
+      .single();
 
-    const posts = await secureDb.raw(query, [postId]);
-
-    if (posts.length === 0) {
+    if (topicError || !topic) {
       return NextResponse.json(
-        { error: 'Post not found' },
+        { error: 'Topic not found' },
         { status: 404 }
       );
     }
 
-    const post = posts[0];
+    // Get first post for this topic
+    const { data: firstPost } = await supabase
+      .from('forum_posts')
+      .select('id, content, created_at')
+      .eq('topic_id', topicId)
+      .eq('is_deleted', false)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .single();
 
-    // Transform the data to match the expected interface
     const transformedPost = {
-      id: post.id,
-      title: post.title,
-      content: post.content,
+      id: topic.id,
+      title: topic.title,
+      content: firstPost?.content || '',
       author: {
-        id: post.author_id,
-        displayName: post.author_displayName,
-        avatarUrl: post.author_avatarUrl,
-        role: post.author_role,
-        xp: post.author_xp,
-        level: post.author_level
+        id: topic.author?.id || '',
+        displayName: topic.author?.displayname || 'Anonymous',
+        avatarUrl: topic.author?.avatar_url,
+        role: topic.author?.role || 'user',
+        xp: topic.author?.xp || 0,
+        level: topic.author?.level || 1
       },
-      category: post.category_name,
-      views: post.view_count || 0,
-      replies: post.reply_count || 0,
-      likes: 0, // Would need to join with forum_post_reactions
-      createdAt: post.created_at,
-      updatedAt: post.updated_at,
-      lastReplyAt: post.last_reply_at,
-      isPinned: post.is_pinned,
-      isLocked: post.is_locked
+      category: topic.category?.name || 'General',
+      views: topic.view_count || 0,
+      replies: topic.reply_count || 0,
+      likes: topic.reputation || 0,
+      createdAt: topic.created_at,
+      updatedAt: topic.created_at,
+      isPinned: topic.is_pinned || false,
+      isLocked: topic.is_locked || false
     };
 
     return NextResponse.json({ post: transformedPost });

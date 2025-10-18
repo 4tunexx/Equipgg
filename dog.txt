@@ -62,18 +62,73 @@ CREATE TABLE public.bets (
   CONSTRAINT bets_pkey PRIMARY KEY (id),
   CONSTRAINT bets_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
-CREATE TABLE public.chat_messages (
+CREATE TABLE public.chat_channel_members (
+  id text NOT NULL DEFAULT (gen_random_uuid())::text,
+  channel_id text NOT NULL,
+  user_id text NOT NULL,
+  joined_at timestamp with time zone DEFAULT now(),
+  last_read_at timestamp with time zone DEFAULT now(),
+  role text DEFAULT 'member'::text CHECK (role = ANY (ARRAY['owner'::text, 'admin'::text, 'moderator'::text, 'member'::text])),
+  notifications_enabled boolean DEFAULT true,
+  CONSTRAINT chat_channel_members_pkey PRIMARY KEY (id),
+  CONSTRAINT chat_channel_members_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.chat_channels(id),
+  CONSTRAINT chat_channel_members_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+);
+CREATE TABLE public.chat_channels (
   id text NOT NULL,
-  user_id text,
-  username text,
-  message text,
-  content text,
-  avatar_url text,
-  channel text DEFAULT 'arena'::text,
-  created_at timestamp without time zone DEFAULT now(),
-  lobby text,
+  name text NOT NULL,
+  description text,
+  type text NOT NULL DEFAULT 'public'::text CHECK (type = ANY (ARRAY['public'::text, 'private'::text, 'direct'::text])),
+  category text DEFAULT 'general'::text CHECK (category = ANY (ARRAY['general'::text, 'betting'::text, 'dashboard'::text, 'support'::text])),
+  created_by text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  last_message_at timestamp with time zone,
+  message_count integer DEFAULT 0,
+  member_count integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  settings jsonb DEFAULT '{}'::jsonb,
+  CONSTRAINT chat_channels_pkey PRIMARY KEY (id),
+  CONSTRAINT chat_channels_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.chat_messages (
+  id text NOT NULL DEFAULT (gen_random_uuid())::text,
+  content text NOT NULL,
+  sender_id text NOT NULL,
+  channel_id text NOT NULL,
+  type text NOT NULL DEFAULT 'text'::text CHECK (type = ANY (ARRAY['text'::text, 'image'::text, 'system'::text, 'file'::text, 'emoji'::text])),
+  reply_to text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  edited_at timestamp with time zone,
+  is_deleted boolean DEFAULT false,
+  deleted_at timestamp with time zone,
+  deleted_by text,
+  metadata jsonb DEFAULT '{}'::jsonb,
   CONSTRAINT chat_messages_pkey PRIMARY KEY (id),
-  CONSTRAINT chat_messages_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+  CONSTRAINT chat_messages_sender_id_fkey FOREIGN KEY (sender_id) REFERENCES public.users(id),
+  CONSTRAINT chat_messages_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.chat_channels(id),
+  CONSTRAINT chat_messages_reply_to_fkey FOREIGN KEY (reply_to) REFERENCES public.chat_messages(id),
+  CONSTRAINT chat_messages_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.users(id)
+);
+CREATE TABLE public.chat_user_status (
+  id text NOT NULL DEFAULT (gen_random_uuid())::text,
+  user_id text NOT NULL,
+  channel_id text NOT NULL,
+  is_muted boolean DEFAULT false,
+  muted_until timestamp with time zone,
+  muted_by text,
+  is_banned boolean DEFAULT false,
+  banned_at timestamp with time zone,
+  banned_by text,
+  ban_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT chat_user_status_pkey PRIMARY KEY (id),
+  CONSTRAINT chat_user_status_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT chat_user_status_channel_id_fkey FOREIGN KEY (channel_id) REFERENCES public.chat_channels(id),
+  CONSTRAINT chat_user_status_muted_by_fkey FOREIGN KEY (muted_by) REFERENCES public.users(id),
+  CONSTRAINT chat_user_status_banned_by_fkey FOREIGN KEY (banned_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.client_seeds (
   id text NOT NULL,
@@ -185,13 +240,16 @@ CREATE TABLE public.flash_sales (
 );
 CREATE TABLE public.forum_categories (
   id text NOT NULL,
-  name text,
-  description text,
+  name text NOT NULL,
+  title text NOT NULL,
+  description text NOT NULL,
   icon text,
   topic_count integer DEFAULT 0,
   post_count integer DEFAULT 0,
   display_order integer DEFAULT 0,
-  created_at timestamp without time zone DEFAULT now(),
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT forum_categories_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.forum_post_reactions (
@@ -200,36 +258,43 @@ CREATE TABLE public.forum_post_reactions (
   user_id text,
   reaction text,
   CONSTRAINT forum_post_reactions_pkey PRIMARY KEY (id),
-  CONSTRAINT forum_post_reactions_post_id_fkey FOREIGN KEY (post_id) REFERENCES public.forum_posts(id),
   CONSTRAINT forum_post_reactions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.forum_posts (
-  id text NOT NULL,
-  topic_id text,
-  content text,
-  author_id text,
-  is_edited boolean DEFAULT false,
-  edited_at timestamp without time zone,
-  created_at timestamp without time zone DEFAULT now(),
+  id text NOT NULL DEFAULT (gen_random_uuid())::text,
+  topic_id text NOT NULL,
+  author_id text NOT NULL,
+  content text NOT NULL,
+  is_deleted boolean DEFAULT false,
+  deleted_at timestamp with time zone,
+  deleted_by text,
+  edited_at timestamp with time zone,
+  edited_by text,
+  reputation integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
   CONSTRAINT forum_posts_pkey PRIMARY KEY (id),
   CONSTRAINT forum_posts_topic_id_fkey FOREIGN KEY (topic_id) REFERENCES public.forum_topics(id),
-  CONSTRAINT forum_posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id)
+  CONSTRAINT forum_posts_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id),
+  CONSTRAINT forum_posts_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES public.users(id),
+  CONSTRAINT forum_posts_edited_by_fkey FOREIGN KEY (edited_by) REFERENCES public.users(id)
 );
 CREATE TABLE public.forum_topics (
-  id text NOT NULL,
-  category_id text,
-  title text,
-  content text,
-  author_id text,
+  id text NOT NULL DEFAULT (gen_random_uuid())::text,
+  category_id text NOT NULL,
+  title text NOT NULL,
+  author_id text NOT NULL,
   is_pinned boolean DEFAULT false,
   is_locked boolean DEFAULT false,
   view_count integer DEFAULT 0,
   reply_count integer DEFAULT 0,
-  last_reply_at timestamp without time zone,
-  created_at timestamp without time zone DEFAULT now(),
-  updated_at timestamp without time zone DEFAULT now(),
+  reputation integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now(),
+  last_activity_at timestamp with time zone DEFAULT now(),
   CONSTRAINT forum_topics_pkey PRIMARY KEY (id),
-  CONSTRAINT forum_topics_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.forum_categories(id)
+  CONSTRAINT forum_topics_category_id_fkey FOREIGN KEY (category_id) REFERENCES public.forum_categories(id),
+  CONSTRAINT forum_topics_author_id_fkey FOREIGN KEY (author_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.game_history (
   id text NOT NULL,
@@ -275,7 +340,7 @@ CREATE TABLE public.game_sessions (
   CONSTRAINT game_sessions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.gem_packages (
-  id text NOT NULL,
+  id text NOT NULL DEFAULT gen_random_uuid(),
   gems integer,
   price numeric,
   currency text DEFAULT 'USD'::text,
@@ -335,6 +400,9 @@ CREATE TABLE public.items (
   is_active boolean DEFAULT true,
   created_at timestamp without time zone DEFAULT now(),
   featured boolean DEFAULT false,
+  for_crate boolean DEFAULT false,
+  image text,
+  type text DEFAULT 'weapon'::text,
   CONSTRAINT items_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.landing_panels (
@@ -384,7 +452,7 @@ CREATE TABLE public.matches (
   team_b_odds numeric DEFAULT 1.0,
   event_name text NOT NULL,
   map text,
-  match_date date NOT NULL,
+  match_date date,
   start_time time without time zone,
   stream_url text,
   status text DEFAULT 'upcoming'::text CHECK (status = ANY (ARRAY['upcoming'::text, 'live'::text, 'completed'::text, 'cancelled'::text])),
@@ -505,6 +573,7 @@ CREATE TABLE public.ranks (
   icon_url character varying,
   prestige_icon_url character varying,
   created_at timestamp without time zone DEFAULT now(),
+  is_active boolean DEFAULT true,
   CONSTRAINT ranks_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.server_seeds (
@@ -676,6 +745,8 @@ CREATE TABLE public.user_inventory (
   equipped boolean DEFAULT false,
   slot_type text,
   acquired_at timestamp without time zone DEFAULT now(),
+  stat_trak_wins integer DEFAULT 0,
+  obtained_from text,
   CONSTRAINT user_inventory_pkey PRIMARY KEY (id),
   CONSTRAINT user_inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
@@ -695,7 +766,7 @@ CREATE TABLE public.user_mission_progress (
   completed boolean DEFAULT false,
   completed_at timestamp without time zone,
   last_updated timestamp without time zone DEFAULT now(),
-  CONSTRAINT user_mission_progress_pkey PRIMARY KEY (mission_id, user_id),
+  CONSTRAINT user_mission_progress_pkey PRIMARY KEY (user_id, mission_id),
   CONSTRAINT user_mission_progress_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.user_missions (

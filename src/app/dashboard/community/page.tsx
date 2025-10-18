@@ -4,18 +4,19 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
 import { useAuth } from "../../../hooks/use-auth";
-import { createSupabaseQueries } from "../../../lib/supabase/queries";
-import { supabase } from "../../../lib/supabase/client";
-
-// No in-file mock data: always fetch forum data from the server API
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { UserProfileLink } from "../../../components/user-profile-link";
 import { Button } from "../../../components/ui/button";
+import { Input } from "../../../components/ui/input";
+import { Textarea } from "../../../components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "../../../components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { getRoleColors } from "../../../lib/role-colors";
-import { MessageSquare, Plus, Minus, ArrowRight, MessageCircle } from "lucide-react";
+import { MessageSquare, Plus, Minus, ArrowRight, MessageCircle, PenSquare } from "lucide-react";
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import dynamic from 'next/dynamic';
+import { useToast } from "../../../hooks/use-toast";
 
 // Dynamically import the full chat page component
 const ChatPageContent = dynamic(() => import('../chat/page'), { ssr: false });
@@ -54,31 +55,89 @@ interface ForumData {
 }
 
 export default function CommunityPage() {
+  const { user } = useAuth();
+  const { toast } = useToast();
   const [forumData, setForumData] = useState<ForumData>({ categories: [], recentTopics: [] });
   const [loading, setLoading] = useState(true);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [newTopic, setNewTopic] = useState({ title: '', content: '', categoryId: '' });
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchForumData = async () => {
-      try {
-        const response = await fetch('/api/forum');
-        if (response.ok) {
-          const data = await response.json();
-          setForumData(data);
-        } else {
-          // API returned non-ok; set empty state so UI shows helpful message
-          setForumData({ categories: [], recentTopics: [] });
-        }
-      } catch (error) {
-        console.error('Failed to fetch forum data:', error);
-        // On error, set empty state
-        setForumData({ categories: [], recentTopics: [] });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchForumData();
   }, []);
+
+  const fetchForumData = async () => {
+    try {
+      const response = await fetch('/api/forum');
+      if (response.ok) {
+        const data = await response.json();
+        setForumData(data);
+      } else {
+        setForumData({ categories: [], recentTopics: [] });
+      }
+    } catch (error) {
+      console.error('Failed to fetch forum data:', error);
+      setForumData({ categories: [], recentTopics: [] });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTopic = async () => {
+    if (!user) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to create topics",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!newTopic.title.trim() || !newTopic.content.trim() || !newTopic.categoryId) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const response = await fetch('/api/forum', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          title: newTopic.title.trim(),
+          content: newTopic.content.trim(),
+          categoryId: newTopic.categoryId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create topic');
+      }
+
+      toast({
+        title: "Success!",
+        description: "Your topic has been created"
+      });
+
+      setCreateDialogOpen(false);
+      setNewTopic({ title: '', content: '', categoryId: '' });
+      fetchForumData(); // Refresh the forum data
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create topic. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -95,11 +154,71 @@ export default function CommunityPage() {
 
     return (
         <div className="p-4 sm:p-6 lg:p-8 space-y-8">
-            <div className="text-center">
-                <h1 className="text-3xl font-bold font-headline">Community Hub</h1>
-                <p className="text-muted-foreground max-w-2xl mx-auto mt-2">
-                    Connect with other players, get support, share ideas, and trade items in our forums.
-                </p>
+            <div className="flex items-center justify-between">
+                <div className="text-center flex-1">
+                    <h1 className="text-3xl font-bold font-headline">Community Hub</h1>
+                    <p className="text-muted-foreground max-w-2xl mx-auto mt-2">
+                        Connect with other players, get support, share ideas, and trade items in our forums.
+                    </p>
+                </div>
+                <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+                    <DialogTrigger asChild>
+                        <Button>
+                            <PenSquare className="mr-2 h-4 w-4" />
+                            Create Topic
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[600px]">
+                        <DialogHeader>
+                            <DialogTitle>Create New Topic</DialogTitle>
+                            <DialogDescription>
+                                Start a new discussion in the community forums
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Category</label>
+                                <Select value={newTopic.categoryId} onValueChange={(value) => setNewTopic(prev => ({ ...prev, categoryId: value }))}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a category" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {forumData.categories.map((cat) => (
+                                            <SelectItem key={cat.id} value={cat.id}>
+                                                {cat.name || cat.title}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Title</label>
+                                <Input
+                                    placeholder="Enter topic title..."
+                                    value={newTopic.title}
+                                    onChange={(e) => setNewTopic(prev => ({ ...prev, title: e.target.value }))}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Content</label>
+                                <Textarea
+                                    placeholder="Write your post content..."
+                                    value={newTopic.content}
+                                    onChange={(e) => setNewTopic(prev => ({ ...prev, content: e.target.value }))}
+                                    rows={6}
+                                />
+                            </div>
+                        </div>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setCreateDialogOpen(false)} disabled={submitting}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleCreateTopic} disabled={submitting}>
+                                {submitting ? 'Creating...' : 'Create Topic'}
+                            </Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
 
             <Tabs defaultValue="forums" className="w-full">

@@ -15,59 +15,27 @@ export async function GET(request: NextRequest) {
       .from('chat_messages')
       .select(`
         id,
-        message,
+        content,
         created_at,
-        channel,
-        users (
+        channel_id,
+        sender:sender_id (
           id,
           displayname,
           level,
           role
         )
       `)
-      .eq('channel', channel)
+      .eq('channel_id', channel)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
-    if (error && error.code !== 'PGRST116') {
+    // If error, return empty array
+    if (error) {
       console.error('Error fetching messages:', error);
-      return NextResponse.json({ error: 'Failed to fetch messages' }, { status: 500 });
-    }
-
-    // If table doesn't exist, return mock data
-    if (error && error.code === 'PGRST116') {
-      const mockMessages = [
-        {
-          id: '1',
-          message: 'Welcome to EquipGG! 🎮',
-          created_at: new Date().toISOString(),
-          channel: 'global',
-          users: {
-            id: 'system',
-            displayname: 'System',
-            vip_tier: null,
-            level: 1,
-            role: 'system'
-          }
-        },
-        {
-          id: '2',
-          message: 'Chat system coming soon!',
-          created_at: new Date(Date.now() - 60000).toISOString(),
-          channel: 'global',
-          users: {
-            id: 'system',
-            displayname: 'System',
-            vip_tier: null,
-            level: 1,
-            role: 'system'
-          }
-        }
-      ];
-
       return NextResponse.json({
         success: true,
-        messages: mockMessages,
+        messages: [],
         hasMore: false
       });
     }
@@ -119,7 +87,7 @@ export async function POST(request: NextRequest) {
     const { data: lastMessage } = await supabase
       .from('chat_messages')
       .select('created_at')
-      .eq('user_id', session.user_id)
+      .eq('sender_id', session.user_id)
       .order('created_at', { ascending: false })
       .limit(1)
       .single();
@@ -140,19 +108,20 @@ export async function POST(request: NextRequest) {
     const { data: newMessage, error } = await supabase
       .from('chat_messages')
       .insert([{
-        user_id: session.user_id,
-        message: message.trim(),
-        channel,
+        sender_id: session.user_id,
+        content: message.trim(),
+        channel_id: channel,
+        type: 'text',
         created_at: new Date().toISOString()
       }])
       .select(`
         id,
-        message,
+        content,
         created_at,
-        channel,
-        users (
+        channel_id,
+        sender:sender_id (
           id,
-          displayname,
+          display_name,
           level,
           role
         )
@@ -201,7 +170,7 @@ export async function DELETE(request: NextRequest) {
     // Check if user owns the message or is admin
     const { data: message, error: fetchError } = await supabase
       .from('chat_messages')
-      .select('user_id')
+      .select('sender_id')
       .eq('id', messageId)
       .single();
 
@@ -221,7 +190,7 @@ export async function DELETE(request: NextRequest) {
       .eq('id', session.user_id)
       .single();
 
-    const isOwner = message.user_id === session.user_id;
+    const isOwner = message.sender_id === session.user_id;
     const isAdmin = userData?.role === 'admin' || userData?.role === 'moderator';
 
     if (!isOwner && !isAdmin) {

@@ -163,6 +163,7 @@ const Sidebar = React.forwardRef<
     side?: "left" | "right"
     variant?: "sidebar" | "floating" | "inset"
     collapsible?: "offcanvas" | "icon" | "none"
+    dynamicHeight?: boolean
   }
 >(
   (
@@ -170,6 +171,7 @@ const Sidebar = React.forwardRef<
       side = "left",
       variant = "sidebar",
       collapsible = "offcanvas",
+      dynamicHeight = false,
       className,
       children,
       ...props
@@ -225,7 +227,8 @@ const Sidebar = React.forwardRef<
         {/* This is what handles the sidebar gap on desktop */}
         <div
           className={cn(
-            "duration-200 relative h-svh w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
+            "duration-200 relative w-[--sidebar-width] bg-transparent transition-[width] ease-linear",
+            dynamicHeight ? "h-auto" : "h-svh",
             "group-data-[collapsible=offcanvas]:w-0",
             "group-data-[side=right]:rotate-180",
             variant === "floating" || variant === "inset"
@@ -235,8 +238,13 @@ const Sidebar = React.forwardRef<
         />
         <div
           className={cn(
-            "duration-200 fixed inset-y-0 z-10 hidden h-svh w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
-            side === "left"
+            "duration-200 hidden w-[--sidebar-width] transition-[left,right,width] ease-linear md:flex",
+            dynamicHeight
+              ? "md:sticky md:top-2 md:self-start h-auto z-10"
+              : "fixed inset-y-0 z-10 h-svh",
+            dynamicHeight
+              ? undefined
+              : side === "left"
               ? "left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"
               : "right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]",
             // Adjust the padding for floating and inset variants.

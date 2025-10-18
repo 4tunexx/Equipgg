@@ -271,6 +271,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
   // Role flags (declare before effects that use them)
   const isAdmin = Boolean(user?.role === 'admin');
   const isModerator = Boolean(user?.role === 'moderator');
+  const hasBottomSection = isAdmin || (isModerator && !isAdmin);
 
   // Fetch page toggles (public endpoint) and filter for non-admin users
   React.useEffect(() => {
@@ -370,9 +371,9 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     <SteamVerificationGate>
       <div className="">
         <SidebarProvider>
-        <Sidebar variant="floating" collapsible="icon">
-          <SidebarContent>
-            <SidebarHeader>
+        <Sidebar variant="floating" collapsible="icon" dynamicHeight>
+          <SidebarContent className="!gap-0">
+            <SidebarHeader className="shrink-0">
               <div className="flex items-center justify-center">
                 <Link
                   href="/dashboard"
@@ -403,7 +404,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
               </div>
             </SidebarHeader>
 
-            <div className="flex flex-col gap-4 p-2">
+            <div className="flex flex-col gap-4 p-2 pt-4 shrink-0">
                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <UserAvatar 
@@ -487,28 +488,35 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
               </div>
             </div>
             
-            <SidebarSeparator className="group-data-[collapsible=icon]:hidden" />
+            <SidebarSeparator className="group-data-[collapsible=icon]:hidden shrink-0 my-2" />
 
-            <SidebarMenu className="px-2">
-              {navLinks.map((link) => (
-                <SidebarMenuItem key={link.href}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={pathname?.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard')}
-                    tooltip={link.label}
-                  >
-                    <Link href={link.href}>
-                      <link.icon />
-                      <span>{link.label}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
+            <div
+              className={cn(
+                'flex flex-col py-2',
+                hasBottomSection && 'flex-1 min-h-0'
+              )}
+            >
+              <SidebarMenu className="px-2">
+                {navLinks.map((link) => (
+                  <SidebarMenuItem key={link.href}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={pathname?.startsWith(link.href) && (link.href !== '/dashboard' || pathname === '/dashboard')}
+                      tooltip={link.label}
+                    >
+                      <Link href={link.href}>
+                        <link.icon />
+                        <span>{link.label}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </div>
             {isAdmin && (
               <>
-                <SidebarSeparator />
-                <SidebarMenu className="px-2 mt-auto">
+                <SidebarSeparator className="shrink-0 my-2" />
+                <SidebarMenu className="px-2 pb-2 shrink-0">
                   <SidebarMenuItem>
                     <Link 
                       href="/dashboard/admin"
@@ -526,8 +534,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
             )}
             {isModerator && !isAdmin && (
               <>
-                <SidebarSeparator />
-                <SidebarMenu className="px-2 mt-auto">
+                <SidebarSeparator className="shrink-0 my-2" />
+                <SidebarMenu className="px-2 pb-2 shrink-0">
                   <SidebarMenuItem>
                     <Link 
                       href="/dashboard/moderator"

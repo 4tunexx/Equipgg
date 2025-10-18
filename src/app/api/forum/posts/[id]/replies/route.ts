@@ -1,72 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createServerSupabaseClient } from '../../../../../../lib/supabase';
+import { supabase } from '../../../../../../lib/supabase';
+import { getAuthSession } from '../../../../../../lib/auth-utils';
+import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest, { params }: any) {
   try {
-    const postId = params.id;
-    const supabase = createServerSupabaseClient();
+    const topicId = params.id;
 
-    // Fetch forum replies with user data
-    const { data: replies, error } = await supabase
-      .from('forum_replies')
+    // Get all posts for this topic (excluding first post)
+    const { data: posts, error } = await supabase
+      .from('forum_posts')
       .select(`
         id,
         content,
         created_at,
         updated_at,
-        is_edited,
         edited_at,
-        author_id,
-        users (
+        reputation,
+        author:author_id (
           id,
-          username,
+          displayname,
           avatar_url,
           role,
           xp,
           level
         )
       `)
-      .eq('post_id', postId)
+      .eq('topic_id', topicId)
+      .eq('is_deleted', false)
       .order('created_at', { ascending: true });
 
     if (error) {
       console.error('Error fetching forum replies:', error);
-      return NextResponse.json({ error: 'Failed to fetch replies' }, { status: 500 });
+      return NextResponse.json({ replies: [] });
     }
 
-    // Transform the data to match the expected interface
-    const transformedReplies = replies.map((reply) => ({
+    // Skip first post (it's the main post), rest are replies
+    const replies = (posts || []).slice(1);
+
+    const transformedReplies = replies.map((reply: any) => ({
       id: reply.id,
       content: reply.content,
       createdAt: reply.created_at,
       updatedAt: reply.updated_at,
-      isEdited: reply.is_edited,
       editedAt: reply.edited_at,
       author: {
-        id: (reply.users as any[])[0]?.id,
-        displayName: (reply.users as any[])[0]?.username,
-        avatarUrl: (reply.users as any[])[0]?.avatar_url,
-        role: (reply.users as any[])[0]?.role,
-        xp: (reply.users as any[])[0]?.xp,
-        level: (reply.users as any[])[0]?.level
+        id: reply.author?.id || '',
+        displayName: reply.author?.displayname || 'Anonymous',
+        avatarUrl: reply.author?.avatar_url,
+        role: reply.author?.role || 'user',
+        xp: reply.author?.xp || 0,
+        level: reply.author?.level || 1
       },
-      likes: [] // Placeholder for likes data
+      likes: reply.reputation || 0
     }));
 
     return NextResponse.json({ replies: transformedReplies });
 
   } catch (error) {
     console.error('Error fetching forum replies:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch forum replies' },
-      { status: 500 }
-    );
+    return NextResponse.json({ replies: [] });
   }
 }
 
 export async function POST(request: NextRequest, { params }: any) {
   try {
-    const postId = params.id;
+    const session = await getAuthSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const topicId = params.id;
     const { content } = await request.json();
 
     if (!content?.trim()) {
@@ -76,15 +80,56 @@ export async function POST(request: NextRequest, { params }: any) {
       );
     }
 
-    // For now, return a success message
-    // In a real implementation, you would:
-    // 1. Create a forum_reply entry
-    // 2. Update the forum_topics reply_count
-    // 3. Return the created reply data
+    // Get topic to check if locked
+    const { data: topic } = await supabase
+      .from('forum_topics')
+      .select('is_locked, reply_count')
+      .eq('id', topicId)
+      .single();
+
+    if (topic?.is_locked) {
+      return NextResponse.json(
+        { error: 'This topic is locked' },
+        { status: 403 }
+      );
+    }
+
+    const postId = uuidv4();
+    const now = new Date().toISOString();
+
+    // Create reply post
+    const { error: postError } = await supabase
+      .from('forum_posts')
+      .insert({
+        id: postId,
+        topic_id: topicId,
+        author_id: session.user_id,
+        content: content.trim(),
+        reputation: 0,
+        created_at: now,
+        updated_at: now
+      });
+
+    if (postError) {
+      console.error('Error creating reply:', postError);
+      return NextResponse.json(
+        { error: 'Failed to create reply' },
+        { status: 500 }
+      );
+    }
+
+    // Update topic reply count
+    await supabase
+      .from('forum_topics')
+      .update({
+        reply_count: (topic?.reply_count || 0) + 1,
+        last_activity_at: now
+      })
+      .eq('id', topicId);
 
     return NextResponse.json({
       success: true,
-      message: 'Forum reply created successfully (API placeholder)'
+      message: 'Reply created successfully'
     });
 
   } catch (error) {

@@ -12,9 +12,17 @@ class SocketManager {
     this.isConnecting = true;
     console.log('🔌 Connecting to Socket.IO server...');
 
-    const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'wss://www.equipgg.net' 
-      : `ws://localhost:${process.env.NEXT_PUBLIC_SOCKET_PORT || 3002}`;
+    // Detect production environment using window.location
+    const isProduction = typeof window !== 'undefined' && 
+      (window.location.hostname === 'www.equipgg.net' || 
+       window.location.hostname === 'equipgg.net' ||
+       window.location.hostname.includes('vercel.app'));
+
+    const socketUrl = isProduction 
+      ? window.location.origin 
+      : `http://localhost:${process.env.NEXT_PUBLIC_SOCKET_PORT || 3001}`;
+
+    console.log('🌐 Socket URL:', socketUrl, '(Production:', isProduction, ')');
 
     this.socket = io(socketUrl, {
       path: '/api/socket.io',

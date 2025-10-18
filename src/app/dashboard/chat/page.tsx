@@ -36,6 +36,7 @@ import {
 } from 'lucide-react';
 import { cn } from "../../../lib/utils";
 import { formatDistanceToNow } from 'date-fns';
+import { useSocket } from "../../../lib/socket";
 
 interface ChatMessage {
   id: string;
@@ -79,7 +80,7 @@ const defaultChannels: ChatChannel[] = [
     type: 'public',
     memberCount: 1247,
     isActive: true,
-    unreadCount: 3
+    unreadCount: 0
   },
   {
     id: 'trading',
@@ -113,6 +114,7 @@ const defaultChannels: ChatChannel[] = [
 export default function ChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const { socket, isConnected, socketManager } = useSocket();
   const [activeChannel, setActiveChannel] = useState('general');
   const [channels, setChannels] = useState<ChatChannel[]>(defaultChannels);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -128,13 +130,55 @@ export default function ChatPage() {
     // Load chat data regardless of user authentication
     fetchMessages();
     fetchOnlineUsers();
-    // Set up real-time updates (mock for now)
-    const interval = setInterval(() => {
-      // In real implementation, this would be WebSocket updates
-      fetchMessages();
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [activeChannel]);
+    
+    // Join the active channel room
+    if (socket && isConnected) {
+      socketManager.joinChat(activeChannel);
+      console.log(`🔌 Joined chat channel: ${activeChannel}`);
+    }
+    
+    return () => {
+      // Leave channel when switching
+      if (socket && isConnected) {
+        socket.emit('leave-chat', activeChannel);
+      }
+    };
+  }, [activeChannel, socket, isConnected]);
+
+  // Set up Socket.IO real-time message listener
+  useEffect(() => {
+    if (!socket || !isConnected) return;
+
+    const handleNewMessage = (message: any) => {
+      console.log('📨 Received new message:', message);
+      // Only add if it's for the current channel and not already in the list
+      if (message.channelId === activeChannel) {
+        setMessages(prev => {
+          // Check if message already exists
+          if (prev.some(m => m.id === message.id)) {
+            return prev;
+          }
+          return [...prev, {
+            id: message.id,
+            content: message.message || message.content || '',
+            senderId: message.sender?.id || message.senderId || 'unknown',
+            senderName: message.sender?.display_name || message.sender?.displayName || message.senderName || 'Anonymous',
+            senderAvatar: message.sender?.avatar_url || message.sender?.avatar || message.senderAvatar,
+            senderRole: message.sender?.role || message.senderRole || 'user',
+            timestamp: message.timestamp || message.created_at || new Date().toISOString(),
+            channelId: message.channelId || message.channel_id || activeChannel,
+            type: message.type || 'text'
+          }];
+        });
+      }
+    };
+
+    socketManager.onNewMessage(handleNewMessage);
+
+    return () => {
+      socketManager.off('new-message', handleNewMessage);
+    };
+  }, [socket, isConnected, activeChannel]);
 
   useEffect(() => {
     scrollToBottom();
@@ -161,13 +205,23 @@ export default function ChatPage() {
       if (response.ok) {
         const data = await response.json();
         if (data.messages && data.messages.length > 0) {
-          setMessages(data.messages);
+          // Map messages to ensure all required fields exist
+          const mappedMessages = data.messages.map((msg: any) => ({
+            id: msg.id,
+            content: msg.content || '',
+            senderId: msg.sender_id || msg.sender?.id || 'unknown',
+            senderName: msg.sender?.displayname || 'Anonymous',
+            senderAvatar: msg.sender?.avatar_url,
+            senderRole: msg.sender?.role || 'user',
+            timestamp: msg.created_at || new Date().toISOString(),
+            channelId: msg.channel_id || activeChannel,
+            type: msg.type || 'text'
+          }));
+          setMessages(mappedMessages);
         } else {
-          // Start with empty chat, let API handle fallback
           setMessages([]);
         }
       } else {
-        // Start with empty chat if API fails
         setMessages([]);
       }
     } catch (error) {
@@ -217,9 +271,7 @@ export default function ChatPage() {
     };
 
     try {
-      // Optimistically add message to UI
-      setMessages(prev => [...prev, newMessage]);
-      setMessageInput('');
+      setLoading(true);
       
       // Try to send to server
       const response = await fetch('/api/chat/messages', {
@@ -227,7 +279,7 @@ export default function ChatPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Include cookies for authentication
+        credentials: 'include',
         body: JSON.stringify({
           channelId: activeChannel,
           content: messageInput.trim()
@@ -235,23 +287,37 @@ export default function ChatPage() {
       });
       
       if (!response.ok) {
-        // If server rejects, remove the optimistic message and show error
-        setMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
         throw new Error('Failed to send message - authentication required');
       }
+
+      const data = await response.json();
       
-      toast({
-        title: "Success",
-        description: "Message sent successfully!",
-      });
+      // Emit via Socket.IO for real-time delivery
+      if (socket && isConnected && data.message) {
+        socketManager.sendMessage({
+          id: data.message.id,
+          message: data.message.content,
+          sender: {
+            id: user.id,
+            display_name: user.displayName || 'Anonymous',
+            avatar_url: user.photoURL,
+            role: user.role || 'user'
+          },
+          channelId: activeChannel,
+          timestamp: data.message.created_at || new Date().toISOString()
+        });
+      }
+      
+      setMessageInput('');
+      
     } catch (error) {
-      // Remove optimistic message on error
-      setMessages(prev => prev.filter(msg => msg.id !== newMessage.id));
       toast({
         title: "Error",
         description: "Failed to send message - please try logging in again",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -303,7 +369,18 @@ export default function ChatPage() {
         {/* Header */}
         <div className="p-4 border-b">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold">Chat</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold">Chat</h2>
+              {isConnected ? (
+                <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">
+                  Connected
+                </Badge>
+              ) : (
+                <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">
+                  Disconnected
+                </Badge>
+              )}
+            </div>
             <div className="flex gap-2">
               <Button size="icon" variant="ghost" onClick={() => setIsMuted(!isMuted)}>
                 {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -433,14 +510,14 @@ export default function ChatPage() {
                   <div key={message.id} className="flex gap-3 group hover:bg-muted/30 -mx-4 px-4 py-1 rounded">
                     <Avatar className="w-8 h-8 mt-0.5">
                       <AvatarImage src={message.senderAvatar} />
-                      <AvatarFallback className="text-xs">{message.senderName.charAt(0)}</AvatarFallback>
+                      <AvatarFallback className="text-xs">{(message.senderName || 'U').charAt(0)}</AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <div className="flex items-center gap-1">
                           {getRoleIcon(message.senderRole)}
                           <span className={cn("font-semibold text-sm", getRoleColor(message.senderRole))}>
-                            {message.senderName}
+                            {message.senderName || 'Anonymous'}
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground">

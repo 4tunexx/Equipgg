@@ -1,130 +1,189 @@
-import { NextResponse } from 'next/server';
-import secureDb from "../../../../lib/secureDb";
+import { NextRequest, NextResponse } from 'next/server';
+import { supabase } from "../../../../lib/supabase";
+import { getAuthSession } from "../../../../lib/auth-utils";
+import { v4 as uuidv4 } from 'uuid';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const category = searchParams.get('category') || 'all';
     const sort = searchParams.get('sort') || 'recent';
     const search = searchParams.get('search') || '';
 
-    // Build the query to join forum_posts with users table
-    let query = `
-      SELECT 
-        fp.id,
-        fp.content,
-        fp.created_at,
-        fp.updated_at,
-        fp.topic_id,
-        ft.title,
-        ft.is_pinned,
-        ft.is_locked,
-        ft.view_count,
-        ft.reply_count,
-        ft.last_reply_at,
-        fc.id as category_id,
-        fc.name as category_name,
-        u.id as author_id,
-        u.username as author_displayName,
-        u.avatar_url as author_avatarUrl,
-        u.role as author_role,
-        u.xp as author_xp,
-        u.level as author_level
-      FROM forum_posts fp
-      INNER JOIN forum_topics ft ON fp.topic_id = ft.id
-      INNER JOIN forum_categories fc ON ft.category_id = fc.id
-      INNER JOIN users u ON fp.author_id = u.id
-    `;
+    // Build Supabase query
+    let query = supabase
+      .from('forum_posts')
+      .select(`
+        id,
+        content,
+        created_at,
+        updated_at,
+        reputation,
+        topic:topic_id (
+          id,
+          title,
+          is_pinned,
+          is_locked,
+          view_count,
+          reply_count,
+          category:category_id (
+            id,
+            name
+          )
+        ),
+        author:author_id (
+          id,
+          displayname,
+          avatar_url,
+          role,
+          xp,
+          level
+        )
+      `)
+      .eq('is_deleted', false);
 
-    const conditions: string[] = [];
-    
+    // Apply category filter
     if (category !== 'all') {
-      conditions.push(`fc.id = '${category}'`);
+      query = query.eq('topic.category_id', category);
     }
-    
+
+    // Apply search filter
     if (search) {
-      conditions.push(`(ft.title ILIKE '%${search}%' OR fp.content ILIKE '%${search}%')`);
+      query = query.or(`content.ilike.%${search}%,topic.title.ilike.%${search}%`);
     }
 
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    // Add sorting
+    // Apply sorting
     switch (sort) {
       case 'recent':
-        query += ' ORDER BY fp.created_at DESC';
+        query = query.order('created_at', { ascending: false });
         break;
       case 'popular':
-        query += ' ORDER BY ft.reply_count DESC, ft.view_count DESC';
-        break;
-      case 'likes':
-        // This would require a join with forum_post_reactions table
-        query += ' ORDER BY fp.created_at DESC'; // Fallback for now
+        query = query.order('reputation', { ascending: false });
         break;
       default:
-        query += ' ORDER BY fp.created_at DESC';
+        query = query.order('created_at', { ascending: false });
     }
 
-    query += ' LIMIT 50';
+    query = query.limit(50);
 
-    const posts = await secureDb.raw(query);
+    const { data: posts, error } = await query;
 
-    // Transform the data to match the expected interface
-    const transformedPosts = posts.map((post: any) => ({
+    if (error) {
+      console.error('Supabase error:', error);
+      // Return empty array if tables don't exist yet
+      if (error.code === '42P01') {
+        return NextResponse.json({ posts: [] });
+      }
+      throw error;
+    }
+
+    // Transform the data
+    const transformedPosts = (posts || []).map((post: any) => ({
       id: post.id,
-      title: post.title,
+      title: post.topic?.title || 'Untitled',
       content: post.content,
       author: {
-        id: post.author_id,
-        displayName: post.author_displayName,
-        avatarUrl: post.author_avatarUrl,
-        role: post.author_role,
-        xp: post.author_xp,
-        level: post.author_level
+        id: post.author?.id || '',
+        displayName: post.author?.displayname || 'Anonymous',
+        avatarUrl: post.author?.avatar_url,
+        role: post.author?.role || 'user',
+        xp: post.author?.xp || 0,
+        level: post.author?.level || 1
       },
-      category: post.category_name,
-      views: post.view_count || 0,
-      replies: post.reply_count || 0,
-      likes: 0, // Would need to join with forum_post_reactions
+      category: post.topic?.category?.name || 'General',
+      views: post.topic?.view_count || 0,
+      replies: post.topic?.reply_count || 0,
+      likes: post.reputation || 0,
       createdAt: post.created_at,
       updatedAt: post.updated_at,
-      lastReplyAt: post.last_reply_at,
-      isPinned: post.is_pinned,
-      isLocked: post.is_locked
+      isPinned: post.topic?.is_pinned || false,
+      isLocked: post.topic?.is_locked || false
     }));
 
     return NextResponse.json({ posts: transformedPosts });
 
   } catch (error) {
     console.error('Error fetching forum posts:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch forum posts' },
-      { status: 500 }
-    );
+    return NextResponse.json({ posts: [] });
   }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const { title, content, category } = await request.json();
+    const session = await getAuthSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    if (!title?.trim() || !content?.trim() || !category) {
+    const { topicId, content } = await request.json();
+
+    if (!topicId || !content?.trim()) {
       return NextResponse.json(
-        { error: 'Title, content, and category are required' },
+        { error: 'Topic ID and content are required' },
         { status: 400 }
       );
     }
 
-    // For now, we'll return a success message
-    // In a real implementation, you would:
-    // 1. Create a forum_topic entry
-    // 2. Create a forum_post entry as the first post in the topic
-    // 3. Return the created post data
+    // Verify topic exists
+    const { data: topic, error: topicError } = await supabase
+      .from('forum_topics')
+      .select('*')
+      .eq('id', topicId)
+      .single();
+
+    if (topicError || !topic) {
+      return NextResponse.json(
+        { error: 'Topic not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if topic is locked
+    if (topic.is_locked) {
+      return NextResponse.json(
+        { error: 'This topic is locked' },
+        { status: 403 }
+      );
+    }
+
+    const postId = uuidv4();
+    const now = new Date().toISOString();
+
+    // Create the post
+    const { data: post, error: postError } = await supabase
+      .from('forum_posts')
+      .insert({
+        id: postId,
+        topic_id: topicId,
+        author_id: session.user_id,
+        content: content.trim(),
+        reputation: 0,
+        created_at: now,
+        updated_at: now
+      })
+      .select()
+      .single();
+
+    if (postError) {
+      console.error('Error creating post:', postError);
+      return NextResponse.json(
+        { error: 'Failed to create post' },
+        { status: 500 }
+      );
+    }
+
+    // Update topic reply count and last activity
+    await supabase
+      .from('forum_topics')
+      .update({
+        reply_count: topic.reply_count + 1,
+        last_activity_at: now
+      })
+      .eq('id', topicId);
 
     return NextResponse.json({
       success: true,
-      message: 'Forum post created successfully (API placeholder)'
+      post
     });
 
   } catch (error) {
