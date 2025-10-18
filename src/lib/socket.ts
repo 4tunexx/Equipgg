@@ -9,20 +9,25 @@ class SocketManager {
       return this.socket;
     }
 
-    this.isConnecting = true;
-    console.log('🔌 Connecting to Socket.IO server...');
-
-    // Detect production environment using window.location
-    const isProduction = typeof window !== 'undefined' && 
+    // Detect Vercel production environment
+    const isVercelProduction = typeof window !== 'undefined' && 
       (window.location.hostname === 'www.equipgg.net' || 
        window.location.hostname === 'equipgg.net' ||
        window.location.hostname.includes('vercel.app'));
 
-    const socketUrl = isProduction 
-      ? window.location.origin 
-      : `http://localhost:${process.env.NEXT_PUBLIC_SOCKET_PORT || 3001}`;
+    // Skip Socket.IO on Vercel production (not supported in serverless)
+    if (isVercelProduction) {
+      console.log('🔌 Socket.IO disabled on Vercel - using fallback mode');
+      this.isConnecting = false;
+      return null;
+    }
 
-    console.log('🌐 Socket URL:', socketUrl, '(Production:', isProduction, ')');
+    this.isConnecting = true;
+    console.log('🔌 Connecting to Socket.IO server...');
+
+    const socketUrl = `http://localhost:${process.env.NEXT_PUBLIC_SOCKET_PORT || 3001}`;
+
+    console.log('🌐 Socket URL:', socketUrl);
 
     this.socket = io(socketUrl, {
       path: '/api/socket.io',

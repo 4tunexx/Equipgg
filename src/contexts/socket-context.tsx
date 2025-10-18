@@ -62,14 +62,25 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Detect if running on Vercel production (serverless environment)
+    const isVercelProduction = typeof window !== 'undefined' && 
+      (window.location.hostname === 'www.equipgg.net' || 
+       window.location.hostname === 'equipgg.net' ||
+       window.location.hostname.includes('vercel.app'));
+    
+    // Skip Socket.IO on Vercel production (use fallback mode instead)
+    if (isVercelProduction) {
+      console.log('🔌 Running on Vercel - using fallback mode (no WebSocket support)');
+      setSocket(null);
+      setIsConnected(false);
+      socketFallback.setConnected(false);
+      return;
+    }
+
     console.log('🔌 Socket.IO enabled for real-time features');
     
-    // Enable Socket.IO for both development and production
-    // In production, use the same origin (window.location.origin)
-    // In development, use localhost:3001
-    const socketUrl = typeof window !== 'undefined' && window.location.hostname !== 'localhost'
-      ? window.location.origin
-      : 'http://localhost:3001';
+    // Only enable Socket.IO in development
+    const socketUrl = 'http://localhost:3001';
     
     console.log('🚀 Initializing Socket.io connection to:', socketUrl);
 
