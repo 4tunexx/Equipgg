@@ -9,10 +9,12 @@ export async function GET(request: NextRequest) {
     const session = await getAuthSession(request);
     
     if (!session) {
+      console.log('No session found for user stats');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const supabase = createServerSupabaseClient();
+    console.log('Fetching stats for user:', session.user_id);
     
     // Get user's basic stats
     let userData;

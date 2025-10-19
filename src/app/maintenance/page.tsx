@@ -25,6 +25,7 @@ export default function MaintenancePage() {
                 alt="EquipGG Logo"
                 width={256}
                 height={256}
+                style={{ height: 'auto' }}
                 className="object-contain mx-auto animate-pulse"
                 data-ai-hint="esports mascot logo"
             />

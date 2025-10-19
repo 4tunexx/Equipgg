@@ -86,7 +86,7 @@ export async function POST(
         .single();
 
       await createNotification({
-        userId: trade.recipient_id,
+        userId: trade.receiver_id,
         type: 'trade_cancelled',
         title: '❌ Trade Cancelled',
         message: `${sender?.display_name || 'Someone'} cancelled their trade offer`,

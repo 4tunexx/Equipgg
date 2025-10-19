@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { cookies } from 'next/headers';
 
 export async function DELETE(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('equipgg_session');
     
-    if (authError || !session) {
+    if (!sessionCookie) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const session = JSON.parse(decodeURIComponent(sessionCookie.value));
+    const userId = session.user_id;
+    const supabase = createServerSupabaseClient();
 
     const { itemId } = await request.json();
 

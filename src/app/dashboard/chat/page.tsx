@@ -189,6 +189,8 @@ export default function ChatPage() {
 
   const fetchMessages = async () => {
     try {
+      console.log(`📥 Fetching messages for channel: ${activeChannel}`);
+      
       // Try to fetch messages with authentication if user is logged in
       const headers: HeadersInit = {};
       if (user) {
@@ -201,30 +203,41 @@ export default function ChatPage() {
         credentials: 'include' // Include cookies for authentication
       });
       
+      console.log(`📥 Messages API response status:`, response.status);
+      
       if (response.ok) {
         const data = await response.json();
-        if (data.messages && data.messages.length > 0) {
-          // Map messages to ensure all required fields exist
-          const mappedMessages = data.messages.map((msg: any) => ({
-            id: msg.id,
-            content: msg.content || '',
-            senderId: msg.sender_id || msg.sender?.id || 'unknown',
-            senderName: msg.sender?.displayname || 'Anonymous',
-            senderAvatar: msg.sender?.avatar_url,
-            senderRole: msg.sender?.role || 'user',
-            timestamp: msg.created_at || new Date().toISOString(),
-            channelId: msg.channel_id || activeChannel,
-            type: msg.type || 'text'
-          }));
-          setMessages(mappedMessages);
-        } else {
-          setMessages([]);
+        const fetchedMessages = data.messages || [];
+        
+        console.log(`✅ Fetched ${fetchedMessages.length} messages from database`);
+        
+        if (fetchedMessages.length > 0) {
+          console.log('Sample message:', fetchedMessages[0]);
         }
+        
+        // Transform to match our ChatMessage interface
+        const transformedMessages = fetchedMessages.map((msg: any) => ({
+          id: msg.id,
+          content: msg.content || '',
+          senderId: msg.sender?.id || msg.sender_id || 'unknown',
+          senderName: msg.sender?.displayname || msg.sender?.displayName || 'Anonymous',
+          senderAvatar: msg.sender?.avatar_url || msg.sender?.avatar,
+          senderRole: msg.sender?.role || 'user',
+          timestamp: msg.created_at || msg.timestamp || new Date().toISOString(),
+          channelId: msg.channel_id || activeChannel,
+          type: msg.type || 'text',
+          editedAt: msg.edited_at || msg.editedAt
+        }));
+        
+        setMessages(transformedMessages);
+        console.log(`✅ Set ${transformedMessages.length} messages in state`);
       } else {
+        console.error('❌ Messages API failed:', response.status, response.statusText);
+        // API failed, start with empty messages
         setMessages([]);
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error('❌ Error fetching messages:', error);
       // Start with empty chat on error
       setMessages([]);
     }
@@ -272,6 +285,8 @@ export default function ChatPage() {
     try {
       setLoading(true);
       
+      console.log(`📤 Sending message to channel: ${activeChannel}`);
+      
       // Try to send to server
       const response = await fetch('/api/chat/messages', {
         method: 'POST',
@@ -280,32 +295,29 @@ export default function ChatPage() {
         },
         credentials: 'include',
         body: JSON.stringify({
+          content: messageInput.trim(),
           channelId: activeChannel,
-          content: messageInput.trim()
+          type: 'text'
         })
       });
-      
-      if (!response.ok) {
-        throw new Error('Failed to send message - authentication required');
-      }
 
-      const data = await response.json();
-      
-      // Emit via Supabase Realtime for real-time delivery
-      if (isConnected && data.message) {
-        await emitChatMessage({
-          id: data.message.id,
-          channelId: activeChannel,
-          userId: user.id,
-          username: user.displayName || 'Anonymous',
-          avatar: user.photoURL,
-          message: data.message.content,
-          timestamp: data.message.created_at || new Date().toISOString()
+      console.log(`📤 Send message response status:`, response.status);
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`✅ Message sent successfully:`, data.message?.id);
+        // Server will broadcast via real-time, no need to add locally
+        setMessageInput('');
+      } else {
+        // If failed, show error
+        const errorData = await response.json();
+        console.error('❌ Failed to send message:', errorData);
+        toast({
+          variant: "destructive",
+          title: "Failed to send",
+          description: errorData.error || 'Failed to send message'
         });
       }
-      
-      setMessageInput('');
-      
     } catch (error) {
       toast({
         title: "Error",

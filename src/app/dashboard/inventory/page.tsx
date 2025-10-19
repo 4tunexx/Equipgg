@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 import { Separator } from "../../../components/ui/separator";
 
-import { Trash2, DollarSign, Replace, Loader2, Target, Shield, Sword, Hand, User, Sparkles } from 'lucide-react';
+import { Trash2, DollarSign, Replace, Loader2, Target, Shield, Sword, Hand, User, Sparkles, Coins } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -144,6 +144,7 @@ export default function InventoryPage() {
     const [dragOverId, setDragOverId] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const dragPreviewRef = useRef<HTMLDivElement>(null);
+    const [lastTap, setLastTap] = useState<{ itemId: string; time: number } | null>(null);
 
     // Refresh inventory function
     const refreshInventory = useCallback(async () => {
@@ -637,7 +638,9 @@ export default function InventoryPage() {
 
 
     const renderAdvancedTooltip = (item: InventoryItem) => {
-        const marketValue = Math.floor((item.stat?.value || 0) * 0.8); // 80% of item value
+        // Get real price from item data
+        const itemValue = (item as any).price || item.stat?.value || 100;
+        const sellPrice = Math.floor(itemValue * 0.8); // 80% of item value for sell price
         const condition = 'Factory New'; // Default condition
         const wear = 0; // Default wear
         
@@ -661,11 +664,17 @@ export default function InventoryPage() {
                     </div>
                     <div>
                         <p className="text-muted-foreground">Item Value</p>
-                        <p className="font-medium">${item.stat?.value || 0}</p>
+                        <p className="font-medium flex items-center gap-1">
+                          <Coins className="w-4 h-4 text-yellow-500" />
+                          {itemValue}
+                        </p>
                     </div>
                     <div>
-                        <p className="text-muted-foreground">Market Value</p>
-                        <p className="font-medium text-green-600">${marketValue}</p>
+                        <p className="text-muted-foreground">Sell Price</p>
+                        <p className="font-medium text-green-600 flex items-center gap-1">
+                          <Coins className="w-4 h-4 text-green-600" />
+                          {sellPrice} (80%)
+                        </p>
                     </div>
                 </div>
                 
@@ -765,6 +774,18 @@ export default function InventoryPage() {
                                   onTouchMove={handleTouchMove}
                                   onTouchEnd={handleTouchEnd}
                                   onClick={(e) => {
+                                    // Mobile: Detect double-tap
+                                    const now = Date.now();
+                                    if (lastTap && lastTap.itemId === item.id && now - lastTap.time < 300) {
+                                      // Double tap detected - show item details
+                                      setSelectedItem(item);
+                                      setShowItemDialog(true);
+                                      setLastTap(null);
+                                      e.stopPropagation();
+                                      return;
+                                    }
+                                    setLastTap({ itemId: item.id, time: now });
+                                    
                                     if (e.ctrlKey || e.metaKey) {
                                       // Multi-select with Ctrl/Cmd
                                       const newSelected = new Set(selectedIds);
@@ -774,10 +795,9 @@ export default function InventoryPage() {
                                         newSelected.add(item.id);
                                       }
                                       setSelectedIds(newSelected);
-                                    } else if (onSelect) {
-                                      onSelect(item);
+                                      e.stopPropagation();
                                     }
-                                  }}
+                                  }}  
                                   onContextMenu={(e) => {
                                       if (onSelect) e.preventDefault();
                                   }}

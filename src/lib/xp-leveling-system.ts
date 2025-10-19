@@ -254,6 +254,14 @@ export async function addXp(
     
     // Broadcast level up if applicable
     if (leveledUp && rewards) {
+      // Award crate keys for leveling up
+      try {
+        const { awardLevelUpCrateKey } = await import('./crate-key-rewards');
+        await awardLevelUpCrateKey(userId, newLevel);
+      } catch (error) {
+        console.error('Failed to award level up crate key:', error);
+      }
+
       await broadcastLevelUp({
         userId,
         newLevel,

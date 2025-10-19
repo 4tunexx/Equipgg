@@ -42,7 +42,7 @@ export async function createNotification({
 }: CreateNotificationParams): Promise<void> {
   try {
     const notificationId = uuidv4();
-    await supabase.from('notifications').insert([
+    const { data: result, error } = await supabase.from('notifications').insert([
       {
         id: notificationId,
         user_id: userId,
@@ -53,8 +53,18 @@ export async function createNotification({
         created_at: new Date().toISOString(),
       },
     ]);
+    
+    if (error) {
+      console.error('❌ NOTIFICATION INSERT FAILED:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Notification data:', { userId, type, title, message, data });
+      throw error; // Re-throw so calling code knows it failed
+    } else {
+      console.log('✅ Notification created successfully:', notificationId, 'for user:', userId);
+    }
   } catch (error) {
-    console.error('Error creating notification:', error);
+    console.error('❌ Error creating notification:', error);
+    throw error; // Re-throw to propagate the error
   }
 }
 

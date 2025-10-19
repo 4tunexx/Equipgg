@@ -414,7 +414,8 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                       alt="EquipGG Logo"
                       width={200}
                       height={60}
-                      className="h-12 w-auto max-w-full object-contain transition-transform duration-300 group-hover/logo:scale-110 group-data-[collapsible=icon]:h-8 group-data-[collapsible=icon]:w-auto"
+                      style={{ width: 'auto', height: '3rem' }}
+                      className="max-w-full object-contain transition-transform duration-300 group-hover/logo:scale-110 group-data-[collapsible=icon]:h-8"
                       quality={100}
                       priority
                       unoptimized={process.env.NODE_ENV === 'development'}
@@ -587,23 +588,23 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
         <SidebarInset>
           <div className="flex flex-col h-screen max-h-screen w-full">
             <PrestigeActivityFeed />
-            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-card/95 px-6 backdrop-blur-sm shrink-0">
-              <div className="flex items-center gap-4">
-                <SidebarTrigger className="h-8 w-8" />
-                <h2 className="text-xl font-semibold">{isAdminPage ? 'Admin Panel' : isModeratorPage ? 'Moderator Panel' : pageTitle}</h2>
+            <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-card/95 px-4 sm:px-6 backdrop-blur-sm shrink-0 gap-2">
+              <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1">
+                <SidebarTrigger className="h-8 w-8 shrink-0" />
+                <h2 className="text-base sm:text-xl font-semibold truncate">{isAdminPage ? 'Admin Panel' : isModeratorPage ? 'Moderator Panel' : pageTitle}</h2>
               </div>
-               <div className="flex items-center gap-4">
+               <div className="flex items-center gap-2 shrink-0">
                  <Link href="/dashboard/gems">
-                   <Button variant="outline" className="flex items-center gap-2">
+                   <Button variant="outline" size="sm" className="flex items-center gap-1 sm:gap-2">
                      <Gem className="h-4 w-4" />
-                     Gems
+                     <span className="hidden sm:inline">Gems</span>
                    </Button>
                  </Link>
                  <Dialog>
                     <DialogTrigger asChild>
-                        <Button>
-                          <Crown className="mr-2 h-4 w-4" />
-                          Upgrade to VIP
+                        <Button size="sm">
+                          <Crown className="h-4 w-4 sm:mr-2" />
+                          <span className="hidden sm:inline">Upgrade to VIP</span>
                         </Button>
                     </DialogTrigger>
                     <DialogContent>

@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "../../../../lib/supabase";
 
 export async function GET(request: NextRequest) {
   try {
+    console.log('Admin users API called');
     const supabase = createServerSupabaseClient();
 
     // Get all users with their stats
@@ -25,20 +26,20 @@ export async function GET(request: NextRequest) {
           .select('*', { count: 'exact', head: true })
           .eq('user_id', user.id);
 
-        // Get current rank
-        // Use min_level as the XP threshold field (normalized in admin/ranks API)
+        // Get current rank based on level (not XP)
         const { data: rankData } = await supabase
           .from('ranks')
-          .select('name, tier, min_level')
-          .lte('min_level', user.xp || 0)
-          .order('min_level', { ascending: false })
+          .select('name, tier, min_xp')
+          .lte('min_xp', user.level || 1)
+          .order('min_xp', { ascending: false })
           .limit(1)
           .single();
 
         return {
           ...user,
           inventoryCount: inventoryCount || 0,
-          currentRank: rankData?.name || 'Unranked',
+          currentRank: rankData?.name || 'Silver I',
+          rank_name: rankData?.name || 'Silver I',
           rankTier: rankData?.tier || 0
         };
       })

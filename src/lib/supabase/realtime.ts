@@ -181,7 +181,7 @@ export class RealtimeManager {
           console.log(`✅ Subscribed to channel: ${channelName}`);
           this.isConnected = true;
         } else if (status === 'CHANNEL_ERROR') {
-          console.warn(`⚠️ Realtime not enabled for channel: ${channelName} - Enable Realtime in Supabase dashboard for live updates`);
+          // Realtime not enabled - feature will work with polling instead
           this.isConnected = false;
           // Don't throw error - app will work without realtime
         } else if (status === 'TIMED_OUT') {

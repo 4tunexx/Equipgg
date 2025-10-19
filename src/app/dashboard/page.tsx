@@ -19,14 +19,38 @@ import { createSupabaseQueries } from "../../lib/supabase/queries";
 import { supabase } from "../../lib/supabase/client";
 import type { DBUser, DBMission } from "../../lib/supabase/queries";
 
-// Helper function to get rank by level (temporary until we move to Supabase)
-function getRankByLevel(level: number): string {
-  if (level >= 50) return 'Grandmaster';
-  if (level >= 40) return 'Master';
-  if (level >= 30) return 'Expert';
-  if (level >= 20) return 'Advanced';
-  if (level >= 10) return 'Intermediate';
-  return 'Beginner';
+// Get rank from Supabase ranks table
+async function getUserRank(level: number): Promise<string> {
+  try {
+    const { data: ranks, error } = await supabase
+      .from('ranks')
+      .select('name, tier, min_level, max_level')
+      .order('min_level', { ascending: false });
+    
+    if (error) {
+      console.error('Rank query error:', error);
+      return 'Silver I';
+    }
+    
+    if (!ranks || ranks.length === 0) {
+      return 'Silver I';
+    }
+    
+    // Find the highest rank the user qualifies for
+    for (const rank of ranks) {
+      const minLevel = rank.min_level || 0;
+      const maxLevel = rank.max_level || 999;
+      if (level >= minLevel && level <= maxLevel) {
+        return rank.name || 'Silver I';
+      }
+    }
+    
+    // Default to first rank
+    return ranks[ranks.length - 1]?.name || 'Silver I';
+  } catch (error) {
+    console.error('Error fetching rank:', error);
+    return 'Silver I';
+  }
 }
 
 interface UserStats {
@@ -68,6 +92,8 @@ export default function DashboardPage() {
   const [activityLoading, setActivityLoading] = useState(true);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [userRank, setUserRank] = useState<string>('Beginner');
+  const [lastCrate, setLastCrate] = useState<any>(null);
 
   useEffect(() => {
     const fetchDailyMissions = async () => {
@@ -156,7 +182,59 @@ export default function DashboardPage() {
       fetchUserStats();
       fetchUserActivity();
     }
-  }, [user]); // Add user as dependency
+  }, [user]);
+
+  // Fetch user rank from Supabase
+  useEffect(() => {
+    const fetchRank = async () => {
+      const level = userStats?.level || user?.level || 1;
+      const rank = await getUserRank(level);
+      setUserRank(rank);
+    };
+    
+    if (user) {
+      fetchRank();
+    }
+  }, [user, userStats?.level]);
+
+  // Fetch last crate opening
+  useEffect(() => {
+    const fetchLastCrate = async () => {
+      if (!user?.id) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('crate_openings')
+          .select('crate_id, item_received_id, opened_at')
+          .eq('user_id', user.id)
+          .order('opened_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        
+        if (error || !data) {
+          return;
+        }
+        
+        // Fetch related crate and item separately to avoid join issues
+        const [crateData, itemData] = await Promise.all([
+          supabase.from('crates').select('name, image_url').eq('id', data.crate_id).maybeSingle(),
+          supabase.from('items').select('name, rarity, image_url').eq('id', data.item_received_id).maybeSingle()
+        ]);
+        
+        if (crateData.data && itemData.data) {
+          setLastCrate({
+            ...data,
+            crate: crateData.data,
+            item: itemData.data
+          });
+        }
+      } catch (error) {
+        // Silently fail - user just hasn't opened crates yet
+      }
+    };
+    
+    fetchLastCrate();
+  }, [user?.id]); // Add user as dependency
 
   return (
     <div className="flex flex-col h-full w-full overflow-x-hidden">
@@ -169,7 +247,7 @@ export default function DashboardPage() {
                 Welcome Back, {user?.displayName || user?.email?.split('@')[0] || 'User'}!
               </h1>
               <p className="text-muted-foreground">
-                Here&apos;s your mission briefing for today. Your current rank is <span className='font-bold text-primary'>{getRankByLevel(userStats?.level || user?.level || 1)}</span>.
+                Here&apos;s your mission briefing for today. Your current rank is <span className='font-bold text-primary'>{userRank}</span>.
               </p>
             </div>
             {/* Add user avatar display */}
@@ -363,14 +441,27 @@ export default function DashboardPage() {
               <CardTitle>Last Crate</CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4">
-              <div className="relative">
-                <Gift className="w-24 h-24 text-primary animate-pulse" />
-                <Gem className="w-8 h-8 text-purple-400 absolute -top-1 -right-1" />
-              </div>
-              <p className="text-center font-semibold">&quot;Prime Gaming&quot; Crate</p>
-              <p className="text-sm text-muted-foreground text-center">
-                You received an Epic item from your last crate opening!
-              </p>
+              {lastCrate ? (
+                <>
+                  <div className="relative">
+                    <Gift className="w-24 h-24 text-primary animate-pulse" />
+                    <Gem className="w-8 h-8 text-purple-400 absolute -top-1 -right-1" />
+                  </div>
+                  <p className="text-center font-semibold">{lastCrate.crate?.name || 'Mystery Crate'}</p>
+                  <p className="text-sm text-muted-foreground text-center">
+                    You received a <span className="font-bold text-primary">{lastCrate.item?.rarity}</span> item: <span className="font-semibold">{lastCrate.item?.name}</span>!
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="relative">
+                    <Gift className="w-24 h-24 text-muted-foreground/50" />
+                  </div>
+                  <p className="text-sm text-muted-foreground text-center">
+                    No crates opened yet. Visit the Crates page to get started!
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </aside>

@@ -43,8 +43,7 @@ export async function GET(request: NextRequest) {
     const filter = searchParams.get('filter');
     const equipped = searchParams.get('equipped');
 
-    // Build query for user's inventory
-    // Use explicit column selection instead of relying on foreign key relationships
+    // Build query for user's inventory with item details joined
     let query = supabase
       .from('user_inventory')
       .select(`
@@ -53,18 +52,20 @@ export async function GET(request: NextRequest) {
         user_id,
         equipped,
         acquired_at,
-        item_name,
-        item_type,
-        rarity,
-        image_url,
-        value
+        quantity,
+        item:items(
+          id,
+          name,
+          type,
+          category,
+          rarity,
+          image,
+          image_url,
+          coin_price,
+          gem_price
+        )
       `)
       .eq('user_id', userId);
-
-    // Apply filters
-    if (filter && filter !== 'all') {
-      query = query.eq('item_type', filter);
-    }
 
     if (equipped === 'true') {
       query = query.eq('equipped', true);
@@ -77,11 +78,20 @@ export async function GET(request: NextRequest) {
     const { data: inventoryItems, error } = await query;
 
     if (error) {
-      console.error('Error fetching inventory:', error);
+      console.error('❌ Error fetching inventory:', error);
+      console.error('Error details:', JSON.stringify(error, null, 2));
       return NextResponse.json(
-        { error: 'Failed to fetch inventory' },
+        { error: 'Failed to fetch inventory', details: error.message },
         { status: 500 }
       );
+    }
+    
+    if (!inventoryItems) {
+      return NextResponse.json({
+        success: true,
+        inventory: [],
+        total: 0
+      });
     }
 
     // Helper function to generate image URLs (same as shop/admin pages)
@@ -120,23 +130,28 @@ export async function GET(request: NextRequest) {
     };
 
     // Transform data to match expected format
-    const inventory = (inventoryItems as any[]).map(record => {
-      const imageUrl = getItemImageUrl(record.item_name, record.item_type, record.image_url);
-      console.log(`📦 Item: ${record.item_name}, Type: ${record.item_type}, Generated Image: ${imageUrl}`);
-      
-      return {
-        id: record.id,
-        name: record.item_name,
-        type: record.item_type,
-        rarity: record.rarity,
-        image: imageUrl,
-        equipped: record.equipped,
-        slotType: 'weapon',
-        stat: {
-          value: record.value || 100
-        }
-      };
-    });
+    const inventory = (inventoryItems as any[])
+      .filter(record => record.item) // Only include items with valid item data
+      .map(record => {
+        const item = record.item;
+        const imageUrl = getItemImageUrl(item.name, item.type || item.category, item.image_url || item.image);
+        console.log(`📦 Item: ${item.name}, Type: ${item.type}, Generated Image: ${imageUrl}`);
+        
+        return {
+          id: record.id,
+          name: item.name,
+          type: item.type || item.category || 'Pistol',
+          rarity: item.rarity || 'Common',
+          image: imageUrl,
+          equipped: record.equipped || false,
+          quantity: record.quantity || 1,
+          slotType: 'weapon',
+          price: item.coin_price || 100, // Real shop price
+          stat: {
+            value: item.coin_price || 100 // Real shop price
+          }
+        };
+      });
 
     console.log(`✅ Returning ${inventory.length} items from inventory API`);
     if (inventory.length > 0) {
@@ -150,9 +165,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Inventory fetch error:', error);
+    console.error('❌ Inventory fetch error:', error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'Unknown error');
     return NextResponse.json(
-      { error: 'Failed to fetch inventory' },
+      { error: 'Failed to fetch inventory', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }
     );
   }

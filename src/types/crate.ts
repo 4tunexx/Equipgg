@@ -1,7 +1,7 @@
 import { Rarity } from '../lib/supabase/queries';
 
 export interface CrateItem {
-  id: string;
+  id: number;
   name: string;
   type: string;
   rarity: Rarity;
@@ -9,7 +9,7 @@ export interface CrateItem {
 }
 
 export interface Crate {
-  id: string;
+  id: number;
   name: string;
   description: string;
   price: number;

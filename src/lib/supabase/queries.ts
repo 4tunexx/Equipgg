@@ -18,20 +18,27 @@ export interface DBUser {
 }
 
 export interface DBItem {
-  id: string;
+  id: number;
   name: string;
   type: string;
   rarity: Rarity;
   image: string | null;
+  image_url?: string | null;
   data_ai_hint: string | null;
+  category?: string;
+  weapon_type?: string;
+  coin_price?: number;
+  gem_price?: number;
   created_at: string;
 }
 
 export interface DBInventoryItem {
   id: string;
   user_id: string;
-  item_id: string;
-  equipped: boolean;
+  item_id: number;
+  equipped?: boolean;
+  quantity?: number;
+  acquired_at?: string;
   created_at: string;
   item?: DBItem; // For joins
 }
@@ -87,18 +94,30 @@ export interface DBUserAchievement {
 }
 
 export interface DBCrate {
-  id: string;
+  id: number;
   name: string;
   description: string | null;
-  price: number;
-  image: string | null;
+  coin_price?: number;
+  gem_price?: number;
+  image_url?: string | null;
+  type?: string;
+  is_active?: boolean;
+  is_purchasable?: boolean;
+  xp_reward?: number;
+  coin_reward?: number;
+  gem_reward?: number;
+  rarity_common?: number;
+  rarity_uncommon?: number;
+  rarity_rare?: number;
+  rarity_epic?: number;
+  rarity_legendary?: number;
   created_at: string;
 }
 
 export interface DBCrateItem {
   id: string;
-  crate_id: string;
-  item_id: string;
+  crate_id: number;
+  item_id: number;
   drop_chance: number;
   created_at: string;
   item?: DBItem; // For joins
@@ -252,11 +271,12 @@ export class SupabaseQueries {
   async getUserInventory(userId: string) {
     const { data, error } = await this.supabase
       .from('user_inventory')
-      .select('*, item:items(*)')
-      .eq('user_id', userId);
+      .select('id, item_id, user_id, equipped, acquired_at, item_name, item_type, rarity, image_url, value')
+      .eq('user_id', userId)
+      .order('acquired_at', { ascending: false });
     
     if (error) throw error;
-    return data as DBInventoryItem[];
+    return data as any as DBInventoryItem[];
   }
 
   async addItemToInventory(userId: string, itemId: string) {
@@ -407,7 +427,7 @@ export class SupabaseQueries {
     return data as DBCrate[];
   }
 
-  async getCrateItems(crateId: string) {
+  async getCrateItems(crateId: number) {
     const { data, error } = await this.supabase
       .from('crate_items')
       .select('*, item:items(*)')
@@ -415,6 +435,39 @@ export class SupabaseQueries {
     
     if (error) throw error;
     return data as DBCrateItem[];
+  }
+
+  async getUserCrateKeys(userId: string) {
+    const { data, error } = await this.supabase
+      .from('user_keys')
+      .select('*, crate:crates(*)')
+      .eq('user_id', userId);
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async addCrateKeys(userId: string, crateId: number, keysCount: number) {
+    const { data, error } = await this.supabase
+      .rpc('add_crate_keys', {
+        p_user_id: userId,
+        p_crate_id: crateId,
+        p_keys_count: keysCount
+      });
+    
+    if (error) throw error;
+    return data;
+  }
+
+  async useCrateKey(userId: string, crateId: number) {
+    const { data, error } = await this.supabase
+      .rpc('use_crate_key', {
+        p_user_id: userId,
+        p_crate_id: crateId
+      });
+    
+    if (error) throw error;
+    return data;
   }
 
   // Mission queries

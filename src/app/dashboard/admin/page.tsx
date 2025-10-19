@@ -9,7 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { LineChart, Users as UsersIcon, ShoppingBag, Award, Cog, Swords, Gem, Trophy, Star, Archive, Ticket, ShieldCheck, Bell, MessagesSquare, RefreshCw, Plus, Edit, Trash2, Power, Target, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -114,6 +114,9 @@ export default function AdminDashboardPage() {
   const [showEditUser, setShowEditUser] = useState(false);
   const [showDeleteUser, setShowDeleteUser] = useState(false);
   const [editingUser, setEditingUser] = useState<any>(null);
+  const [showGiveKeysDialog, setShowGiveKeysDialog] = useState(false);
+  const [giveKeysAmount, setGiveKeysAmount] = useState(1);
+  const [giveKeysCrateId, setGiveKeysCrateId] = useState('');
   
   // Landing page management state
   const [landingPanels, setLandingPanels] = useState<any[]>([]);
@@ -212,10 +215,14 @@ export default function AdminDashboardPage() {
   const [newCrate, setNewCrate] = useState({
     name: '',
     description: '',
-    price: 0,
     image: '',
     contents: [] as string[],
-    isActive: true
+    isActive: true,
+    xp_reward: 0,
+    coin_reward: 0,
+    gem_reward: 0,
+    selectedItems: [] as any[],
+    itemOdds: {} as Record<string, number>
   });
   const [showCreateAchievement, setShowCreateAchievement] = useState(false);
   const [showEditAchievement, setShowEditAchievement] = useState(false);
@@ -470,7 +477,7 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 h-full">
-      <aside className="md:col-span-1 border-r bg-card/50 p-4">
+      <aside className="md:col-span-1 border-r bg-card/50 p-4 overflow-y-auto">
         <nav className="flex flex-col gap-2">
           <button onClick={() => setActiveNav('dashboard')} className={cn('flex items-center gap-2 px-3 py-2 rounded', activeNav === 'dashboard' ? 'bg-accent text-black' : 'text-muted-foreground')}>
             <LineChart className="w-4 h-4" /> Dashboard
@@ -917,11 +924,18 @@ export default function AdminDashboardPage() {
                       <TableCell>{u.coins?.toLocaleString() || 0}</TableCell>
                       <TableCell>{u.gems?.toLocaleString() || 0}</TableCell>
                       <TableCell>{u.xp?.toLocaleString() || 0}</TableCell>
-                      <TableCell>{u.currentRank || 'Unranked'}</TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-primary">
+                          {u.rank_name || 'Silver I'}
+                        </span>
+                      </TableCell>
                       <TableCell>{u.inventoryCount || 0}</TableCell>
                       <TableCell>{new Date(u.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
+                          <Button variant="default" size="sm" onClick={() => { setSelectedUser(u); setShowGiveKeysDialog(true); }} className="bg-blue-600 hover:bg-blue-700">
+                            Give Keys
+                          </Button>
                           <Button variant="secondary" size="sm" onClick={() => { setEditingUser(u); setShowEditUser(true); }}>Edit</Button>
                           <Button variant="destructive" size="sm" onClick={() => { setSelectedUser(u); setShowDeleteUser(true); }}>Delete</Button>
                         </div>
@@ -4089,10 +4103,10 @@ export default function AdminDashboardPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Image</TableHead>
+                    <TableHead className="w-[80px]">Image</TableHead>
                     <TableHead>Name</TableHead>
                     <TableHead>Description</TableHead>
-                    <TableHead>Price</TableHead>
+                    <TableHead>Rewards</TableHead>
                     <TableHead>Contents</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Actions</TableHead>
@@ -4102,7 +4116,13 @@ export default function AdminDashboardPage() {
                   {crates.map((crate: any) => (
                     <TableRow key={crate.id}>
                       <TableCell>
-                        <img src={crate.image || '/default-team-logo.png'} className="h-12 w-12 rounded object-cover" alt="crate"/>
+                        {crate.image_url ? (
+                          <img src={crate.image_url} className="h-12 w-12 rounded object-cover" alt="crate"/>
+                        ) : (
+                          <div className="h-12 w-12 bg-muted rounded flex items-center justify-center">
+                            <Archive className="w-6 h-6 text-muted-foreground" />
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <div className="font-semibold">{crate.name}</div>
@@ -4111,25 +4131,41 @@ export default function AdminDashboardPage() {
                         <div className="text-sm text-muted-foreground max-w-xs truncate">{crate.description}</div>
                       </TableCell>
                       <TableCell>
-                        <span className="font-semibold">{crate.price} coins</span>
+                        <div className="text-xs space-y-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-blue-400">XP:</span>
+                            <span className="font-mono">{crate.xp_reward || 0}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-yellow-400">Coins:</span>
+                            <span className="font-mono">{crate.coin_reward || 0}</span>
+                          </div>
+                          {(crate.gem_reward || 0) > 0 && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-purple-400">Gems:</span>
+                              <span className="font-mono">{crate.gem_reward}</span>
+                            </div>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
-                        <div className="text-sm">
-                          {crate.contents && crate.contents.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {crate.contents.slice(0, 3).map((item: string, idx: number) => (
-                                <span key={idx} className="px-2 py-1 rounded text-xs bg-purple-100 text-purple-800">
-                                  {item}
-                                </span>
-                              ))}
-                              {crate.contents.length > 3 && (
-                                <span className="px-2 py-1 rounded text-xs bg-gray-100 text-gray-800">
-                                  +{crate.contents.length - 3} more
-                                </span>
-                              )}
-                            </div>
+                        <div>
+                          {Array.isArray(crate.items) && crate.items.length > 0 ? (
+                            <details className="cursor-pointer">
+                              <summary className="text-sm font-medium text-primary hover:underline">
+                                {crate.items.length} item{crate.items.length !== 1 ? 's' : ''} configured
+                              </summary>
+                              <div className="mt-2 space-y-1 pl-2">
+                                {crate.items.map((ci: any, idx: number) => (
+                                  <div key={idx} className="text-xs bg-secondary/50 px-2 py-1 rounded flex justify-between items-center gap-2">
+                                    <span className="font-medium">{ci.item?.name || `Item ${ci.item_id}`}</span>
+                                    <span className="text-muted-foreground">{((ci.drop_chance || 0) * 100).toFixed(1)}%</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
                           ) : (
-                            <span className="text-muted-foreground">No contents</span>
+                            <span className="text-muted-foreground text-sm">No items configured</span>
                           )}
                         </div>
                       </TableCell>
@@ -4144,13 +4180,25 @@ export default function AdminDashboardPage() {
                         <div className="flex gap-2">
                           <Button variant="secondary" size="sm" onClick={() => {
                             setEditingCrate(crate);
+                            // Load selected items and odds from crate_items table
+                            const selectedItemIds = Array.isArray(crate.items) ? crate.items.map((ci: any) => ci.item_id) : [];
+                            const odds: Record<string, number> = {};
+                            if (Array.isArray(crate.items)) {
+                              crate.items.forEach((ci: any) => {
+                                odds[ci.item_id] = (ci.drop_chance || 0) * 100; // Convert to percentage
+                              });
+                            }
                             setNewCrate({
                               name: crate.name,
                               description: crate.description,
-                              price: crate.price,
-                              image: crate.image,
+                              image: crate.image_url || '',
                               contents: crate.contents || [],
-                              isActive: crate.is_active
+                              isActive: crate.is_active,
+                              xp_reward: crate.xp_reward || 0,
+                              coin_reward: crate.coin_reward || 0,
+                              gem_reward: crate.gem_reward || 0,
+                              selectedItems: selectedItemIds,
+                              itemOdds: odds
                             });
                             setShowEditCrate(true);
                           }}>Edit</Button>
@@ -4159,10 +4207,16 @@ export default function AdminDashboardPage() {
                             const res = await fetch(`/api/admin/crates?id=${crate.id}`, { method: 'DELETE' });
                             if (res.ok) {
                               setCrates(crates.filter((c: any) => c.id !== crate.id));
-                              alert('Crate deleted');
+                              toast({
+                                title: "Success",
+                                description: "Crate deleted successfully"
+                              });
                             } else {
-                              const data = await res.json();
-                              alert(data.error || 'Delete failed');
+                              toast({
+                                variant: "destructive",
+                                title: "Error",
+                                description: "Delete failed"
+                              });
                             }
                           }}>Delete</Button>
                         </div>
@@ -4458,6 +4512,7 @@ export default function AdminDashboardPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Moderate user {selectedUser?.displayName || selectedUser?.email}</DialogTitle>
+              <DialogDescription>Apply moderation actions to this user</DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
               <Label>Action</Label>
@@ -4493,6 +4548,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Shop Item</DialogTitle>
+              <DialogDescription>Add a new item to the shop</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -4658,6 +4714,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Shop Item</DialogTitle>
+              <DialogDescription>Modify item details and pricing</DialogDescription>
             </DialogHeader>
             {editingItem && (
               <div className="space-y-4">
@@ -4826,6 +4883,7 @@ export default function AdminDashboardPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Create Badge</DialogTitle>
+              <DialogDescription>Create a new badge for users to earn</DialogDescription>
             </DialogHeader>
             <div className="space-y-2">
               <Label>Name</Label>
@@ -4889,6 +4947,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="flex w-[95vw] flex-col sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[85vh]">
             <DialogHeader>
               <DialogTitle>Edit Match</DialogTitle>
+              <DialogDescription>Update match details and status</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 overflow-y-auto pr-1">
               <div className="space-y-2">
@@ -4993,6 +5052,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Create Perk</DialogTitle>
+              <DialogDescription>Add a new perk for VIP users</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -5082,6 +5142,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Edit Perk</DialogTitle>
+              <DialogDescription>Modify perk details and requirements</DialogDescription>
             </DialogHeader>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -5172,6 +5233,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Rank</DialogTitle>
+              <DialogDescription>Add a new rank tier</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5239,6 +5301,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Rank</DialogTitle>
+              <DialogDescription>Modify rank tier details</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5308,6 +5371,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Crate</DialogTitle>
+              <DialogDescription>Add a new crate type</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5319,17 +5383,74 @@ export default function AdminDashboardPage() {
                 <Input value={newCrate.description} onChange={(e) => setNewCrate({ ...newCrate, description: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Price (coins) *</Label>
-                <Input type="number" value={newCrate.price} onChange={(e) => setNewCrate({ ...newCrate, price: parseInt(e.target.value) || 0 })} />
-              </div>
-              <div className="space-y-2">
                 <Label>Image URL</Label>
                 <Input value={newCrate.image} onChange={(e) => setNewCrate({ ...newCrate, image: e.target.value })} />
                 {newCrate.image && <img src={newCrate.image} className="h-16 w-16 mt-2 rounded" alt="preview" />}
               </div>
               <div className="space-y-2">
-                <Label>Contents (comma-separated)</Label>
-                <Input value={newCrate.contents.join(', ')} onChange={(e) => setNewCrate({ ...newCrate, contents: e.target.value.split(',').map(s => s.trim()).filter(s => s) })} />
+                <Label>Rewards (when opening)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">XP</Label>
+                    <Input type="number" value={newCrate.xp_reward || 0} onChange={(e) => setNewCrate({ ...newCrate, xp_reward: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Coins</Label>
+                    <Input type="number" value={newCrate.coin_reward || 0} onChange={(e) => setNewCrate({ ...newCrate, coin_reward: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Gems</Label>
+                    <Input type="number" value={newCrate.gem_reward || 0} onChange={(e) => setNewCrate({ ...newCrate, gem_reward: parseInt(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Items & Drop Rates ({items.length} items available)</Label>
+                <div className="border rounded p-3 max-h-60 overflow-y-auto space-y-2">
+                  {items.length > 0 ? items.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                      <div className="flex items-center gap-2 flex-1">
+                        <input 
+                          type="checkbox" 
+                          checked={newCrate.selectedItems?.includes(item.id) || false}
+                          onChange={(e) => {
+                            const selected = newCrate.selectedItems || [];
+                            if (e.target.checked) {
+                              setNewCrate({ ...newCrate, selectedItems: [...selected, item.id] });
+                            } else {
+                              setNewCrate({ ...newCrate, selectedItems: selected.filter((id: any) => id !== item.id) });
+                            }
+                          }}
+                        />
+                        <span className="text-sm font-medium">{item.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          item.rarity === 'Legendary' || item.rarity === 'Covert' ? 'bg-purple-500 text-white' :
+                          item.rarity === 'Epic' || item.rarity === 'Classified' ? 'bg-blue-500 text-white' :
+                          item.rarity === 'Rare' || item.rarity === 'Restricted' ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                        }`}>{item.rarity}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs">Drop %:</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="100" 
+                          step="0.1"
+                          className="w-20 h-8 text-xs"
+                          value={newCrate.itemOdds?.[item.id] || 0}
+                          onChange={(e) => setNewCrate({ 
+                            ...newCrate, 
+                            itemOdds: { ...newCrate.itemOdds, [item.id]: parseFloat(e.target.value) || 0 }
+                          })}
+                        />
+                      </div>
+                    </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No items in database. Go to Shop Items to create items first.
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="flex items-center space-x-2">
                 <input type="checkbox" id="isActive" checked={newCrate.isActive} onChange={(e) => setNewCrate({ ...newCrate, isActive: e.target.checked })} />
@@ -5338,8 +5459,12 @@ export default function AdminDashboardPage() {
             </div>
             <DialogFooter>
               <Button onClick={async () => {
-                if (!newCrate.name || !newCrate.description || newCrate.price === undefined) {
-                  alert('Please fill in required fields (Name, Description, and Price)');
+                if (!newCrate.name || !newCrate.description) {
+                  toast({
+                    variant: "destructive",
+                    title: "Missing Fields",
+                    description: "Please fill in Name and Description"
+                  });
                   return;
                 }
                 const res = await fetch('/api/admin/crates', {
@@ -5359,15 +5484,26 @@ export default function AdminDashboardPage() {
                   setNewCrate({
                     name: '',
                     description: '',
-                    price: 0,
                     image: '',
                     contents: [],
-                    isActive: true
+                    isActive: true,
+                    xp_reward: 0,
+                    coin_reward: 0,
+                    gem_reward: 0,
+                    selectedItems: [],
+                    itemOdds: {}
                   });
-                  alert('Crate created successfully');
+                  toast({
+                    title: "Success",
+                    description: "Crate created successfully"
+                  });
                 } else {
                   const d = await res.json();
-                  alert(d.error || 'Create failed');
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: d.error || 'Create failed'
+                  });
                 }
               }}>Create</Button>
               <Button variant="ghost" onClick={() => setShowCreateCrate(false)}>Cancel</Button>
@@ -5380,6 +5516,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Crate</DialogTitle>
+              <DialogDescription>Modify crate properties</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5391,13 +5528,74 @@ export default function AdminDashboardPage() {
                 <Input value={newCrate.description} onChange={(e) => setNewCrate({ ...newCrate, description: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Price (coins) *</Label>
-                <Input type="number" value={newCrate.price} onChange={(e) => setNewCrate({ ...newCrate, price: parseInt(e.target.value) || 0 })} />
-              </div>
-              <div className="space-y-2">
                 <Label>Image URL</Label>
                 <Input value={newCrate.image} onChange={(e) => setNewCrate({ ...newCrate, image: e.target.value })} />
                 {newCrate.image && <img src={newCrate.image} className="h-16 w-16 mt-2 rounded" alt="preview" />}
+              </div>
+              <div className="space-y-2">
+                <Label>Rewards (when opening)</Label>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">XP</Label>
+                    <Input type="number" value={newCrate.xp_reward || 0} onChange={(e) => setNewCrate({ ...newCrate, xp_reward: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Coins</Label>
+                    <Input type="number" value={newCrate.coin_reward || 0} onChange={(e) => setNewCrate({ ...newCrate, coin_reward: parseInt(e.target.value) || 0 })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Gems</Label>
+                    <Input type="number" value={newCrate.gem_reward || 0} onChange={(e) => setNewCrate({ ...newCrate, gem_reward: parseInt(e.target.value) || 0 })} />
+                  </div>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Items & Drop Rates ({items.length} items available)</Label>
+                <div className="border rounded p-3 max-h-60 overflow-y-auto space-y-2">
+                  {items.length > 0 ? items.map((item: any) => (
+                    <div key={item.id} className="flex items-center justify-between p-2 bg-muted rounded">
+                      <div className="flex items-center gap-2 flex-1">
+                        <input 
+                          type="checkbox" 
+                          checked={newCrate.selectedItems?.includes(item.id) || false}
+                          onChange={(e) => {
+                            const selected = newCrate.selectedItems || [];
+                            if (e.target.checked) {
+                              setNewCrate({ ...newCrate, selectedItems: [...selected, item.id] });
+                            } else {
+                              setNewCrate({ ...newCrate, selectedItems: selected.filter((id: any) => id !== item.id) });
+                            }
+                          }}
+                        />
+                        <span className="text-sm font-medium">{item.name}</span>
+                        <span className={`text-xs px-2 py-0.5 rounded ${
+                          item.rarity === 'Legendary' || item.rarity === 'Covert' ? 'bg-purple-500 text-white' :
+                          item.rarity === 'Epic' || item.rarity === 'Classified' ? 'bg-blue-500 text-white' :
+                          item.rarity === 'Rare' || item.rarity === 'Restricted' ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                        }`}>{item.rarity}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs">Drop %:</Label>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="100" 
+                          step="0.1"
+                          className="w-20 h-8 text-xs"
+                          value={newCrate.itemOdds?.[item.id] || 0}
+                          onChange={(e) => setNewCrate({ 
+                            ...newCrate, 
+                            itemOdds: { ...newCrate.itemOdds, [item.id]: parseFloat(e.target.value) || 0 }
+                          })}
+                        />
+                      </div>
+                    </div>
+                  )) : (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      No items in database. Go to Shop Items to create items first.
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 <Label>Contents (comma-separated)</Label>
@@ -5411,18 +5609,26 @@ export default function AdminDashboardPage() {
             <DialogFooter>
               <Button onClick={async () => {
                 if (!editingCrate) return;
-                if (!newCrate.name || !newCrate.description || newCrate.price === undefined) {
-                  alert('Please fill in required fields (Name, Description, and Price)');
+                if (!newCrate.name || !newCrate.description) {
+                  toast({
+                    variant: "destructive",
+                    title: "Missing Fields",
+                    description: "Please fill in Name and Description"
+                  });
                   return;
                 }
                 const updateData = {
                   id: editingCrate.id,
                   name: newCrate.name,
                   description: newCrate.description,
-                  price: newCrate.price,
                   image: newCrate.image,
                   contents: newCrate.contents,
-                  isActive: newCrate.isActive
+                  isActive: newCrate.isActive,
+                  xp_reward: newCrate.xp_reward || 0,
+                  coin_reward: newCrate.coin_reward || 0,
+                  gem_reward: newCrate.gem_reward || 0,
+                  selectedItems: newCrate.selectedItems || [],
+                  itemOdds: newCrate.itemOdds || {}
                 };
                 const res = await fetch('/api/admin/crates', {
                   method: 'PUT',
@@ -5438,10 +5644,17 @@ export default function AdminDashboardPage() {
                   }
                   setShowEditCrate(false);
                   setEditingCrate(null);
-                  alert('Crate updated successfully');
+                  toast({
+                    title: "Success",
+                    description: "Crate updated successfully"
+                  });
                 } else {
                   const d = await res.json();
-                  alert(d.error || 'Update failed');
+                  toast({
+                    variant: "destructive",
+                    title: "Error",
+                    description: d.error || 'Update failed'
+                  });
                 }
               }}>Update</Button>
               <Button variant="ghost" onClick={() => setShowEditCrate(false)}>Cancel</Button>
@@ -5454,6 +5667,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Achievement</DialogTitle>
+              <DialogDescription>Add a new achievement to earn</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5535,6 +5749,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Achievement</DialogTitle>
+              <DialogDescription>Modify achievement details</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5618,6 +5833,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Support Ticket #{selectedTicket?.id?.slice(-8)}</DialogTitle>
+              <DialogDescription>View and respond to support ticket</DialogDescription>
             </DialogHeader>
             {selectedTicket && (
               <div className="space-y-6">
@@ -5786,6 +6002,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Send Message to Users</DialogTitle>
+              <DialogDescription>Broadcast a message to all users</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5877,6 +6094,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Mission</DialogTitle>
+              <DialogDescription>Add a new daily or weekly mission</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -5980,6 +6198,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Mission</DialogTitle>
+              <DialogDescription>Modify mission details and rewards</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -6086,6 +6305,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Badge</DialogTitle>
+              <DialogDescription>Create a new badge for users to earn</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -6171,6 +6391,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Badge</DialogTitle>
+              <DialogDescription>Modify badge details</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -6259,6 +6480,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit User</DialogTitle>
+              <DialogDescription>Modify user account details</DialogDescription>
             </DialogHeader>
             {editingUser && (
               <div className="space-y-4">
@@ -6361,6 +6583,7 @@ export default function AdminDashboardPage() {
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Delete User</DialogTitle>
+              <DialogDescription>Permanently remove this user account</DialogDescription>
             </DialogHeader>
             <p>Are you sure you want to delete user "{selectedUser?.displayname || selectedUser?.email}"? This action cannot be undone.</p>
             <DialogFooter>
@@ -6394,6 +6617,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create Flash Sale</DialogTitle>
+              <DialogDescription>Create a new flash sale for items</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -6524,6 +6748,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit Flash Sale</DialogTitle>
+              <DialogDescription>Modify flash sale details</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -6653,6 +6878,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="flex w-[95vw] flex-col sm:max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[85vh]">
             <DialogHeader>
               <DialogTitle>Create Match</DialogTitle>
+              <DialogDescription>Create a new match for users to participate in</DialogDescription>
             </DialogHeader>
             <div className="space-y-4 flex-1 overflow-y-auto pr-1">
               <div className="space-y-2">
@@ -6807,13 +7033,12 @@ export default function AdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
-
-
         {/* Create reward dialog */}
         <Dialog open={showCreateReward} onOpenChange={setShowCreateReward}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Create User Reward</DialogTitle>
+              <DialogDescription>Create a new reward for users to earn</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -6968,6 +7193,7 @@ export default function AdminDashboardPage() {
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>Edit User Reward</DialogTitle>
+              <DialogDescription>Modify user rewards</DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -7116,6 +7342,69 @@ export default function AdminDashboardPage() {
                 }
               }}>Update</Button>
               <Button variant="ghost" onClick={() => setShowEditReward(false)}>Cancel</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Give Keys Dialog */}
+        <Dialog open={showGiveKeysDialog} onOpenChange={setShowGiveKeysDialog}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Give Crate Keys</DialogTitle>
+              <DialogDescription>Give crate keys to {selectedUser?.displayname || selectedUser?.email}</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Select Crate</Label>
+                <Select value={giveKeysCrateId} onValueChange={setGiveKeysCrateId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose a crate" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {crates.map((crate: any) => (
+                      <SelectItem key={crate.id} value={crate.id.toString()}>
+                        {crate.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Number of Keys</Label>
+                <Input 
+                  type="number" 
+                  min="1" 
+                  value={giveKeysAmount} 
+                  onChange={(e) => setGiveKeysAmount(parseInt(e.target.value) || 1)} 
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button onClick={async () => {
+                if (!giveKeysCrateId || !selectedUser) {
+                  toast({ variant: 'destructive', title: 'Please select a crate' });
+                  return;
+                }
+                const res = await fetch('/api/admin/give-crate-key', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    userId: selectedUser.id,
+                    crateId: parseInt(giveKeysCrateId),
+                    keysCount: giveKeysAmount
+                  })
+                });
+                if (res.ok) {
+                  toast({ title: 'Success', description: `Gave ${giveKeysAmount} key(s) to ${selectedUser.displayname}` });
+                  setShowGiveKeysDialog(false);
+                  setGiveKeysAmount(1);
+                  setGiveKeysCrateId('');
+                } else {
+                  const data = await res.json();
+                  toast({ variant: 'destructive', title: 'Error', description: data.error || 'Failed to give keys' });
+                }
+              }}>Give Keys</Button>
+              <Button variant="ghost" onClick={() => setShowGiveKeysDialog(false)}>Cancel</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

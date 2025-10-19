@@ -1,17 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { cookies } from 'next/headers';
 
 // POST /api/inventory/sell - Sell an item from inventory
 export async function POST(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('equipgg_session');
     
-    if (authError || !session) {
+    if (!sessionCookie) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const session = JSON.parse(decodeURIComponent(sessionCookie.value));
+    const userId = session.user_id;
+    const supabase = createServerSupabaseClient();
 
     const body = await request.json();
     const { itemId, sellPrice } = body;
@@ -28,13 +34,13 @@ export async function POST(request: NextRequest) {
       supabase
         .from('users')
         .select('id, coins')
-        .eq('id', session.user.id)
+        .eq('id', userId)
         .single(),
       supabase
         .from('user_inventory')
         .select('*, item:items(*)')
         .eq('id', itemId)
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .single()
     ]);
 
@@ -58,21 +64,34 @@ export async function POST(request: NextRequest) {
     const inventoryItem = inventoryItemResponse.data;
 
     // Calculate sell price (typically 70-80% of item value)
-    const itemValue = inventoryItem.item.value || 100;
+    const itemValue = inventoryItem.item.coin_price || 100;
     const calculatedSellPrice = sellPrice || Math.floor(itemValue * 0.75);
 
-    // Start a transaction
-    const { data: transaction, error: transactionError } = await supabase.rpc('sell_inventory_item', {
-      p_user_id: session.user.id,
-      p_item_id: itemId,
-      p_sell_price: calculatedSellPrice,
-      p_description: `Sold ${inventoryItem.item.name}`
-    });
+    // Delete item from inventory
+    const { error: deleteError } = await supabase
+      .from('user_inventory')
+      .delete()
+      .eq('id', itemId)
+      .eq('user_id', userId);
 
-    if (transactionError) {
-      console.error('Error during sell transaction:', transactionError);
+    if (deleteError) {
+      console.error('Error deleting item:', deleteError);
       return NextResponse.json(
-        { error: 'Failed to complete sale' },
+        { error: 'Failed to delete item' },
+        { status: 500 }
+      );
+    }
+
+    // Update user coins
+    const { error: updateError } = await supabase
+      .from('users')
+      .update({ coins: user.coins + calculatedSellPrice })
+      .eq('id', userId);
+
+    if (updateError) {
+      console.error('Error updating coins:', updateError);
+      return NextResponse.json(
+        { error: 'Failed to update balance' },
         { status: 500 }
       );
     }
@@ -102,14 +121,19 @@ export async function POST(request: NextRequest) {
 // GET /api/inventory/sell - Get sell price for an item
 export async function GET(request: NextRequest) {
   try {
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('equipgg_session');
     
-    if (authError || !session) {
+    if (!sessionCookie) {
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
       );
     }
+    
+    const session = JSON.parse(decodeURIComponent(sessionCookie.value));
+    const userId = session.user_id;
+    const supabase = createServerSupabaseClient();
 
     const { searchParams } = new URL(request.url);
     const itemId = searchParams.get('itemId');
@@ -146,7 +170,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate sell price (75% of item value)
-    const itemValue = inventoryItem.item.value || 100;
+    const itemValue = inventoryItem.item.coin_price || 100;
     const sellPrice = Math.floor(itemValue * 0.75);
 
     // Get market data if available, otherwise use default values

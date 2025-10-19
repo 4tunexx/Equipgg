@@ -39,7 +39,14 @@ const rarityGlow: Record<Rarity, string> = {
 // Type aliases for easier use
 type InventoryItem = DBInventoryItem & { item: DBItem };
 interface CrateWithItems extends DBCrate {
-  items: Array<DBItem & { dropChance: number }>;
+  items: Array<{
+    id: number;
+    name: string;
+    type: string;
+    rarity: Rarity;
+    image: string;
+    dropChance: number;
+  }>;
   xpReward?: number;
   coinReward?: number;
 }
@@ -94,7 +101,7 @@ export default function CratesPage() {
   const [wonItem, setWonItem] = useState<InventoryItem | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [activeCrate, setActiveCrate] = useState<CrateData | null>(null);
-  const [userKeys, setUserKeys] = useState<Record<string, number>>({});
+  const [userKeys, setUserKeys] = useState<Record<number, number>>({});
   const [inventoryCount, setInventoryCount] = useState(0);
   const [userLevel, setUserLevel] = useState(1);
   const [showInventoryFullAlert, setShowInventoryFullAlert] = useState(false);
@@ -111,28 +118,63 @@ export default function CratesPage() {
       try {
         const queries = createSupabaseQueries(supabase);
         
-        // Fetch crates from Supabase
+        // Fetch crates with items from Supabase
         const crates = await queries.getAllCrates();
-        // Transform DBCrate to CrateWithItems with mock data
-        const cratesWithItems = crates.map(crate => ({
-          ...crate,
-          items: [], // Add empty items array for now
-          xpReward: 50,
-          coinReward: 100
-        }));
+        
+        // Fetch items for each crate
+        const cratesWithItems = await Promise.all(
+          crates.map(async (crate) => {
+            try {
+              const crateItems = await queries.getCrateItems(crate.id);
+              return {
+                ...crate,
+                items: crateItems.map(ci => ({
+                  id: ci.item!.id,
+                  name: ci.item!.name,
+                  type: ci.item!.type,
+                  rarity: ci.item!.rarity,
+                  image: ci.item!.image_url || ci.item!.image || '',
+                  dropChance: ci.drop_chance
+                })),
+                xpReward: crate.xp_reward || 50,
+                coinReward: crate.coin_reward || 100
+              };
+            } catch (error) {
+              console.warn(`No items for crate ${crate.id}:`, error);
+              return {
+                ...crate,
+                items: [],
+                xpReward: crate.xp_reward || 50,
+                coinReward: crate.coin_reward || 100
+              };
+            }
+          })
+        );
         setAllCrates(cratesWithItems);
         
-        // Fetch user inventory from Supabase
-        const inventory = await queries.getUserInventory(user.id);
-        setInventoryData(inventory as InventoryItem[]);
-        setInventoryCount(inventory.length);
+        // Fetch user inventory from Supabase with proper error handling
+        try {
+          const inventory = await queries.getUserInventory(user.id);
+          setInventoryData(inventory as InventoryItem[]);
+          setInventoryCount(inventory.length);
+        } catch (invError) {
+          // Silently handle inventory fetch error - user may not have any items yet
+          setInventoryData([]);
+          setInventoryCount(0);
+        }
         
-        // Fetch user keys with correct endpoint
-        const keysResponse = await fetch(`/api/user/crate-keys?t=${Date.now()}`);
-        if (keysResponse.ok) {
-          const keysData = await keysResponse.json();
-          setUserKeys(keysData.keys || {});
-          console.log('🔑 Fetched crate keys:', keysData.keys);
+        // Fetch user crate keys from database
+        try {
+          const keysData = await queries.getUserCrateKeys(user.id);
+          const keysMap: Record<number, number> = {};
+          keysData?.forEach((key: any) => {
+            keysMap[key.crate_id] = key.keys_count || 0;
+          });
+          setUserKeys(keysMap);
+          console.log('🔑 Fetched crate keys from database:', keysMap);
+        } catch (keysError) {
+          console.warn('Error fetching crate keys:', keysError);
+          setUserKeys({});
         }
 
         // Fetch user profile for level 
@@ -196,8 +238,7 @@ export default function CratesPage() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                crateId: crate.id,
-                crateName: crate.name
+                crateId: crate.id  // numeric ID
             })
         });
 
@@ -278,8 +319,8 @@ export default function CratesPage() {
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       <div className="text-center">
-        <h1 className="text-3xl font-bold font-headline">EquipGG.net Crates – Unlock Your CS2 Treasure Chest!</h1>
-        <p className="text-muted-foreground max-w-3xl mx-auto mt-2">Get ready to unbox the excitement with equipgg.net crates! Earned through leveling up, loyalty, prestige, trading, or special events, these crates offer a thrilling chance to snag rare skins, knives, gloves, and more. Each crate comes with its own rarity odds, so spin the wheel and see what legendary loot awaits! Dive into the collection below and start your unboxing adventure today!</p>
+        <h1 className="text-3xl font-bold font-headline">EquipGG Crates – Unlock Your CS2 Treasure!</h1>
+        <p className="text-muted-foreground max-w-3xl mx-auto mt-2">Get ready to unbox the excitement with EquipGG crates! Earned through leveling up, loyalty, prestige, or special events, these crates offer a thrilling chance to snag rare skins, knives, gloves, and more. Each crate comes with its own rarity odds, so open your crates and see what legendary loot awaits!</p>
       </div>
       
       {isLoading ? (
@@ -292,7 +333,13 @@ export default function CratesPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
           {allCrates.map((crate) => (
-            <CrateItem key={crate.id} crate={crate} onOpen={() => handleOpenCrate(crate)} disabled={isAnimating || (userKeys[crate.id] || 0) <= 0} />
+            <CrateItem 
+              key={crate.id} 
+              crate={crate} 
+              onOpen={() => handleOpenCrate(crate)} 
+              disabled={isAnimating}
+              keyCount={userKeys[crate.id] || 0}
+            />
           ))}
         </div>
       )}
@@ -330,40 +377,75 @@ export default function CratesPage() {
       </AlertDialog>
 
       <Dialog open={isOpening} onOpenChange={(open) => !open && handleReset()}>
-        <DialogContent className="max-w-4xl p-0 overflow-hidden bg-card/90 backdrop-blur-sm border-primary/20">
+        <DialogContent className="max-w-6xl p-0 overflow-hidden bg-black/95 backdrop-blur-md border-primary/30" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
             <VisuallyHidden>
                 <DialogHeader>
                     <DialogTitle>Crate Opening</DialogTitle>
                     <DialogDescription>Opening your crate to reveal the item inside</DialogDescription>
                 </DialogHeader>
             </VisuallyHidden>
-            <div className="h-[450px] flex flex-col justify-center items-center relative">
-                {wonItem && <CrateOpeningAnimation items={inventoryData.map(inv => ({
-                  id: inv.item.id,
-                  name: inv.item.name,
-                  type: inv.item.type,
-                  rarity: inv.item.rarity,
-                  image: inv.item.image || '/placeholder.png'
-                }))} wonItem={{
-                  id: wonItem.item.id,
-                  name: wonItem.item.name,
-                  type: wonItem.item.type,
-                  rarity: wonItem.item.rarity,
-                  image: wonItem.item.image || '/placeholder.png'
-                }} onAnimationEnd={handleAnimationEnd} />}
+            <div className="h-[500px] flex flex-col justify-center items-center relative">
+                {/* Skip Button */}
+                {!isRevealed && (
+                    <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={handleAnimationEnd}
+                        className="absolute top-4 right-4 z-50 bg-background/80 hover:bg-background"
+                    >
+                        Skip Animation
+                    </Button>
+                )}
+                {wonItem && activeCrate && <CrateOpeningAnimation 
+                  items={activeCrate.items && activeCrate.items.length > 0 
+                    ? activeCrate.items
+                        .filter((ci: any) => ci.item)
+                        .map((ci: any) => ({
+                          id: ci.item.id,
+                          name: ci.item.name,
+                          type: ci.item.type || ci.item.category,
+                          rarity: ci.item.rarity,
+                          image: ci.item.image_url || ci.item.image || 
+                            `https://www.csgodatabase.com/images/skins/webp/${ci.item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`
+                        }))
+                    : inventoryData
+                        .filter(inv => inv.item)
+                        .map(inv => ({
+                          id: inv.item.id,
+                          name: inv.item.name,
+                          type: inv.item.type,
+                          rarity: inv.item.rarity,
+                          image: inv.item.image_url || inv.item.image || '/placeholder.png'
+                        }))
+                  } 
+                  wonItem={{
+                    id: wonItem.item.id,
+                    name: wonItem.item.name,
+                    type: wonItem.item.type,
+                    rarity: wonItem.item.rarity,
+                    image: wonItem.item.image_url || wonItem.item.image || 
+                      `https://www.csgodatabase.com/images/skins/webp/${wonItem.item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`
+                  }} 
+                  crateImage={activeCrate.image_url || undefined}
+                  crateName={activeCrate.name}
+                  onAnimationEnd={handleAnimationEnd} 
+                />}
             </div>
             {isRevealed && wonItem && activeCrate && (
                  <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center animate-in fade-in-50 duration-500">
                     <DialogHeader>
                         <DialogTitle className="text-center text-3xl font-bold">You Won!</DialogTitle>
                     </DialogHeader>
-                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500", rarityGlow[wonItem.item.rarity as Rarity])}>
-                        <ItemImage
-                          itemName={wonItem.item.name}
-                          itemType={wonItem.item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-                          width={192}
-                          height={192}
-                          className="object-contain"
+                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500 flex items-center justify-center", rarityGlow[wonItem.item.rarity as Rarity])}>
+                        <img
+                          src={wonItem.item.image_url || wonItem.item.image || `https://www.csgodatabase.com/images/skins/webp/${wonItem.item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`}
+                          alt={wonItem.item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+                          onError={(e) => {
+                            console.error('❌ Won item image failed:', wonItem.item.name);
+                            const target = e.target as HTMLImageElement;
+                            target.src = '/placeholder.png';
+                          }}
                         />
                     </div>
                     <h3 className={cn("text-2xl font-semibold", rarityColors[wonItem.item.rarity as Rarity])}>{wonItem.item.name}</h3>
