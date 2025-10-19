@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from '../../../../lib/supabase';
 import { getAuthSessionWithToken } from "../../../../lib/auth-utils";
-import { addXP } from "../../../../lib/xp-service";
-import { achievementService } from "../../../../lib/achievement-service";
-import { trackBetPlaced } from "../../../../lib/mission-tracker";
+import { addXpForBetPlaced } from "../../../../lib/xp-leveling-system";
+import { checkAndAwardAchievements } from "../../../../lib/achievement-integration";
+import { trackMissionProgress } from "../../../../lib/mission-integration";
+import { broadcastNewBet } from "../../../../lib/supabase/realtime";
 
 // Note: create server admin client inside the handler to avoid import-time errors
 
@@ -152,60 +153,44 @@ export async function POST(request: NextRequest) {
 
     // Award XP for placing a bet
     try {
-      await addXP(
-        session.user_id,
-        10, // 10 XP for placing a bet
-        'betting',
-        `Placed bet on ${matchData.team_a_name} vs ${matchData.team_b_name}`
-      );
+      await addXpForBetPlaced(session.user_id, amount);
     } catch (xpError) {
       console.warn('Failed to award XP for bet placement:', xpError);
-      // Don't fail the bet if XP award fails
     }
 
-    // Check for achievements
+    // Check for achievements (uses REAL Supabase achievements - 66 total)
     try {
-      const achievements = await achievementService.checkAchievements(session.user_id, 'bet_placed', {
-        amount: amount,
-        payout: potentialPayout,
-        match: matchData
-      });
-      
+      const achievements = await checkAndAwardAchievements(session.user_id, 'betting');
       if (achievements.length > 0) {
-        console.log(`🎉 User ${session.user_id} unlocked ${achievements.length} achievements for placing bet!`);
+        console.log(`🏆 Unlocked ${achievements.length} achievement(s) for user ${session.user_id}`);
       }
     } catch (achievementError) {
-      console.warn('Failed to check achievements for bet placement:', achievementError);
-      // Don't fail the bet if achievement check fails
+      console.warn('Failed to check achievements:', achievementError);
     }
 
-    // Track mission progress for betting
+    // Track mission progress (uses REAL Supabase missions - 61 total)
     try {
-      await trackBetPlaced(session.user_id, amount, 'match_betting', supabaseAdmin);
-      console.log(`📝 Tracked bet placement for mission progress: User ${session.user_id}, Amount ${amount}`);
+      await trackMissionProgress(session.user_id, 'bet_placed', 1);
+      console.log(`📝 Tracked bet placement for mission progress: User ${session.user_id}`);
     } catch (missionError) {
-      console.warn('Failed to track mission progress for bet placement:', missionError);
-      // Don't fail the bet if mission tracking fails
+      console.warn('Failed to track mission progress:', missionError);
     }
 
-    // Notify about new bet via Socket.IO
+    // Notify about new bet via Supabase Realtime
     try {
-      const { getSocketServer } = await import('@/lib/socket-server');
-      const io = getSocketServer();
-      if (io) {
-        io.to(`betting:${matchId}`).emit('new-bet', {
-          matchId: matchData.id,
-          amount: amount,
-          team: normalizedTeam,
-          odds: odds,
-          user: session.user_id,
-          timestamp: new Date().toISOString()
-        });
-        console.log(`📡 Broadcasted new bet to betting:${matchId} room`);
-      }
-    } catch (socketError) {
-      console.warn('Failed to broadcast bet via Socket.IO:', socketError);
-      // Don't fail the bet if socket broadcast fails
+      await broadcastNewBet({
+        userId: session.user_id,
+        username: userData.username || 'Anonymous',
+        matchId: matchData.id,
+        team: normalizedTeam,
+        amount: amount,
+        odds: odds,
+        timestamp: new Date().toISOString()
+      });
+      console.log(`📡 Broadcasted new bet for match ${matchId} via Supabase Realtime`);
+    } catch (realtimeError) {
+      console.warn('Failed to broadcast bet via Supabase Realtime:', realtimeError);
+      // Don't fail the bet if realtime broadcast fails
     }
 
     return NextResponse.json({

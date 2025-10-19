@@ -33,7 +33,9 @@ export default function LeaderboardPage() {
                 const response = await fetch('/api/leaderboard');
                 if (response.ok) {
                     const data = await response.json();
-                    setLeaderboardData(data);
+                    // Handle new API format
+                    const playersList = Array.isArray(data) ? data : (data.players || []);
+                    setLeaderboardData(playersList);
                 } else {
                     setError('Failed to fetch leaderboard data');
                 }

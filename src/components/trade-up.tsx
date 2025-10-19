@@ -124,11 +124,12 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
         setResult(null);
 
         try {
-            const response = await fetch('/api/trade-up', {
+            const response = await fetch('/api/inventory/trade-up', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
+                credentials: 'include',
                 body: JSON.stringify({
                     itemIds: selectedItems.map(item => item.id)
                 })
@@ -137,14 +138,18 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
             const data = await response.json();
 
             if (response.ok && data.success) {
-                setResult(data.result);
-                
                 // Notify parent component to update the main inventory
-                onTradeUpComplete(selectedItems.map(i => i.id), data.result.newItem);
+                onTradeUpComplete(selectedItems.map(i => i.id), data.outputItem);
                 
                 toast({
-                    title: "Trade-Up Complete!",
-                    description: data.result.reason,
+                    title: "🔄 Trade-Up Complete!",
+                    description: data.message,
+                });
+                
+                setResult({
+                    newItem: data.outputItem,
+                    success: true,
+                    reason: data.message
                 });
             } else {
                 throw new Error(data.error || 'Trade-up failed');

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../../lib/supabase/client";
 import { createClient } from '@supabase/supabase-js';
 import { getAuthSession } from "../../../../lib/auth-utils";
+import { addXpForCrateOpened } from "../../../../lib/xp-leveling-system";
+import { trackMissionProgress } from "../../../../lib/mission-integration";
+import { createNotification } from "../../../../lib/notification-utils";
 
 // Create Supabase admin client for secure operations
 const supabaseAdmin = createClient(
@@ -155,6 +158,27 @@ export async function POST(request: NextRequest) {
           });
       } catch (activityError) {
         console.warn('Failed to log crate opening activity:', activityError);
+      }
+
+      // Award XP for crate opening
+      try {
+        await addXpForCrateOpened(session.user_id, wonItem.rarity);
+        await trackMissionProgress(session.user_id, 'crate_opened', 1);
+        
+        // Create notification for item received
+        await createNotification({
+          userId: session.user_id,
+          type: 'item_received',
+          title: '🎁 New Item!',
+          message: `${wonItem.name} (${wonItem.rarity}) added to your inventory!`,
+          data: {
+            itemId: wonItem.id,
+            itemName: wonItem.name,
+            rarity: wonItem.rarity
+          }
+        });
+      } catch (xpError) {
+        console.warn('Failed to award XP/notification for crate opening:', xpError);
       }
 
       return NextResponse.json({

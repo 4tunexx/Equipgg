@@ -1,57 +1,22 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useSocket } from "../contexts/socket-context";
+import { useRealtime } from "../contexts/realtime-context";
 import { useAuth } from "../components/auth-provider";
 import { useBalance } from "../contexts/balance-context";
 import { toast } from 'sonner';
-
-interface BetPlacedEvent {
-  userId: string;
-  username: string;
-  matchId: string;
-  team: string;
-  amount: number;
-  timestamp: string;
-}
-
-interface BetResultEvent {
-  betId: string;
-  matchId: string;
-  won: boolean;
-  amount: number;
-  winnings: number;
-  timestamp: string;
-}
-
-interface XpGainedEvent {
-  userId: string;
-  amount: number;
-  source: string;
-  newLevel?: number;
-  leveledUp?: boolean;
-  timestamp: string;
-}
-
-interface BalanceUpdatedEvent {
-  userId: string;
-  coins: number;
-  gems: number;
-  xp: number;
-  level: number;
-  timestamp: string;
-}
+import type { NewBetPayload, BetResultPayload, XpGainedPayload, LevelUpPayload, BalanceUpdatedPayload } from "../lib/supabase/realtime";
 
 export function useRealtimeBetting() {
-  const { socket, isConnected } = useSocket();
+  const { isConnected, onNewBet, onBetResult, onXpGained, onLevelUp, onBalanceUpdated } = useRealtime();
   const { user } = useAuth();
   const { updateBalance } = useBalance();
 
   // Listen for bet placed events
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!isConnected) return;
 
-    const handleBetPlaced = (data: BetPlacedEvent) => {
+    const handleBetPlaced = (data: NewBetPayload) => {
       // Only show notifications for other users' bets
       if (data.userId !== user?.id && data.amount && data.username && data.team) {
         toast.info(`${data.username} placed a ${(data.amount || 0).toLocaleString?.() || '0'} coin bet on ${data.team}`, {
@@ -60,66 +25,65 @@ export function useRealtimeBetting() {
       }
     };
 
-    socket.on('betPlaced', handleBetPlaced);
-
-    return () => {
-      socket.off('betPlaced', handleBetPlaced);
-    };
-  }, [socket, isConnected, user?.id]);
+    onNewBet(handleBetPlaced);
+  }, [isConnected, user?.id, onNewBet]);
 
   // Listen for bet result events
   useEffect(() => {
-    if (!socket || !isConnected || !user) return;
+    if (!isConnected || !user) return;
 
-    const handleBetResult = (data: BetResultEvent) => {
-      if (data.won && data.winnings !== undefined) {
-        toast.success(`🎉 You won ${(data.winnings || 0).toLocaleString?.() || '0'} coins!`, {
-          duration: 5000,
-        });
-      } else if (data.amount !== undefined) {
-        toast.error(`💸 Lost ${(data.amount || 0).toLocaleString()} coins`, {
-          duration: 3000,
-        });
-      }
-    };
-
-    socket.on('betResult', handleBetResult);
-
-    return () => {
-      socket.off('betResult', handleBetResult);
-    };
-  }, [socket, isConnected, user]);
-
-  // Listen for XP gained events
-  useEffect(() => {
-    if (!socket || !isConnected || !user) return;
-
-    const handleXpGained = (data: XpGainedEvent) => {
+    const handleBetResult = (data: BetResultPayload) => {
       if (data.userId === user.id) {
-        if (data.leveledUp) {
-          toast.success(`🎉 Level Up! You're now level ${data.newLevel}!`, {
+        if (data.won && data.winnings !== undefined) {
+          toast.success(`🎉 You won ${(data.winnings || 0).toLocaleString?.() || '0'} coins!`, {
             duration: 5000,
           });
-        } else {
-          toast.info(`+${data.amount} XP from ${data.source}`, {
-            duration: 2000,
+        } else if (data.amount !== undefined) {
+          toast.error(`💸 Lost ${(data.amount || 0).toLocaleString()} coins`, {
+            duration: 3000,
           });
         }
       }
     };
 
-    socket.on('xpGained', handleXpGained);
+    onBetResult(handleBetResult);
+  }, [isConnected, user, onBetResult]);
 
-    return () => {
-      socket.off('xpGained', handleXpGained);
+  // Listen for XP gained events
+  useEffect(() => {
+    if (!isConnected || !user) return;
+
+    const handleXpGained = (data: XpGainedPayload) => {
+      if (data.userId === user.id) {
+        toast.info(`+${data.amount} XP from ${data.source}`, {
+          duration: 2000,
+        });
+      }
     };
-  }, [socket, isConnected, user]);
+
+    onXpGained(handleXpGained);
+  }, [isConnected, user, onXpGained]);
+
+  // Listen for level up events
+  useEffect(() => {
+    if (!isConnected || !user) return;
+
+    const handleLevelUp = (data: LevelUpPayload) => {
+      if (data.userId === user.id) {
+        toast.success(`🎉 Level Up! You're now level ${data.newLevel}!`, {
+          duration: 5000,
+        });
+      }
+    };
+
+    onLevelUp(handleLevelUp);
+  }, [isConnected, user, onLevelUp]);
 
   // Listen for balance updates
   useEffect(() => {
-    if (!socket || !isConnected || !user) return;
+    if (!isConnected || !user) return;
 
-    const handleBalanceUpdated = (data: BalanceUpdatedEvent) => {
+    const handleBalanceUpdated = (data: BalanceUpdatedPayload) => {
       if (data.userId === user.id) {
         updateBalance({
           coins: data.coins,
@@ -130,12 +94,8 @@ export function useRealtimeBetting() {
       }
     };
 
-    socket.on('balanceUpdated', handleBalanceUpdated);
-
-    return () => {
-      socket.off('balanceUpdated', handleBalanceUpdated);
-    };
-  }, [socket, isConnected, user, updateBalance]);
+    onBalanceUpdated(handleBalanceUpdated);
+  }, [isConnected, user, updateBalance, onBalanceUpdated]);
 
   return {
     isConnected,

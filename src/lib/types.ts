@@ -1,6 +1,6 @@
 export type Rarity = 'Common' | 'Uncommon' | 'Rare' | 'Epic' | 'Legendary' | 'Mythic';
 
-export type InventoryItemType = 'Pistol' | 'Rifle' | 'SMG' | 'Heavy' | 'Knife' | 'Gloves' | 'Agent' | 'Sticker' | 'Music Kit' | 'Graffiti' | 'Patch' | 'Pin' | 'Other';
+export type InventoryItemType = 'Pistol' | 'Rifle' | 'SMG' | 'Heavy' | 'Knife' | 'Gloves' | 'Agent' | 'Operator' | 'Perk' | 'perk' | 'Sticker' | 'Music Kit' | 'Graffiti' | 'Patch' | 'Pin' | 'Other';
 
 export interface ItemStat {
   origin: string;
@@ -60,8 +60,8 @@ export interface EquippedSlotConfig {
 }
 
 export const equippedSlotsConfig = {
-  primary: { id: 'primary', name: 'Primary Weapon' },
-  secondary: { id: 'secondary', name: 'Secondary Weapon' },
+  perk: { id: 'perk', name: 'Perk' },
+  weapon: { id: 'weapon', name: 'Weapon' },
   knife: { id: 'knife', name: 'Knife' },
   gloves: { id: 'gloves', name: 'Gloves' },
   agent: { id: 'agent', name: 'Agent' },

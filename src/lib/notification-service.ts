@@ -1,4 +1,8 @@
-import { Socket } from 'socket.io-client';
+/**
+ * Notification Service
+ * Handles toast notifications for achievements, XP, rewards, etc.
+ * No longer uses Socket.IO - all real-time updates via Supabase Realtime
+ */
 
 export interface AchievementNotification {
   id: string;
@@ -19,16 +23,10 @@ export interface NotificationService {
 }
 
 export class AchievementNotificationService implements NotificationService {
-  private socket: Socket | null;
   private toastFunction: any;
 
-  constructor(socket: Socket | null = null, toastFunction: any = null) {
-    this.socket = socket;
+  constructor(toastFunction: any = null) {
     this.toastFunction = toastFunction;
-  }
-
-  updateSocket(socket: Socket | null) {
-    this.socket = socket;
   }
 
   updateToast(toastFunction: any) {
@@ -58,14 +56,6 @@ export class AchievementNotificationService implements NotificationService {
       });
     }
 
-    // Send socket notification for real-time updates
-    if (this.socket && this.socket.connected) {
-      this.socket.emit('send-notification', {
-        type: 'achievement',
-        ...notification,
-      });
-    }
-
     // Show reward gains if any
     if (rewards.xp > 0 || rewards.coins > 0 || rewards.gems > 0) {
       setTimeout(() => {
@@ -88,15 +78,6 @@ export class AchievementNotificationService implements NotificationService {
         description: `Gained from ${source}`,
         duration: 3000,
         className: "bg-gradient-to-r from-blue-500 to-purple-500 border-blue-400 text-white",
-      });
-    }
-
-    // Emit XP update via socket
-    if (this.socket && this.socket.connected) {
-      this.socket.emit('xp-update', {
-        amount,
-        source,
-        timestamp: new Date(),
       });
     }
   }

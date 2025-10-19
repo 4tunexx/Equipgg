@@ -9,7 +9,7 @@ import { UserProfileLink } from "./user-profile-link";
 import { useAuth } from "./auth-provider";
 import { useEffect, useRef, useState } from "react";
 import { useToast } from "../hooks/use-toast";
-import { useSocket } from "../contexts/socket-context";
+import { useRealtime } from "../contexts/realtime-context";
 
 
 type LiveChatProps = {
@@ -23,7 +23,7 @@ const fallbackMessages = [];
 export function LiveChat({ title, lobby }: LiveChatProps) {
     const { user } = useAuth();
     const { toast } = useToast();
-    const { socket, isConnected } = useSocket();
+    const { isConnected, onChatMessage, emitChatMessage } = useRealtime();
     const [input, setInput] = useState('');
     const [isMinimized, setIsMinimized] = useState(false);
     interface ChatMessage {
@@ -81,37 +81,37 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
         scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }, [messages]);
 
-    // Socket.IO real-time chat
+    // Supabase Realtime chat
     useEffect(() => {
-        if (!socket || !isConnected) return;
+        if (!isConnected) return;
 
-        // Join the lobby room
-        socket.emit('join-lobby', lobby);
         console.log(`🔌 Joined chat lobby: ${lobby}`);
 
-        // Listen for new messages
+        // Listen for new messages via Supabase Realtime
         const handleNewMessage = (message: any) => {
             console.log('📨 Received new message:', message);
-            setMessages(prev => [...prev, {
-                id: `socket-${message.id || Date.now()}`,
-                user: {
-                    rank: message.rank || 0,
-                    name: message.username || 'Anonymous',
-                    avatar: message.avatar || null,
-                    role: message.role || 'user',
-                },
-                message: message.content,
-                timestamp: message.timestamp || new Date().toISOString(),
-            }]);
+            // Only add if it's not from the current user (to avoid duplicates)
+            if (message.userId !== user?.id) {
+                setMessages(prev => [...prev, {
+                    id: `realtime-${message.id || Date.now()}`,
+                    user: {
+                        rank: message.rank || 0,
+                        name: message.username || 'Anonymous',
+                        avatar: message.avatar || null,
+                        role: message.role || 'user',
+                    },
+                    message: message.message,
+                    timestamp: message.timestamp || new Date().toISOString(),
+                }]);
+            }
         };
 
-        socket.on('chat-message', handleNewMessage);
+        onChatMessage(handleNewMessage);
 
         return () => {
-            socket.off('chat-message', handleNewMessage);
-            socket.emit('leave-lobby', lobby);
+            console.log(`🔌 Left chat lobby: ${lobby}`);
         };
-    }, [socket, isConnected, lobby]);
+    }, [isConnected, lobby, onChatMessage, user?.id]);
 
     const sendMessage = async () => {
         if (!input.trim()) return;
@@ -131,11 +131,16 @@ export function LiveChat({ title, lobby }: LiveChatProps) {
             if (response.ok) {
                 const data = await response.json();
                 if (data.success && data.message) {
-                    // Emit message via Socket.IO for real-time delivery to other users
-                    if (socket && isConnected) {
-                        socket.emit('send-chat-message', {
-                            lobby,
-                            ...data.message
+                    // Emit message via Supabase Realtime for real-time delivery to other users
+                    if (isConnected) {
+                        await emitChatMessage({
+                            id: data.message.id,
+                            channelId: lobby,
+                            userId: user?.id || '',
+                            username: data.message.username,
+                            avatar: data.message.avatar,
+                            message: data.message.content,
+                            timestamp: data.message.timestamp || new Date().toISOString()
                         });
                     }
                     

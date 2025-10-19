@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
 
-const validSlots = ['primary', 'secondary', 'knife', 'gloves', 'agent'] as const;
+const validSlots = ['perk', 'weapon', 'knife', 'gloves', 'agent'] as const;
 type SlotType = typeof validSlots[number];
 
 interface EquipRequest {
@@ -10,11 +10,11 @@ interface EquipRequest {
 }
 
 const slotMapping: Record<SlotType, string[]> = {
-  'primary': ['Rifle', 'SMG', 'Heavy'],
-  'secondary': ['Pistol'],
+  'perk': ['Perk', 'perk'],
+  'weapon': ['Rifle', 'SMG', 'Heavy', 'Pistol'],
   'knife': ['Knife'],
   'gloves': ['Gloves'],
-  'agent': ['Operator']
+  'agent': ['Operator', 'Agent']
 };
 
 export async function POST(request: NextRequest) {

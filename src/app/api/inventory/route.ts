@@ -84,19 +84,64 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Transform data to match expected format
-    const inventory = (inventoryItems as any[]).map(record => ({
-      id: record.id,
-      name: record.item_name,
-      type: record.item_type,
-      rarity: record.rarity,
-      image: record.image_url,
-      equipped: record.equipped,
-      slotType: 'weapon', // Default value since we don't have slot_type in current structure
-      stat: {
-        value: record.value || 100
+    // Helper function to generate image URLs (same as shop/admin pages)
+    const getItemImageUrl = (itemName: string, category: string, existingImage?: string) => {
+      // Only use existing image if it's NOT a placeholder
+      if (existingImage && !existingImage.includes('placeholder')) return existingImage;
+      
+      const baseUrl = 'https://www.csgodatabase.com/images';
+      const categoryLower = category?.toLowerCase() || '';
+      const nameLower = itemName?.toLowerCase() || '';
+      
+      const knifeNames = ['karambit', 'bayonet', 'butterfly', 'falchion', 'flip', 'gut', 'huntsman', 
+                          'bowie', 'shadow daggers', 'navaja', 'stiletto', 'ursus', 'talon', 
+                          'classic knife', 'paracord', 'survival', 'nomad', 'skeleton', 'daggers'];
+      
+      const gloveNames = ['hand wraps', 'driver gloves', 'sport gloves', 'specialist gloves', 
+                          'moto gloves', 'bloodhound gloves', 'hydra gloves', 'broken fang gloves'];
+      
+      let path = 'skins';
+      
+      if (categoryLower.includes('knife') || categoryLower === 'knives' || 
+          knifeNames.some(knife => nameLower.includes(knife))) {
+        path = 'knives';
+      } else if (categoryLower.includes('glove') || categoryLower === 'gloves' || 
+                 gloveNames.some(glove => nameLower.includes(glove))) {
+        path = 'gloves';
+      } else if (categoryLower.includes('agent') || categoryLower === 'operator') {
+        path = 'agents';
       }
-    }));
+      
+      const formattedName = itemName
+        .replace(/\s*\|\s*/g, '_')
+        .replace(/\s+/g, '_');
+      
+      return `${baseUrl}/${path}/webp/${formattedName}.webp`;
+    };
+
+    // Transform data to match expected format
+    const inventory = (inventoryItems as any[]).map(record => {
+      const imageUrl = getItemImageUrl(record.item_name, record.item_type, record.image_url);
+      console.log(`📦 Item: ${record.item_name}, Type: ${record.item_type}, Generated Image: ${imageUrl}`);
+      
+      return {
+        id: record.id,
+        name: record.item_name,
+        type: record.item_type,
+        rarity: record.rarity,
+        image: imageUrl,
+        equipped: record.equipped,
+        slotType: 'weapon',
+        stat: {
+          value: record.value || 100
+        }
+      };
+    });
+
+    console.log(`✅ Returning ${inventory.length} items from inventory API`);
+    if (inventory.length > 0) {
+      console.log('📸 First item image URL:', inventory[0].image);
+    }
 
     return NextResponse.json({
       success: true,

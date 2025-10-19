@@ -128,13 +128,42 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
     }
   };
 
-  // Fetch notifications when user changes
+  // Fetch notifications when user changes + Real-time subscription
   React.useEffect(() => {
     if (user) {
       fetchNotifications();
-      // Poll for new notifications every 2 minutes (reduced from 30s for better performance)
+      
+      // Subscribe to real-time notifications
+      const { supabase } = require('../../lib/supabase/client');
+      const notificationChannel = supabase
+        .channel(`notifications:${user.id}`)
+        .on('postgres_changes', {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notifications',
+          filter: `user_id=eq.${user.id}`
+        }, (payload: any) => {
+          console.log('🔔 New notification received:', payload.new);
+          
+          // Show toast notification
+          toast({
+            title: payload.new.title || '🔔 New Notification',
+            description: payload.new.message,
+            duration: 5000
+          });
+          
+          // Refresh notifications to update count
+          fetchNotifications();
+        })
+        .subscribe();
+      
+      // Poll for new notifications every 2 minutes as backup
       const interval = setInterval(fetchNotifications, 120000);
-      return () => clearInterval(interval);
+      
+      return () => {
+        notificationChannel.unsubscribe();
+        clearInterval(interval);
+      };
     }
   }, [user]);
 

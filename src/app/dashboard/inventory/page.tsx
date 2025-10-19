@@ -19,7 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../
 
 import { Separator } from "../../../components/ui/separator";
 
-import { Trash2, DollarSign, Replace, Loader2, Target, Shield, Sword, Hand, User } from 'lucide-react';
+import { Trash2, DollarSign, Replace, Loader2, Target, Shield, Sword, Hand, User, Sparkles } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,10 +165,15 @@ export default function InventoryPage() {
             if (inventoryResponse.ok) {
                 console.log('🔍 INVENTORY DEBUG - Raw data:', inventoryData.inventory);
                 if (inventoryData.inventory && inventoryData.inventory.length > 0) {
-                    console.log('🔍 FIRST ITEM:', inventoryData.inventory[0]);
-                    console.log('🔍 FIRST ITEM image:', inventoryData.inventory[0].image);
-                    console.log('🔍 FIRST ITEM name:', inventoryData.inventory[0].name);
-                    console.log('🔍 FIRST ITEM type:', inventoryData.inventory[0].type);
+                    const firstItem = inventoryData.inventory[0];
+                    console.log('🔍 FIRST ITEM FULL:', firstItem);
+                    console.log('🔍 FIRST ITEM image:', firstItem.image);
+                    console.log('🔍 FIRST ITEM name:', firstItem.name);
+                    console.log('🔍 FIRST ITEM type:', firstItem.type);
+                    
+                    // Test the getItemImageUrl function
+                    const testUrl = getItemImageUrl(firstItem.name, firstItem.type, firstItem.image);
+                    console.log('🔍 GENERATED URL FROM FRONTEND:', testUrl);
                 }
                 setLocalInventory(inventoryData.inventory || []);
                 setEquippedItems(inventoryData.equipped || {});
@@ -254,13 +259,16 @@ export default function InventoryPage() {
 
         // Determine slot based on item type
         const slotMapping = {
-            'Rifle': 'primary',
-            'SMG': 'primary',
-            'Heavy': 'primary',
-            'Pistol': 'secondary',
+            'Rifle': 'weapon',
+            'SMG': 'weapon',
+            'Heavy': 'weapon',
+            'Pistol': 'weapon',
             'Knife': 'knife',
             'Gloves': 'gloves',
-            'Operator': 'agent'
+            'Operator': 'agent',
+            'Agent': 'agent',
+            'Perk': 'perk',
+            'perk': 'perk'
         };
 
         const slot = slotMapping[item.type as keyof typeof slotMapping];
@@ -580,11 +588,11 @@ export default function InventoryPage() {
       if (draggedItem) {
         // Check if item can be equipped to this slot
         const slotMapping = {
-          'primary': ['Rifle', 'SMG', 'Heavy'],
-          'secondary': ['Pistol'],
+          'perk': ['Perk', 'perk'],
+          'weapon': ['Rifle', 'SMG', 'Heavy', 'Pistol'],
           'knife': ['Knife'],
           'gloves': ['Gloves'],
-          'agent': ['Operator']
+          'agent': ['Operator', 'Agent']
         };
         
         const allowedTypes = slotMapping[slotId as keyof typeof slotMapping];
@@ -601,11 +609,11 @@ export default function InventoryPage() {
       if (draggedItem) {
         // Check if item can be equipped to this slot
         const slotMapping = {
-          'primary': ['Rifle', 'SMG', 'Heavy'],
-          'secondary': ['Pistol'],
+          'perk': ['Perk', 'perk'],
+          'weapon': ['Rifle', 'SMG', 'Heavy', 'Pistol'],
           'knife': ['Knife'],
           'gloves': ['Gloves'],
-          'agent': ['Operator']
+          'agent': ['Operator', 'Agent']
         };
         
         const allowedTypes = slotMapping[slotId as keyof typeof slotMapping];
@@ -784,7 +792,7 @@ export default function InventoryPage() {
                                   )}
                                 >
                                   <img
-                                    src={getItemImageUrl(item.name, item.type, item.image)}
+                                    src={item.image || '/assets/placeholder.svg'}
                                     alt={item.name}
                                     className="w-14 h-10 object-contain transition-transform group-hover:scale-110 pointer-events-none"
                                     onError={(e) => {
@@ -872,7 +880,7 @@ export default function InventoryPage() {
         <div className="w-16 h-16 bg-secondary border-2 border-primary rounded-lg flex items-center justify-center shadow-lg">
           {draggedItem && (
             <img
-              src={getItemImageUrl(draggedItem.name, draggedItem.type, draggedItem.image)}
+              src={draggedItem.image || '/assets/placeholder.svg'}
               alt={draggedItem.name}
               className="w-12 h-12 object-contain"
               onError={(e) => {
@@ -941,8 +949,8 @@ export default function InventoryPage() {
           {Object.values(equippedSlotsConfig).map((slot) => {
             const item = equippedItems[slot.id];
             const iconMap = {
-              primary: Target,
-              secondary: Shield,
+              perk: Sparkles,
+              weapon: Target,
               knife: Sword,
               gloves: Hand,
               agent: User,
@@ -963,7 +971,7 @@ export default function InventoryPage() {
                 <div className="w-16 h-full bg-secondary/50 rounded-md flex items-center justify-center relative overflow-hidden">
                   {item ? (
                     <img
-                      src={getItemImageUrl(item.name, item.type, item.image)}
+                      src={item.image || '/assets/placeholder.svg'}
                       alt={item.name}
                       className="w-16 h-12 object-contain"
                       onError={(e) => {
@@ -1029,23 +1037,32 @@ export default function InventoryPage() {
           
           <TabsContent value="inventory" className="mt-6">
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="grid w-full grid-cols-7">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="all">All</TabsTrigger>
-                <TabsTrigger value="Pistol">Pistols</TabsTrigger>
-                <TabsTrigger value="Rifle">Rifles</TabsTrigger>
-                <TabsTrigger value="SMG">SMGs</TabsTrigger>
-                <TabsTrigger value="Heavy">Heavy</TabsTrigger>
+                <TabsTrigger value="weapon">Weapons</TabsTrigger>
                 <TabsTrigger value="Knife">Knives</TabsTrigger>
+                <TabsTrigger value="Operator">Agents</TabsTrigger>
                 <TabsTrigger value="Gloves">Gloves</TabsTrigger>
+                <TabsTrigger value="perk">Perks</TabsTrigger>
               </TabsList>
               <TabsContent value="all" className="mt-6">
                 {renderInventoryGrid(localInventory, undefined, new Set())}
               </TabsContent>
-              {['Pistol','Rifle','SMG','Heavy','Knife','Gloves'].map((category) => (
-                <TabsContent key={category} value={category} className="mt-6">
-                    {renderInventoryGrid(localInventory.filter(i => i.type === category), undefined, new Set())}
-                </TabsContent>
-              ))}
+              <TabsContent value="weapon" className="mt-6">
+                {renderInventoryGrid(localInventory.filter(i => ['Pistol', 'Rifle', 'SMG', 'Heavy'].includes(i.type)), undefined, new Set())}
+              </TabsContent>
+              <TabsContent value="Knife" className="mt-6">
+                {renderInventoryGrid(localInventory.filter(i => i.type === 'Knife'), undefined, new Set())}
+              </TabsContent>
+              <TabsContent value="Operator" className="mt-6">
+                {renderInventoryGrid(localInventory.filter(i => i.type === 'Operator'), undefined, new Set())}
+              </TabsContent>
+              <TabsContent value="Gloves" className="mt-6">
+                {renderInventoryGrid(localInventory.filter(i => i.type === 'Gloves'), undefined, new Set())}
+              </TabsContent>
+              <TabsContent value="perk" className="mt-6">
+                {renderInventoryGrid(localInventory.filter(i => i.type === 'perk' || i.type === 'Perk'), undefined, new Set())}
+              </TabsContent>
             </Tabs>
           </TabsContent>
           
@@ -1071,7 +1088,7 @@ export default function InventoryPage() {
             <div className="flex items-center space-x-4 p-4 bg-card/50 rounded-lg">
               <div className="relative">
                 <img
-                  src={getItemImageUrl(selectedItem.name, selectedItem.type, selectedItem.image)}
+                  src={selectedItem.image || '/assets/placeholder.svg'}
                   alt={selectedItem.name}
                   className="w-16 h-12 object-contain"
                   onError={(e) => {

@@ -36,7 +36,7 @@ import {
 } from 'lucide-react';
 import { cn } from "../../../lib/utils";
 import { formatDistanceToNow } from 'date-fns';
-import { useSocket } from "../../../lib/socket";
+import { useRealtime } from "../../../contexts/realtime-context";
 
 interface ChatMessage {
   id: string;
@@ -114,7 +114,7 @@ const defaultChannels: ChatChannel[] = [
 export default function ChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { socket, isConnected, socketManager } = useSocket();
+  const { isConnected, onChatMessage, emitChatMessage } = useRealtime();
   const [activeChannel, setActiveChannel] = useState('general');
   const [channels, setChannels] = useState<ChatChannel[]>(defaultChannels);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -132,22 +132,21 @@ export default function ChatPage() {
     fetchOnlineUsers();
     
     // Join the active channel room
-    if (socket && isConnected) {
-      socketManager.joinChat(activeChannel);
+    if (isConnected) {
       console.log(`🔌 Joined chat channel: ${activeChannel}`);
     }
     
     return () => {
       // Leave channel when switching
-      if (socket && isConnected) {
-        socket.emit('leave-chat', activeChannel);
+      if (isConnected) {
+        console.log(`👋 Left chat channel: ${activeChannel}`);
       }
     };
-  }, [activeChannel, socket, isConnected]);
+  }, [activeChannel, isConnected]);
 
-  // Set up Socket.IO real-time message listener
+  // Set up Realtime real-time message listener
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!isConnected) return;
 
     const handleNewMessage = (message: any) => {
       console.log('📨 Received new message:', message);
@@ -173,12 +172,12 @@ export default function ChatPage() {
       }
     };
 
-    socketManager.onNewMessage(handleNewMessage);
+    onChatMessage(handleNewMessage);
 
     return () => {
-      socketManager.off('new-message', handleNewMessage);
+      // Cleanup
     };
-  }, [socket, isConnected, activeChannel]);
+  }, [isConnected, activeChannel]);
 
   useEffect(() => {
     scrollToBottom();
@@ -292,18 +291,15 @@ export default function ChatPage() {
 
       const data = await response.json();
       
-      // Emit via Socket.IO for real-time delivery
-      if (socket && isConnected && data.message) {
-        socketManager.sendMessage({
+      // Emit via Supabase Realtime for real-time delivery
+      if (isConnected && data.message) {
+        await emitChatMessage({
           id: data.message.id,
-          message: data.message.content,
-          sender: {
-            id: user.id,
-            display_name: user.displayName || 'Anonymous',
-            avatar_url: user.photoURL,
-            role: user.role || 'user'
-          },
           channelId: activeChannel,
+          userId: user.id,
+          username: user.displayName || 'Anonymous',
+          avatar: user.photoURL,
+          message: data.message.content,
           timestamp: data.message.created_at || new Date().toISOString()
         });
       }

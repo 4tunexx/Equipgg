@@ -1,6 +1,9 @@
 // Enhanced Bet Result Processing System
 // Handles bet payouts and status updates when matches are completed
 import { secureDb } from './secure-db';
+import { addXpForBetWon } from './xp-leveling-system';
+import { trackMissionProgress } from './mission-integration';
+import { createNotification } from './notification-utils';
 
 interface BetProcessingResult {
   matchId: string;
@@ -70,22 +73,44 @@ export async function processBetsForMatch(matchId: string, winner: 'team_a' | 't
               console.warn(`Failed to create transaction record for bet ${bet.id}:`, transactionError);
             }
 
-            // Award XP for winning bet
+            // Award XP for winning bet using new system
             try {
-              const { addXP } = await import('./xp-service');
-              const xpAmount = Math.min(50, Math.floor(payoutAmount / 10)); // 1 XP per 10 coins won, max 50
-              await addXP(
-                String(bet.user_id), 
-                xpAmount, 
-                'betting', 
-                `Won betting on match (+${payoutAmount} coins)`
-              );
+              await addXpForBetWon(String(bet.user_id), payoutAmount, Number(bet.odds || 1.5));
+              await trackMissionProgress(String(bet.user_id), 'bet_won', 1);
+              
+              // Create notification for bet win
+              await createNotification({
+                userId: String(bet.user_id),
+                type: 'bet_won',
+                title: '🎯 Bet Won!',
+                message: `Congratulations! You won ${payoutAmount} coins!`,
+                data: {
+                  matchId,
+                  amount: payoutAmount
+                }
+              });
             } catch (xpError) {
-              console.warn(`Failed to award XP for winning bet ${bet.id}:`, xpError);
+              console.warn(`Failed to award XP/notification for winning bet ${bet.id}:`, xpError);
             }
 
             result.payoutTotal += payoutAmount;
             console.log(`💰 Paid out ${payoutAmount} coins to user ${bet.user_id} for winning bet`);
+          }
+        } else if (!isWinner) {
+          // Create notification for bet loss
+          try {
+            await createNotification({
+              userId: String(bet.user_id),
+              type: 'bet_lost',
+              title: '😔 Bet Lost',
+              message: 'Better luck next time!',
+              data: {
+                matchId,
+                amount: Number(bet.amount || 0)
+              }
+            });
+          } catch (notifError) {
+            console.warn(`Failed to create notification for losing bet ${bet.id}:`, notifError);
           }
         }
 

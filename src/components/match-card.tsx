@@ -28,7 +28,7 @@ import { useToast } from "../hooks/use-toast";
 import { AspectRatio } from './ui/aspect-ratio';
 import { useAuth } from "./auth-provider";
 import { useBalance } from "../contexts/balance-context";
-import { useSocket } from "../contexts/socket-context";
+import { useRealtime } from "../contexts/realtime-context";
 import { StreamingPlayer } from './streaming-player';
 import { TeamLogo } from './team-logo';
 
@@ -44,7 +44,7 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
   const { toast } = useToast();
   const { user } = useAuth();
   const { balance, updateBalance } = useBalance();
-  const { emitBetPlaced } = useSocket();
+  const { emitBetPlaced } = useRealtime();
 
   // State for betting
   const [betAmount, setBetAmount] = useState('');
@@ -191,13 +191,14 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
         // Dispatch global balance update event
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
         
-        // Emit Socket.io event for real-time updates
+        // Emit Supabase Realtime event for real-time updates
         emitBetPlaced({
           userId: user?.id || '',
           username: user?.displayName || 'Anonymous',
           matchId: match.id,
           team: selectedBetTeam || '',
-          amount: amount
+          amount: amount,
+          timestamp: new Date().toISOString()
         });
         
         // Trigger refresh of user bets

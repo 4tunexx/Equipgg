@@ -4,7 +4,7 @@ import { cn } from "../lib/utils";
 
 import { Toaster } from "../components/ui/toaster";
 import { AuthProvider } from "../components/auth-provider";
-import { SocketProvider } from "../contexts/socket-context";
+import { RealtimeProvider } from "../contexts/realtime-context";
 
 import React from "react";
 
@@ -26,9 +26,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body className={cn('font-body antialiased bg-background text-foreground')}>
         <AuthProvider>
-          <SocketProvider>
+          <RealtimeProvider>
             {children}
-          </SocketProvider>
+          </RealtimeProvider>
         </AuthProvider>
         <Toaster />
       </body>

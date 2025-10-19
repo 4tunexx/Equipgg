@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { supabase } from "../../../../lib/supabase";
 import { v4 as uuidv4 } from 'uuid';
-import { getSocketServer } from "../../../../lib/socket-server";
+import { broadcastChatMessage } from "../../../../lib/supabase/realtime";
 
 // Get chat messages for a channel
 export async function GET(request: NextRequest) {
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       })
       .select(`
         *,
-        sender:users(id, display_name, avatar_url, role, level)
+        sender:users(id, displayname, avatar_url, role, level)
       `)
       .single();
 
@@ -154,27 +154,20 @@ export async function POST(request: NextRequest) {
       })
       .eq('id', channelId);
 
-    // Broadcast message via Socket.IO to all users in the channel
+    // Broadcast message via Supabase Realtime to all users in the channel
     try {
-      const io = getSocketServer();
-      if (io) {
-        io.to(`chat:${channelId}`).emit('new-message', {
-          id: message.id,
-          message: message.content,
-          content: message.content,
-          sender: message.sender,
-          senderId: message.sender_id,
-          senderName: message.sender?.display_name,
-          senderAvatar: message.sender?.avatar_url,
-          senderRole: message.sender?.role,
-          channelId: message.channel_id,
-          timestamp: message.created_at,
-          type: message.type
-        });
-        console.log(`📤 Broadcasted message to chat:${channelId}`);
-      }
-    } catch (socketError) {
-      console.error('Failed to broadcast via Socket.IO:', socketError);
+      await broadcastChatMessage({
+        id: message.id,
+        channelId: message.channel_id,
+        userId: message.sender_id,
+        username: message.sender?.displayname || 'Anonymous',
+        avatar: message.sender?.avatar_url,
+        message: message.content,
+        timestamp: message.created_at
+      });
+      console.log(`📤 Broadcasted message to channel ${channelId} via Supabase Realtime`);
+    } catch (realtimeError) {
+      console.error('Failed to broadcast via Supabase Realtime:', realtimeError);
       // Continue anyway - message is saved in DB
     }
     

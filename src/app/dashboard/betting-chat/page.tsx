@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui
 import { ScrollArea } from "../../../components/ui/scroll-area";
 import { useAuth } from "../../../hooks/use-auth";
 import { useToast } from "../../../hooks/use-toast";
-import { useSocket } from "../../../lib/socket";
+import { useRealtime } from "../../../contexts/realtime-context";
 import { 
   Send, 
   Hash,
@@ -61,7 +61,7 @@ const bettingChannels = [
 export default function BettingChatPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  const { socket, isConnected, socketManager } = useSocket();
+  const { isConnected, onChatMessage, emitChatMessage } = useRealtime();
   const [activeChannel, setActiveChannel] = useState('betting-live');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [messageInput, setMessageInput] = useState('');
@@ -71,21 +71,16 @@ export default function BettingChatPage() {
   useEffect(() => {
     fetchMessages();
     
-    if (socket && isConnected) {
-      socketManager.joinChat(activeChannel);
+    // TODO: Implement Supabase Realtime for betting chat
+    if (isConnected) {
       console.log(`🎰 Joined betting channel: ${activeChannel}`);
     }
-    
-    return () => {
-      if (socket && isConnected) {
-        socket.emit('leave-chat', activeChannel);
-      }
-    };
-  }, [activeChannel, socket, isConnected]);
+  }, [activeChannel, isConnected]);
 
   useEffect(() => {
-    if (!socket || !isConnected) return;
+    if (!isConnected) return;
 
+    // TODO: Listen for new messages via Supabase Realtime
     const handleNewMessage = (message: any) => {
       if (message.channelId === activeChannel) {
         setMessages(prev => {
@@ -93,21 +88,20 @@ export default function BettingChatPage() {
           return [...prev, {
             id: message.id,
             content: message.message || message.content,
-            senderId: message.sender?.id || message.senderId,
-            senderName: message.sender?.display_name || message.senderName,
-            senderAvatar: message.sender?.avatar_url || message.senderAvatar,
-            senderRole: message.sender?.role || message.senderRole || 'user',
+            senderId: message.userId,
+            senderName: message.username,
+            senderAvatar: message.avatar,
+            senderRole: 'user',
             timestamp: message.timestamp || new Date().toISOString(),
             channelId: message.channelId,
-            type: message.type || 'text'
+            type: 'text'
           }];
         });
       }
     };
 
-    socketManager.onNewMessage(handleNewMessage);
-    return () => socketManager.off('new-message', handleNewMessage);
-  }, [socket, isConnected, activeChannel]);
+    onChatMessage(handleNewMessage);
+  }, [isConnected, activeChannel, onChatMessage]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -158,17 +152,15 @@ export default function BettingChatPage() {
 
       const data = await response.json();
       
-      if (socket && isConnected && data.message) {
-        socketManager.sendMessage({
+      if (isConnected && data.message) {
+        // TODO: Emit via Supabase Realtime
+        await emitChatMessage({
           id: data.message.id,
-          message: data.message.content,
-          sender: {
-            id: user.id,
-            display_name: user.displayName || 'Anonymous',
-            avatar_url: user.photoURL,
-            role: user.role || 'user'
-          },
           channelId: activeChannel,
+          userId: user.id,
+          username: user.displayName || 'Anonymous',
+          avatar: user.photoURL,
+          message: data.message.content,
           timestamp: data.message.created_at || new Date().toISOString()
         });
       }
