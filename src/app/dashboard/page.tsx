@@ -12,46 +12,26 @@ import { Gem, Gift } from 'lucide-react';
 import { Progress } from "../../components/ui/progress";
 import { LiveChat } from "../../components/live-chat";
 import { StatCard } from "../../components/stat-card";
+import { ExtendedRarity } from "../../types/crate";
+
+// Add window._persistentActivities interface
+declare global {
+  interface Window {
+    _persistentActivities?: {
+      crates: any[];
+      other: any[];
+    };
+  }
+}
+
 import { useAuth } from "../../hooks/use-auth";
 import { useBalance } from "../../contexts/balance-context";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createSupabaseQueries } from "../../lib/supabase/queries";
 import { supabase } from "../../lib/supabase/client";
 import type { DBUser, DBMission } from "../../lib/supabase/queries";
-
-// Get rank from Supabase ranks table
-async function getUserRank(level: number): Promise<string> {
-  try {
-    const { data: ranks, error } = await supabase
-      .from('ranks')
-      .select('name, tier, min_level, max_level')
-      .order('min_level', { ascending: false });
-    
-    if (error) {
-      console.error('Rank query error:', error);
-      return 'Silver I';
-    }
-    
-    if (!ranks || ranks.length === 0) {
-      return 'Silver I';
-    }
-    
-    // Find the highest rank the user qualifies for
-    for (const rank of ranks) {
-      const minLevel = rank.min_level || 0;
-      const maxLevel = rank.max_level || 999;
-      if (level >= minLevel && level <= maxLevel) {
-        return rank.name || 'Silver I';
-      }
-    }
-    
-    // Default to first rank
-    return ranks[ranks.length - 1]?.name || 'Silver I';
-  } catch (error) {
-    console.error('Error fetching rank:', error);
-    return 'Silver I';
-  }
-}
+// Fetch rank from database (will be populated in useEffect)
+let cachedRanks: any[] = [];
 
 interface UserStats {
   level: number;
@@ -80,6 +60,8 @@ interface Activity {
   timestamp: string;
   amount?: number;
   status?: string;
+  itemRarity?: string;
+  itemName?: string;
 }
 
 export default function DashboardPage() {
@@ -92,7 +74,8 @@ export default function DashboardPage() {
   const [activityLoading, setActivityLoading] = useState(true);
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [userRank, setUserRank] = useState<string>('Beginner');
+  const [userRank, setUserRank] = useState<string>('Unranked');
+  const [ranks, setRanks] = useState<any[]>([]);
   const [lastCrate, setLastCrate] = useState<any>(null);
 
   useEffect(() => {
@@ -152,50 +135,179 @@ export default function DashboardPage() {
       }
     };
 
-    const fetchUserActivity = async () => {
-      try {
-        const response = await fetch('/api/user/activity', {
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setActivities(data.activities || []);
-        } else if (response.status === 401) {
-          // Session expired or invalid - don't log as error, just skip
-          console.log('Session expired, skipping user activity fetch');
-        } else {
-          console.error('Failed to fetch user activity:', response.status, response.statusText);
-        }
-      } catch (error) {
-        console.error('Failed to fetch user activity:', error);
-      } finally {
-        setActivityLoading(false);
-      }
-    };
-
+    // REMOVED old fetchUserActivity - now using direct Supabase query in separate useEffect
+    // This prevents the flicker where it shows old activities then switches to crate activities
+    
     // Only fetch data if user is available
     if (user) {
       fetchDailyMissions();
       fetchUserStats();
-      fetchUserActivity();
+      // fetchUserActivity(); REMOVED - handled by separate useEffect below
     }
   }, [user]);
 
-  // Fetch user rank from Supabase
+  // Fetch ranks from database
   useEffect(() => {
-    const fetchRank = async () => {
-      const level = userStats?.level || user?.level || 1;
-      const rank = await getUserRank(level);
-      setUserRank(rank);
+    const fetchRanks = async () => {
+      try {
+        const response = await fetch('/api/user/ranks', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          const fetchedRanks = data.ranks || [];
+          setRanks(fetchedRanks);
+          cachedRanks = fetchedRanks;
+          
+          // Calculate user rank based on level
+          const level = userStats?.level || balance?.level || user?.level || 1;
+          const currentRank = fetchedRanks.find((rank: any) =>
+            level >= rank.min_level && (rank.max_level === null || level <= rank.max_level)
+          );
+          setUserRank(currentRank?.name || 'Unranked');
+          console.log('🏆 User rank calculated:', currentRank?.name, 'for level', level);
+        }
+      } catch (error) {
+        console.error('Error fetching ranks:', error);
+      }
     };
     
     if (user) {
-      fetchRank();
+      fetchRanks();
     }
-  }, [user, userStats?.level]);
+  }, [user, userStats?.level, balance?.level]);
+  
+  // IMPORTANT: We need to store the activities in a ref to prevent them from changing unexpectedly
+  const lastActivitiesRef = useRef<Activity[]>([]);
+  
+  // FIXED ACTIVITY FEED - persistent crate priority
+  useEffect(() => {
+    const fetchActivityFeed = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setActivityLoading(true);
+        console.log('🔍 ACTIVITY FEED: Fetching for user:', user.id);
+        
+        // FIXED: Single query to get ALL activities, then sort in JavaScript
+        const { data: allActivities, error: activityError } = await supabase
+          .from('activity_feed')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+        
+        if (activityError) {
+          console.error('❌ Query Error:', activityError);
+          setActivityLoading(false);
+          return;
+        }
+        
+        const rawActivities = allActivities || [];
+        
+        console.log('📊 Raw activities from DB:', rawActivities.length);
+        console.log('📋 Activity actions:', rawActivities.map(a => a.action).slice(0, 10));
+        
+        // Sort: Crate openings first, then everything else by timestamp
+        const activityData = rawActivities.sort((a, b) => {
+          // Crate openings always go first
+          const aIsCrate = a.action === 'opened_crate';
+          const bIsCrate = b.action === 'opened_crate';
+          
+          if (aIsCrate && !bIsCrate) return -1;
+          if (!aIsCrate && bIsCrate) return 1;
+          
+          // Within same category, sort by timestamp (most recent first)
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        });
+        
+        console.log('✅ Sorted activities:', {
+          total: activityData.length,
+          crates: activityData.filter(a => a.action === 'opened_crate').length,
+          games: activityData.filter(a => a.action === 'won_game' || a.action === 'lost_game' || a.action?.includes('game')).length,
+          other: activityData.filter(a => a.action !== 'opened_crate' && !a.action?.includes('game')).length
+        });
+        console.log('✅ Combined activities:', activityData?.length);
+        
+        if (!activityData || activityData.length === 0) {
+          // If no activities, just return early
+          console.log('🚧 No activities found');
+          setActivityLoading(false);
+          return;
+        }
+        
+        console.log('📊 Processing', activityData.length, 'activities');
+        
+        // activityData already has crates first, then other activities from the query
+        // Just limit to 10 most recent
+        const prioritizedData = activityData.slice(0, 10);
+        
+        console.log('📋 Final activity list:', prioritizedData.length, 'activities');
+        console.log('📦 Activities breakdown:', {
+          crates: prioritizedData.filter(a => a.action === 'opened_crate').length,
+          games: prioritizedData.filter(a => a.action === 'won_game' || a.action === 'lost_game').length,
+          other: prioritizedData.filter(a => a.action !== 'opened_crate' && a.action !== 'won_game' && a.action !== 'lost_game').length
+        });
+        
+        // STABILIZE: Check if the data has actually changed before updating state
+        const dataChanged = JSON.stringify(prioritizedData) !== JSON.stringify(lastActivitiesRef.current);
+        if (!dataChanged && lastActivitiesRef.current.length > 0) {
+          console.log('🔄 Activity feed unchanged, keeping current state');
+          setActivityLoading(false);
+          return;
+        }
+        
+        // STABLE FORMAT: Use a stable mapping function that won't cause re-renders
+        const formattedActivities = prioritizedData.map(activity => {
+          // Map action to type with type safety
+          let type: 'bet' | 'mission' | 'vote' | 'crate' = 'bet';
+          if (activity.action === 'opened_crate') type = 'crate';
+          if (activity.action === 'won_game' || activity.action === 'lost_game') type = 'bet';
+          if (activity.action === 'leveled_up') type = 'mission';
+          if (activity.action === 'unlocked_achievement') type = 'mission';
+          
+          // Extract metadata
+          const metadata = activity.metadata || {};
+          let description = activity.description || 'Activity';
+          
+          // CRITICAL FIX: Special handling for crate openings to ensure consistent display
+          if (type === 'crate' && metadata.itemName) {
+            const itemRarity = metadata.itemRarity || 'Common';
+            const itemName = metadata.itemName;
+            description = `Opened a crate and received ${itemName} (${itemRarity})`;
+          }
+          
+          // Ensure all fields have stable values (no undefined/null that can cause React re-renders)
+          return {
+            id: activity.id || crypto.randomUUID(),
+            type, 
+            description: description || 'Activity record',
+            timestamp: activity.created_at || new Date().toISOString(),
+            amount: metadata.amount || undefined,
+            status: activity.action === 'won_game' ? 'won' : 
+                    activity.action === 'lost_game' ? 'lost' : undefined,
+            itemRarity: metadata.itemRarity || undefined,
+            itemName: metadata.itemName || undefined
+          };
+        });
+        
+        // IMPORTANT: Save to ref so we can compare and prevent unnecessary re-renders
+        lastActivitiesRef.current = formattedActivities;
+        
+        // Finally update state with the stable data
+        setActivities(formattedActivities);
+        console.log('✅ Set activity feed with', formattedActivities.length, 'items');
+      } catch (error) {
+        console.error('❌ Error fetching activity feed:', error);
+      } finally {
+        setActivityLoading(false);
+      }
+    };
+    
+    fetchActivityFeed();
+    
+    // CRITICAL: Remove the automatic refresh which causes the flicker
+    // The user will get new activities when they navigate or refresh
+    return () => {};
+  }, [user?.id]);
 
   // Fetch last crate opening
   useEffect(() => {
@@ -396,7 +508,13 @@ export default function DashboardPage() {
                     
                     return (
                       <div key={activity.id} className="flex items-start gap-3 p-2 rounded-lg bg-secondary/50">
-                        <span className="text-lg">{getActivityIcon(activity.type)}</span>
+                        {activity.type === 'crate' ? (
+                          <div className="w-6 h-6 flex-shrink-0 bg-primary/20 rounded flex items-center justify-center overflow-hidden">
+                            <Gift className="w-4 h-4 text-primary" />
+                          </div>
+                        ) : (
+                          <span className="text-lg">{getActivityIcon(activity.type)}</span>
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{activity.description}</p>
                           <p className="text-xs text-muted-foreground">{timeAgo}</p>
@@ -442,16 +560,34 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent className="flex flex-col items-center gap-4">
               {lastCrate ? (
-                <>
-                  <div className="relative">
-                    <Gift className="w-24 h-24 text-primary animate-pulse" />
-                    <Gem className="w-8 h-8 text-purple-400 absolute -top-1 -right-1" />
+                <div className="flex flex-col items-center justify-center w-full">
+                  <div className="relative w-40 h-40 flex items-center justify-center mx-auto">
+                    {lastCrate.crate?.image_url ? (
+                      <img 
+                        src={lastCrate.crate.image_url}
+                        alt={lastCrate.crate.name}
+                        className="w-full h-full object-contain"
+                        onError={(e) => {
+                          // Fallback to Gift icon if image fails to load
+                          const target = e.target as HTMLImageElement;
+                          target.style.display = 'none';
+                          const parent = target.parentElement;
+                          if (parent) {
+                            const icon = document.createElement('div');
+                            icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M20 12v10H4V12"></path><path d="M2 7h20v5H2z"></path><path d="M12 22V7"></path><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg>';
+                            parent.appendChild(icon);
+                          }
+                        }}
+                      />
+                    ) : (
+                      <Gift className="w-32 h-32 text-primary" />
+                    )}
                   </div>
-                  <p className="text-center font-semibold">{lastCrate.crate?.name || 'Mystery Crate'}</p>
-                  <p className="text-sm text-muted-foreground text-center">
-                    You received a <span className="font-bold text-primary">{lastCrate.item?.rarity}</span> item: <span className="font-semibold">{lastCrate.item?.name}</span>!
+                  <p className="text-center font-semibold text-lg mt-4">{lastCrate.crate?.name || 'Level Up Crate'}</p>
+                  <p className="text-sm text-muted-foreground text-center mt-2">
+                    You received a <span className="font-bold text-primary">{lastCrate.item?.rarity || 'Common'}</span> item: <span className="font-semibold">{lastCrate.item?.name || 'Unknown Item'}</span>!
                   </p>
-                </>
+                </div>
               ) : (
                 <>
                   <div className="relative">

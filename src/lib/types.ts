@@ -16,6 +16,7 @@ export interface InventoryItem {
   type: InventoryItemType;
   dataAiHint: string;
   stat?: ItemStat;
+  quantity?: number; // Number of items in stack (for inventory stacking)
 }
 // CS2 Game Rarity Colors (matching actual game)
 export const rarityColors: Record<Rarity, string> = {

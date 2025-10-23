@@ -99,7 +99,12 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
 
   // Fetch notifications
   const fetchNotifications = async () => {
-    if (!user) return;
+    if (!user) {
+      console.log('🔔 BELL: No user, skipping notification fetch');
+      return;
+    }
+    
+    console.log('🔔 BELL: Fetching notifications for user:', user.id);
     
     try {
       const response = await fetch('/api/notifications', {
@@ -113,24 +118,34 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
         const data = await response.json();
         const notifications = data.notifications || [];
         const unreadCount = notifications.filter((n: any) => !n.read).length;
+        
+        console.log('✅ BELL: Fetched', notifications.length, 'notifications,', unreadCount, 'unread');
+        console.log('👀 BELL: Notifications:', notifications.map((n: any) => ({
+          id: n.id,
+          type: n.type,
+          title: n.title,
+          read: n.read
+        })));
+        
         setNotifications({
           unreadCount,
           notifications: notifications
         });
       } else if (response.status === 401) {
         // Session expired, don't log as error
-        console.log('Notifications: Session expired');
+        console.log('⚠️ BELL: Session expired');
       } else {
-        console.error('Error fetching notifications:', response.status, response.statusText);
+        console.error('❌ BELL: Error fetching notifications:', response.status, response.statusText);
       }
     } catch (error) {
-      console.error('Error fetching notifications:', error);
+      console.error('❌ BELL: Fetch error:', error);
     }
   };
 
   // Fetch notifications when user changes + Real-time subscription
   React.useEffect(() => {
     if (user) {
+      console.log('🔔 BELL: Setting up notification system for user:', user.id);
       fetchNotifications();
       
       // Subscribe to real-time notifications
@@ -143,7 +158,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
           table: 'notifications',
           filter: `user_id=eq.${user.id}`
         }, (payload: any) => {
-          console.log('🔔 New notification received:', payload.new);
+          console.log('🔔🔔🔔 BELL: New notification received via realtime:', payload.new);
           
           // Show toast notification
           toast({
@@ -153,14 +168,21 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
           });
           
           // Refresh notifications to update count
+          console.log('🔄 BELL: Refreshing notifications after realtime event');
           fetchNotifications();
         })
-        .subscribe();
+        .subscribe((status: any) => {
+          console.log('🔔 BELL: Realtime subscription status:', status);
+        });
       
       // Poll for new notifications every 2 minutes as backup
-      const interval = setInterval(fetchNotifications, 120000);
+      const interval = setInterval(() => {
+        console.log('🔄 BELL: Polling for notifications (backup)');
+        fetchNotifications();
+      }, 120000);
       
       return () => {
+        console.log('🔔 BELL: Cleaning up notification system');
         notificationChannel.unsubscribe();
         clearInterval(interval);
       };

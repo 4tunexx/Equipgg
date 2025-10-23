@@ -70,7 +70,7 @@ export async function getUserMissionProgress(userId: string, missionId: string) 
   const supabase = createServerSupabaseClient();
   
   const { data, error } = await supabase
-    .from('user_missions')
+    .from('user_mission_progress')
     .select('*')
     .eq('user_id', userId)
     .eq('mission_id', missionId)
@@ -108,7 +108,7 @@ export async function updateMissionProgress(
   if (existing) {
     // Update progress
     await supabase
-      .from('user_missions')
+      .from('user_mission_progress')
       .update({
         progress,
         completed: progress >= mission.requirement_value,
@@ -119,7 +119,7 @@ export async function updateMissionProgress(
   } else {
     // Create new progress entry
     await supabase
-      .from('user_missions')
+      .from('user_mission_progress')
       .insert({
         user_id: userId,
         mission_id: missionId,
@@ -201,24 +201,56 @@ export async function trackMissionProgress(
   actionType: string,
   value: number = 1
 ) {
+  console.log(`\n🎯🎯🎯 MISSION TRACKING START 🎯🎯🎯`);
+  console.log(`👤 User: ${userId}`);
+  console.log(`🎬 Action: ${actionType}`);
+  console.log(`📊 Value: ${value}`);
+  
   const supabase = createServerSupabaseClient();
   
   // Get all missions that match this action type
-  const { data: missions } = await supabase
+  console.log(`🔍 Searching for missions with requirement_type = '${actionType}'...`);
+  const { data: missions, error: missionError } = await supabase
     .from('missions')
     .select('*')
     .eq('requirement_type', actionType);
   
-  if (!missions || missions.length === 0) return;
+  if (missionError) {
+    console.error('❌ Error fetching missions:', missionError);
+    return;
+  }
+  
+  console.log(`📋 Found ${missions?.length || 0} matching missions`);
+  
+  if (!missions || missions.length === 0) {
+    console.warn(`⚠️ No missions found with requirement_type '${actionType}'`);
+    console.log(`💡 Available requirement types might be different. Check database!`);
+    return;
+  }
+  
+  console.log(`📝 Missions to update:`, missions.map(m => ({ id: m.id, name: m.name, requirement: m.requirement_value })));
   
   // Update progress for each matching mission
   for (const mission of missions) {
+    console.log(`\n  📌 Updating mission: ${mission.name} (ID: ${mission.id})`);
+    
     const existing = await getUserMissionProgress(userId, mission.id);
     const currentProgress = existing?.progress || 0;
     const newProgress = currentProgress + value;
     
+    console.log(`    Current: ${currentProgress}/${mission.requirement_value}`);
+    console.log(`    New: ${newProgress}/${mission.requirement_value}`);
+    
     await updateMissionProgress(userId, mission.id, newProgress);
+    
+    if (newProgress >= mission.requirement_value) {
+      console.log(`    ✅ MISSION COMPLETE!`);
+    } else {
+      console.log(`    ⏳ In progress (${Math.round((newProgress/mission.requirement_value) * 100)}%)`);
+    }
   }
+  
+  console.log(`🎯🎯🎯 MISSION TRACKING END 🎯🎯🎯\n`);
 }
 
 /**
@@ -232,7 +264,7 @@ export async function resetDailyMissions(userId: string) {
   for (const mission of dailyMissions) {
     if (mission.repeatable) {
       await supabase
-        .from('user_missions')
+        .from('user_mission_progress')
         .update({
           progress: 0,
           completed: false,
@@ -257,7 +289,7 @@ export async function resetWeeklyMissions(userId: string) {
   for (const mission of weeklyMissions) {
     if (mission.repeatable) {
       await supabase
-        .from('user_missions')
+        .from('user_mission_progress')
         .update({
           progress: 0,
           completed: false,

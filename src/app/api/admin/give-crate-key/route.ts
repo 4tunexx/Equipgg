@@ -47,7 +47,18 @@ export async function POST(request: NextRequest) {
     await queries.addCrateKeys(userId, Number(crateId), Number(keysCount));
 
     // Create notification for the user
+    console.log('\n🔔🔔🔔 ADMIN GIVE KEY - NOTIFICATION CREATION START 🔔🔔🔔');
     try {
+      console.log('🔔 Creating key reward notification for user:', userId);
+      console.log('📦 Notification data:', {
+        userId,
+        type: 'reward',
+        keysCount,
+        crateName: crate?.name,
+        crateId: Number(crateId)
+      });
+      
+      console.log('🚀 Calling createNotification utility...');
       await createNotification({
         userId,
         type: 'reward',
@@ -60,9 +71,13 @@ export async function POST(request: NextRequest) {
           linkTo: '/dashboard/crates'
         }
       });
-      console.log('✅ Notification created for user:', userId);
+      console.log('✅✅✅ Key reward notification created successfully for user:', userId);
+      console.log('🔔🔔🔔 ADMIN GIVE KEY - NOTIFICATION CREATION COMPLETE 🔔🔔🔔\n');
     } catch (notificationError) {
-      console.error('⚠️ Failed to create notification (but keys were added):', notificationError);
+      console.error('❌❌❌ Failed to create notification (but keys were added):', notificationError);
+      console.error('💥 Error details:', JSON.stringify(notificationError, null, 2));
+      console.error('💥 Error message:', notificationError instanceof Error ? notificationError.message : 'Unknown error');
+      console.error('💥 Stack:', notificationError instanceof Error ? notificationError.stack : 'No stack trace');
       // Continue even if notification fails
     }
 

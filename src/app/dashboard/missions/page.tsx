@@ -36,6 +36,7 @@ export default function MissionsPage() {
   useEffect(() => {
     const fetchMissionData = async () => {
       try {
+        console.log('\n🎖️🎖️🎖️ MISSIONS PAGE - START LOADING 🎖️🎖️🎖️');
         console.log('🔄 Fetching mission data...');
         
         // First fetch missions
@@ -45,11 +46,15 @@ export default function MissionsPage() {
         let fetchedMissions: Mission[] = [];
         if (missionsResponse.ok) {
           const missionsData = await missionsResponse.json();
-          console.log('✅ Missions data:', missionsData);
+          console.log('✅ Missions API Response:', missionsData);
           if (missionsData.success) {
             fetchedMissions = missionsData.missions;
             setMissions(fetchedMissions);
-            console.log(`📋 Set ${fetchedMissions.length} missions`);
+            console.log(`📋 Total missions from Supabase: ${fetchedMissions.length}`);
+            console.log('👀 Mission breakdown:');
+            console.log('  - Daily missions:', fetchedMissions.filter((m: any) => m.mission_type === 'daily').length);
+            console.log('  - Main missions:', fetchedMissions.filter((m: any) => m.mission_type === 'main').length);
+            console.log('👀 First 3 missions:', fetchedMissions.slice(0, 3).map((m: any) => ({ id: m.id, name: m.name, type: m.mission_type })));
           } else {
             console.error('❌ Missions API returned success: false');
           }
@@ -75,7 +80,8 @@ export default function MissionsPage() {
         // Handle progress data
         if (progressResponse.ok) {
           const progressData = await progressResponse.json();
-          console.log('📈 Progress data:', progressData);
+          console.log('📈 Progress API Response:', progressData);
+          console.log('👀 Progress items count:', progressData.progress?.length || 0);
           if (progressData.success && progressData.progress) {
             // Convert progress array to progress object with percentage calculation
             const progressMap: Record<string, number> = {};
@@ -101,6 +107,7 @@ export default function MissionsPage() {
         console.error('💥 Failed to fetch mission data:', error);
       } finally {
         setLoading(false);
+        console.log('🎖️🎖️🎖️ MISSIONS PAGE - FINISHED LOADING 🎖️🎖️🎖️\n');
       }
     };
 
@@ -127,11 +134,27 @@ export default function MissionsPage() {
   }
 
   if (loading) {
+    console.log('⏳ MISSIONS PAGE: Showing loading state...');
     return (
       <div className="p-4 sm:p-6 lg:p-8">
         <Card>
           <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Loading missions...</p>
+            <p className="text-center text-muted-foreground">Loading missions from Supabase...</p>
+            <p className="text-center text-xs text-muted-foreground mt-2">Check console for details</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (missions.length === 0) {
+    console.warn('⚠️ MISSIONS PAGE: No missions loaded!');
+    return (
+      <div className="p-4 sm:p-6 lg:p-8">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-center text-muted-foreground">No missions found in Supabase.</p>
+            <p className="text-center text-xs text-muted-foreground mt-2">Check Supabase missions table</p>
           </CardContent>
         </Card>
       </div>
@@ -211,10 +234,20 @@ export default function MissionsPage() {
                         {isComplete ? <CheckCircle className="w-8 h-8" /> : <Star className="w-8 h-8" />}
                       </div>
                       <div className="flex-1 space-y-1">
-                        <p className="font-semibold">{mission.name}</p>
+                        <div className="flex items-center justify-between">
+                          <p className="font-semibold">{mission.name}</p>
+                          {!isComplete && (
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {Math.round((progress / 100) * mission.requirement_value)}/{mission.requirement_value}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{mission.description}</p>
-                        {progress > 0 && progress < 100 && (
-                           <Progress value={progress} variant="main-mission" className="h-2" />
+                        {!isComplete && (
+                          <div className="space-y-1">
+                            <Progress value={progress} variant="main-mission" className="h-2" />
+                            <p className="text-xs text-muted-foreground">{progress}% complete</p>
+                          </div>
                         )}
                       </div>
                       <div className="text-right space-y-1">

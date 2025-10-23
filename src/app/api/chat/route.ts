@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
         id,
         content,
         created_at,
-        user_id,
+        sender_id,
         lobby,
-        users!inner (
+        users!chat_messages_sender_id_fkey!inner (
           id,
           username,
           displayname,
@@ -77,7 +77,7 @@ export async function GET(request: NextRequest) {
         id: m.id,
         content: m.content,
         created_at: m.created_at,
-        user_id: m.user_id,
+        user_id: m.sender_id,
         username: user.displayname || user.username || 'Anonymous',
         avatar: user.avatar_url || null,
         level: user.level || 1,
@@ -167,8 +167,7 @@ export async function POST(request: NextRequest) {
     await secureDb.create('chat_messages', {
       id: messageId,
       content: sanitizedContent,
-      user_id: session.user_id,
-      username: user.displayname || user.username || 'Player',
+      sender_id: session.user_id,
       created_at: new Date().toISOString(),
       lobby: lobby || 'dashboard',
     });

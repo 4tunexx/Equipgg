@@ -1,10 +1,13 @@
 import { Rarity } from '../lib/supabase/queries';
 
+// Extended rarity type to include 'Exotic'
+export type ExtendedRarity = Rarity | 'Exotic';
+
 export interface CrateItem {
   id: number;
   name: string;
   type: string;
-  rarity: Rarity;
+  rarity: ExtendedRarity;
   image: string;
 }
 

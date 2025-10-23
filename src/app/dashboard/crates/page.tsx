@@ -9,41 +9,57 @@ import { useAuth } from "../../../hooks/use-auth";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { supabase } from "../../../lib/supabase/client";
 import type { DBCrate, DBInventoryItem, DBItem, Rarity } from "../../../lib/supabase/queries";
+import { ExtendedRarity } from "../../../types/crate";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import Image from 'next/image';
 import ItemImage from "../../../components/ItemImage";
 import { cn } from "../../../lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
-import { CheckCircle, Gift, Star, Trophy, Coins } from 'lucide-react';
+import { CheckCircle, Gift, Star, Trophy, Coins, X } from 'lucide-react';
 import { useToast } from "../../../hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 
+// Using ExtendedRarity imported from types/crate.ts
+
 // Define utility constants
-const rarityColors: Record<Rarity, string> = {
+const rarityColors: Record<ExtendedRarity, string> = {
   'Common': 'from-gray-500/20 to-gray-600/20 border-gray-500/30',
   'Uncommon': 'from-green-500/20 to-green-600/20 border-green-500/30',
   'Rare': 'from-blue-500/20 to-blue-600/20 border-blue-500/30',
   'Epic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
+  'Exotic': 'from-purple-500/20 to-purple-600/20 border-purple-500/30',
   'Legendary': 'from-yellow-500/20 to-yellow-600/20 border-yellow-500/30'
 };
 
-const rarityGlow: Record<Rarity, string> = {
+const rarityGlow: Record<ExtendedRarity, string> = {
   'Common': 'shadow-gray-500/50',
   'Uncommon': 'shadow-green-500/50',
   'Rare': 'shadow-blue-500/50',
   'Epic': 'shadow-purple-500/50',
+  'Exotic': 'shadow-purple-500/50',
   'Legendary': 'shadow-yellow-500/50'
 };
 
 // Type aliases for easier use
 type InventoryItem = DBInventoryItem & { item: DBItem };
+
+// Define the flattened structure for won item that API now returns
+interface CrateWonItem {
+  id: number;
+  name: string;
+  type: string;
+  rarity: ExtendedRarity;
+  image?: string;
+  image_url?: string;
+}
+
 interface CrateWithItems extends DBCrate {
   items: Array<{
     id: number;
     name: string;
     type: string;
-    rarity: Rarity;
+    rarity: ExtendedRarity;
     image: string;
     dropChance: number;
   }>;
@@ -98,7 +114,7 @@ export default function CratesPage() {
   const { user } = useAuth();
   const [isOpening, setIsOpening] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
-  const [wonItem, setWonItem] = useState<InventoryItem | null>(null);
+  const [wonItem, setWonItem] = useState<CrateWonItem | null>(null);
   const [isRevealed, setIsRevealed] = useState(false);
   const [activeCrate, setActiveCrate] = useState<CrateData | null>(null);
   const [userKeys, setUserKeys] = useState<Record<number, number>>({});
@@ -227,6 +243,9 @@ export default function CratesPage() {
         return;
     }
     
+    console.log('🎁 Opening crate:', crate.name, 'with items:', crate.items?.length || 0);
+    console.log('📦 Crate items:', crate.items);
+    
     setActiveCrate(crate);
     setIsAnimating(true);
 
@@ -252,12 +271,26 @@ export default function CratesPage() {
             // Update keys count
             setUserKeys(prev => ({ ...prev, [crate.id]: Math.max(0, (prev[crate.id] || 0) - 1) }));
 
+            console.log('🎁 CRATE OPENING - CRITICAL LOG - Item received:', data.wonItem);
+            
+            // Set the wonItem for display - this is the MOST IMPORTANT part for the animation
+            // CRITICAL FIX: The API now returns a simplified structure with no nested 'item' property
+            const wonItemData = {
+                id: data.wonItem.id,
+                name: data.wonItem.name,
+                type: data.wonItem.type,
+                rarity: data.wonItem.rarity,
+                image: data.wonItem.image || ''
+            };
+            
+            console.log('🔥 CRITICAL - Using the following item for animation:', wonItemData);
+            
             // Emit inventory update event
             const inventoryUpdateEvent = new CustomEvent('inventoryUpdate', {
                 detail: {
                     type: 'crate_opening',
-                    itemId: data.wonItem.id,
-                    itemName: data.wonItem.name,
+                    itemId: wonItemData.id,
+                    itemName: wonItemData.name,
                     crateId: crate.id,
                     crateName: crate.name
                 }
@@ -377,14 +410,14 @@ export default function CratesPage() {
       </AlertDialog>
 
       <Dialog open={isOpening} onOpenChange={(open) => !open && handleReset()}>
-        <DialogContent className="max-w-6xl p-0 overflow-hidden bg-black/95 backdrop-blur-md border-primary/30" onInteractOutside={(e) => e.preventDefault()} onEscapeKeyDown={(e) => e.preventDefault()}>
+        <DialogContent className="max-w-6xl p-0 max-h-[90vh] overflow-y-auto bg-black/95 backdrop-blur-md border-primary/30" onInteractOutside={(e) => isRevealed ? undefined : e.preventDefault()} onEscapeKeyDown={(e) => isRevealed ? undefined : e.preventDefault()}>
             <VisuallyHidden>
                 <DialogHeader>
                     <DialogTitle>Crate Opening</DialogTitle>
                     <DialogDescription>Opening your crate to reveal the item inside</DialogDescription>
                 </DialogHeader>
             </VisuallyHidden>
-            <div className="h-[500px] flex flex-col justify-center items-center relative">
+            <div className="min-h-[500px] flex flex-col justify-center items-center relative py-8">
                 {/* Skip Button */}
                 {!isRevealed && (
                     <Button 
@@ -396,73 +429,138 @@ export default function CratesPage() {
                         Skip Animation
                     </Button>
                 )}
-                {wonItem && activeCrate && <CrateOpeningAnimation 
-                  items={activeCrate.items && activeCrate.items.length > 0 
-                    ? activeCrate.items
-                        .filter((ci: any) => ci.item)
-                        .map((ci: any) => ({
-                          id: ci.item.id,
-                          name: ci.item.name,
-                          type: ci.item.type || ci.item.category,
-                          rarity: ci.item.rarity,
-                          image: ci.item.image_url || ci.item.image || 
-                            `https://www.csgodatabase.com/images/skins/webp/${ci.item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`
-                        }))
-                    : inventoryData
-                        .filter(inv => inv.item)
-                        .map(inv => ({
-                          id: inv.item.id,
-                          name: inv.item.name,
-                          type: inv.item.type,
-                          rarity: inv.item.rarity,
-                          image: inv.item.image_url || inv.item.image || '/placeholder.png'
-                        }))
-                  } 
-                  wonItem={{
-                    id: wonItem.item.id,
-                    name: wonItem.item.name,
-                    type: wonItem.item.type,
-                    rarity: wonItem.item.rarity,
-                    image: wonItem.item.image_url || wonItem.item.image || 
-                      `https://www.csgodatabase.com/images/skins/webp/${wonItem.item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`
-                  }} 
-                  crateImage={activeCrate.image_url || undefined}
-                  crateName={activeCrate.name}
-                  onAnimationEnd={handleAnimationEnd} 
-                />}
+                {wonItem && activeCrate && (() => {
+                  // CRITICAL: Convert wonItem ID to number first
+                  const wonItemId = typeof wonItem.id === 'string' ? parseInt(wonItem.id) : wonItem.id;
+                  const wonItemImage = wonItem.image || wonItem.image_url || 
+                    `https://www.csgodatabase.com/images/skins/webp/${wonItem.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`;
+                  
+                  console.log('\n\u274c\u274c\u274c CRITICAL ANIMATION DATA \u274c\u274c\u274c');
+                  console.log('🎯 WON ITEM ID:', wonItemId, 'Type:', typeof wonItemId);
+                  console.log('🎯 WON ITEM NAME:', wonItem.name);
+                  console.log('🎯 WON ITEM IMAGE:', wonItemImage.substring(0, 60));
+                  
+                  // Map crate items with CONSISTENT ID types
+                  const crateItems = activeCrate.items && activeCrate.items.length > 0 
+                    ? activeCrate.items.map((item: any) => {
+                        // CRITICAL: Convert ALL item IDs to numbers
+                        const itemId = typeof item.id === 'string' ? parseInt(item.id) : item.id;
+                        const imageUrl = item.image_url || item.image || 
+                          `https://www.csgodatabase.com/images/skins/webp/${item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`;
+                        
+                        const mappedItem = {
+                          id: itemId,
+                          name: item.name,
+                          type: item.type || item.category,
+                          rarity: item.rarity,
+                          image: imageUrl
+                        };
+                        
+                        // Log if this is the won item
+                        if (itemId === wonItemId) {
+                          console.log('✅ FOUND WON ITEM IN CRATE ITEMS:', item.name, 'ID:', itemId);
+                        }
+                        
+                        return mappedItem;
+                      })
+                    : [];
+                  
+                  console.log('🏦 Total crate items:', crateItems.length);
+                  console.log('🔍 Crate items IDs:', crateItems.map(i => i.id));
+                  console.log('🔍 Won item in crate items?', crateItems.some(i => i.id === wonItemId) ? '✅ YES' : '❌ NO');
+                  console.log('\u274c\u274c\u274c END CRITICAL DATA \u274c\u274c\u274c\n');
+                  
+                  const finalWonItem = {
+                    id: wonItemId,
+                    name: wonItem.name,
+                    type: wonItem.type || '',
+                    rarity: wonItem.rarity,
+                    image: wonItemImage
+                  };
+                  
+                  return <CrateOpeningAnimation 
+                    items={crateItems}
+                    wonItem={finalWonItem}
+                    crateImage={activeCrate.image_url || undefined}
+                    crateName={activeCrate.name}
+                    onAnimationEnd={handleAnimationEnd} 
+                  />;
+                })()}
             </div>
             {isRevealed && wonItem && activeCrate && (
-                 <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center animate-in fade-in-50 duration-500">
+                 <div className="absolute inset-0 bg-background/95 flex flex-col items-center justify-center animate-in fade-in-50 duration-500 z-[200] overflow-y-auto py-8">
+                    <div className="absolute top-4 right-4 z-[210]">
+                      <Button
+                        onClick={handleReset}
+                        variant="ghost"
+                        size="icon"
+                        className="rounded-full hover:bg-destructive/10 h-8 w-8"
+                      >
+                        <X className="h-5 w-5" />
+                      </Button>
+                    </div>
                     <DialogHeader>
                         <DialogTitle className="text-center text-3xl font-bold">You Won!</DialogTitle>
                     </DialogHeader>
-                    <div className={cn("relative my-4 w-48 h-48 animate-in zoom-in-50 duration-500 flex items-center justify-center", rarityGlow[wonItem.item.rarity as Rarity])}>
-                        <img
-                          src={wonItem.item.image_url || wonItem.item.image || `https://www.csgodatabase.com/images/skins/webp/${wonItem.item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`}
-                          alt={wonItem.item.name}
-                          style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                          onError={(e) => {
-                            console.error('❌ Won item image failed:', wonItem.item.name);
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/placeholder.png';
-                          }}
-                        />
-                    </div>
-                    <h3 className={cn("text-2xl font-semibold", rarityColors[wonItem.item.rarity as Rarity])}>{wonItem.item.name}</h3>
-                    <p className="text-muted-foreground">{wonItem.item.rarity} {wonItem.item.type}</p>
-
-                    <div className="mt-4 flex items-center gap-6">
-                        <div className='flex items-center gap-2 text-sky-400 font-semibold'>
-                            <Star className="w-5 h-5"/> +{activeCrate.xpReward || 50} XP
+                    <div className="mt-10 mb-8 flex items-center justify-center">
+                        <div className={cn("p-4 w-64 h-64 flex items-center justify-center rounded-md", 
+                            wonItem.rarity === 'Legendary' ? 'bg-orange-500/20' : 
+                            wonItem.rarity === 'Exotic' ? 'bg-purple-500/20' :
+                            wonItem.rarity === 'Rare' ? 'bg-blue-500/20' :
+                            wonItem.rarity === 'Uncommon' ? 'bg-green-500/20' :
+                            'bg-gray-500/20'
+                        )}>
+                            <div className="relative w-full h-full">
+                                <Image
+                                    src={wonItem.image || 
+                                        `https://www.csgodatabase.com/images/skins/webp/${wonItem.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`}
+                                    alt={wonItem.name}
+                                    width={200}
+                                    height={200}
+                                    className="object-contain w-full h-full"
+                                    onError={(e) => {
+                                        // Fallback to a default image if the main image fails to load
+                                        const target = e.target as HTMLImageElement;
+                                        target.src = '/images/placeholder-item.png';
+                                    }}
+                                />
+                            </div>
                         </div>
-                         <div className='flex items-center gap-2 text-yellow-400 font-semibold'>
-                            <Coins className="w-5 h-5"/> +{activeCrate.coinReward || 100} Coins
-                        </div>
                     </div>
-
-                    <Button onClick={() => handleOpenCrate(activeCrate)} disabled={isAnimating || (userKeys[activeCrate.id] || 0) <= 0} className="mt-8">
+                    <DialogDescription className="text-center text-xl mb-2">
+                        {wonItem.name}
+                    </DialogDescription>
+                    <p className={cn("text-center font-semibold",
+                        wonItem.rarity === 'Legendary' ? 'text-orange-500' : 
+                        wonItem.rarity === 'Exotic' ? 'text-purple-500' :
+                        wonItem.rarity === 'Rare' ? 'text-blue-500' :
+                        wonItem.rarity === 'Uncommon' ? 'text-green-500' :
+                        'text-gray-500'
+                    )}>
+                        {wonItem.rarity}
+                    </p>
+                    <div className='flex items-center gap-2 text-sky-400 font-semibold'>
+                        <Star className="w-5 h-5"/> +{activeCrate.xpReward || 50} XP
+                    </div>
+                    <div className='flex items-center gap-2 text-yellow-400 font-semibold'>
+                        <Coins className="w-5 h-5"/> +{activeCrate.coinReward || 100} Coins
+                    </div>
+                    <div className="mt-8 flex gap-4 relative z-[210]">
+                      <Button 
+                        onClick={handleReset}
+                        variant="outline"
+                        className="relative z-[110]"
+                      >
+                        Close
+                      </Button>
+                      <Button 
+                        onClick={() => handleOpenCrate(activeCrate)} 
+                        disabled={isAnimating || (userKeys[activeCrate.id] || 0) <= 0} 
+                        className="relative z-[110]"
+                      >
                         Open Another {activeCrate.name}
-                    </Button>
+                      </Button>
+                    </div>
                 </div>
             )}
         </DialogContent>

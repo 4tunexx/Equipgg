@@ -88,12 +88,16 @@ export function PrestigeActivityFeed() {
   useEffect(() => {
     const fetchActivities = async () => {
       try {
+        console.log('🌎 PRESTIGE FEED: Fetching activities from API...');
         const response = await fetch('/api/activities');
         
         if (response.ok) {
           const data = await response.json();
+          console.log('📡 PRESTIGE FEED: API Response:', data);
+          
           if (data.activities && data.activities.length > 0) {
-            console.log('✅ Loaded real activities:', data.activities.length);
+            console.log('✅ PRESTIGE FEED: Loaded', data.activities.length, 'REAL activities');
+            console.log('👀 First 3 activities:', data.activities.slice(0, 3));
             setActivities(data.activities);
             setLoading(false);
             
@@ -111,20 +115,20 @@ export function PrestigeActivityFeed() {
             return () => clearInterval(carouselTimeout);
           } else {
             // No real activities, use fallback
-            console.log('⚠️ No real activities found, using fallback');
+            console.warn('⚠️ PRESTIGE FEED: No activities in response, using fallback');
             const fallbackActivities = generateFallbackActivities();
             setActivities(fallbackActivities);
             setLoading(false);
           }
         } else {
           // API error, use fallback
-          console.log('⚠️ API error, using fallback activities');
+          console.error('❌ PRESTIGE FEED: API returned status', response.status);
           const fallbackActivities = generateFallbackActivities();
           setActivities(fallbackActivities);
           setLoading(false);
         }
       } catch (error) {
-        console.error('❌ Error fetching activities:', error);
+        console.error('❌ PRESTIGE FEED: Error fetching activities:', error);
         // Fetch failed, use fallback
         const fallbackActivities = generateFallbackActivities();
         setActivities(fallbackActivities);
@@ -140,11 +144,13 @@ export function PrestigeActivityFeed() {
         .then(res => res.json())
         .then(data => {
           if (data.activities && data.activities.length > 0) {
-            console.log('🔄 Refreshed activities');
+            console.log('🔄 PRESTIGE FEED: Refreshed with', data.activities.length, 'activities');
             setActivities(data.activities);
+          } else {
+            console.warn('⚠️ PRESTIGE FEED: Refresh returned no activities');
           }
         })
-        .catch(err => console.error('Error refreshing activities:', err));
+        .catch(err => console.error('❌ PRESTIGE FEED: Error refreshing:', err));
     }, 30000); // 30 seconds
 
     return () => clearInterval(refreshInterval);

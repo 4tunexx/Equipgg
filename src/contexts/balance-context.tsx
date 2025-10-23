@@ -24,6 +24,8 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [balance, setBalance] = useState<UserBalance | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const refreshTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const lastRefreshRef = React.useRef<number>(0);
 
   const fetchBalance = React.useCallback(async () => {
     if (!user) {
@@ -65,7 +67,31 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const refreshBalance = React.useCallback(async () => {
-    console.log('🔄 Refreshing balance...');
+    // CRITICAL FIX: Debounce refresh to prevent flickering
+    // Clear any pending refresh
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+    }
+    
+    // Check if we refreshed very recently (within 2 seconds)
+    const now = Date.now();
+    const timeSinceLastRefresh = now - lastRefreshRef.current;
+    
+    if (timeSinceLastRefresh < 2000) {
+      // Too soon, schedule for later
+      console.log('🔄 Debouncing balance refresh (last refresh was', timeSinceLastRefresh, 'ms ago)');
+      refreshTimeoutRef.current = setTimeout(() => {
+        console.log('🔄 Executing debounced balance refresh');
+        lastRefreshRef.current = Date.now();
+        setIsLoading(true);
+        fetchBalance().catch(err => console.error('Error refreshing balance:', err));
+      }, 2000 - timeSinceLastRefresh);
+      return;
+    }
+    
+    // Refresh immediately
+    console.log('🔄 Refreshing balance immediately');
+    lastRefreshRef.current = now;
     setIsLoading(true);
     try {
       await fetchBalance();
@@ -98,16 +124,8 @@ export function BalanceProvider({ children }: { children: ReactNode }) {
         handleImmediateBalanceUpdate(event.detail.newBalance);
       }
       
-      // Refresh balance immediately and then again after delays to ensure we get the latest data
+      // Single refresh - debouncing will handle multiple rapid calls
       refreshBalance();
-      setTimeout(() => {
-        console.log('🔄 First delayed refresh...');
-        refreshBalance();
-      }, 500);
-      setTimeout(() => {
-        console.log('🔄 Second delayed refresh...');
-        refreshBalance();
-      }, 1500);
     };
 
     const handleKeyUpdate = () => {

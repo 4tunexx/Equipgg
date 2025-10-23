@@ -822,6 +822,12 @@ export default function InventoryPage() {
                                       }
                                     }}
                                   />
+                                  {/* Quantity badge */}
+                                  {item.quantity && item.quantity > 1 && (
+                                    <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs font-bold px-1.5 py-0.5 rounded-md border border-primary/50">
+                                      x{item.quantity}
+                                    </div>
+                                  )}
                                 </Card>
                               </DropdownMenuTrigger>
                             </TooltipTrigger>

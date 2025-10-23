@@ -1,5 +1,17 @@
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
+
+// Use admin client for notifications to bypass RLS
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
 
 export interface NotificationData {
   ticketId?: string;
@@ -11,6 +23,12 @@ export interface NotificationData {
   amount?: number;
   level?: number;
   achievementId?: string;
+  itemName?: string;
+  rarity?: string;
+  crateId?: number;
+  crateName?: string;
+  linkTo?: string;
+  keysCount?: number;
   [key: string]: unknown;
 }
 
@@ -32,6 +50,7 @@ export interface CreateBulkNotificationParams {
 
 /**
  * Create a single notification for a user
+ * USES ADMIN CLIENT TO BYPASS RLS
  */
 export async function createNotification({
   userId,
@@ -42,7 +61,16 @@ export async function createNotification({
 }: CreateNotificationParams): Promise<void> {
   try {
     const notificationId = uuidv4();
-    const { data: result, error } = await supabase.from('notifications').insert([
+    
+    console.log('🔔 Creating notification:', { 
+      id: notificationId, 
+      userId, 
+      type, 
+      title,
+      message: message.substring(0, 50) + '...'
+    });
+    
+    const { data: result, error } = await supabaseAdmin.from('notifications').insert([
       {
         id: notificationId,
         user_id: userId,
@@ -50,21 +78,23 @@ export async function createNotification({
         title,
         message,
         data: data ? JSON.stringify(data) : null,
+        read: false,
         created_at: new Date().toISOString(),
       },
-    ]);
+    ]).select();
     
     if (error) {
       console.error('❌ NOTIFICATION INSERT FAILED:', error);
       console.error('Error details:', JSON.stringify(error, null, 2));
       console.error('Notification data:', { userId, type, title, message, data });
-      throw error; // Re-throw so calling code knows it failed
+      throw error;
     } else {
       console.log('✅ Notification created successfully:', notificationId, 'for user:', userId);
+      console.log('📦 Result:', result);
     }
   } catch (error) {
     console.error('❌ Error creating notification:', error);
-    throw error; // Re-throw to propagate the error
+    throw error;
   }
 }
 
@@ -88,10 +118,16 @@ export async function createBulkNotifications({
       title,
       message,
       data: dataString,
+      read: false,
       created_at: now,
     }));
     if (notifications.length > 0) {
-      await supabase.from('notifications').insert(notifications);
+      const { error } = await supabaseAdmin.from('notifications').insert(notifications);
+      if (error) {
+        console.error('Error creating bulk notifications:', error);
+      } else {
+        console.log('✅ Created', notifications.length, 'bulk notifications');
+      }
     }
   } catch (error) {
     console.error('Error creating bulk notifications:', error);
@@ -115,7 +151,7 @@ export async function createNotificationsForRoles({
   data?: NotificationData;
 }): Promise<void> {
   try {
-    const { data: users, error } = await supabase
+    const { data: users, error } = await supabaseAdmin
       .from('users')
       .select('id')
       .in('role', roles);

@@ -63,23 +63,52 @@ export async function POST(request: NextRequest) {
     const user = userResponse.data;
     const inventoryItem = inventoryItemResponse.data;
 
-    // Calculate sell price (typically 70-80% of item value)
+    // Calculate sell price for ONE item (typically 75% of item value)
     const itemValue = inventoryItem.item.coin_price || 100;
     const calculatedSellPrice = sellPrice || Math.floor(itemValue * 0.75);
+    
+    // Get current quantity
+    const currentQuantity = inventoryItem.quantity || 1;
+    console.log(`💰 Selling 1 item from stack of ${currentQuantity}`);
 
-    // Delete item from inventory
-    const { error: deleteError } = await supabase
-      .from('user_inventory')
-      .delete()
-      .eq('id', itemId)
-      .eq('user_id', userId);
+    // If quantity > 1, decrease by 1. If quantity = 1, delete the row.
+    if (currentQuantity > 1) {
+      // Decrease quantity by 1
+      const { error: updateError } = await supabase
+        .from('user_inventory')
+        .update({ 
+          quantity: currentQuantity - 1,
+          acquired_at: new Date().toISOString() // Update timestamp
+        })
+        .eq('id', itemId)
+        .eq('user_id', userId);
 
-    if (deleteError) {
-      console.error('Error deleting item:', deleteError);
-      return NextResponse.json(
-        { error: 'Failed to delete item' },
-        { status: 500 }
-      );
+      if (updateError) {
+        console.error('Error decreasing quantity:', updateError);
+        return NextResponse.json(
+          { error: 'Failed to update item quantity' },
+          { status: 500 }
+        );
+      }
+      
+      console.log(`✅ Decreased quantity to ${currentQuantity - 1}`);
+    } else {
+      // Quantity is 1, delete the entire row
+      const { error: deleteError } = await supabase
+        .from('user_inventory')
+        .delete()
+        .eq('id', itemId)
+        .eq('user_id', userId);
+
+      if (deleteError) {
+        console.error('Error deleting item:', deleteError);
+        return NextResponse.json(
+          { error: 'Failed to delete item' },
+          { status: 500 }
+        );
+      }
+      
+      console.log('✅ Deleted last item from inventory');
     }
 
     // Update user coins
@@ -98,13 +127,15 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `${inventoryItem.item.name} sold for ${calculatedSellPrice.toLocaleString()} coins`,
+      message: `Sold 1x ${inventoryItem.item.name} for ${calculatedSellPrice.toLocaleString()} coins${currentQuantity > 1 ? ` (${currentQuantity - 1} remaining)` : ''}`,
       price: calculatedSellPrice,
       soldItem: {
         id: inventoryItem.id,
         name: inventoryItem.item.name,
         sellPrice: calculatedSellPrice,
-        originalValue: itemValue
+        originalValue: itemValue,
+        quantitySold: 1,
+        remainingQuantity: currentQuantity > 1 ? currentQuantity - 1 : 0
       },
       newBalance: user.coins + calculatedSellPrice
     });

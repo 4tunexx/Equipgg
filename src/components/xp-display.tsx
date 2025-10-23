@@ -2,7 +2,7 @@
 
 import { Progress } from "./ui/progress";
 import { getLevelInfo as getNewLevelInfo, getLevelFromXP, getXPForLevel, defaultXPConfig } from "../lib/xp-config";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface XpDisplayProps {
   xp?: number;
@@ -45,16 +45,39 @@ export function XpDisplay({
 }: XpDisplayProps) {
   const [xpData, setXpData] = useState<XPData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // CRITICAL FIX: Use refs to prevent flickering during balance updates
+  const stableXpRef = useRef<number>(propXp ?? 0);
+  const stableLevelRef = useRef<number>(propLevel ?? 1);
+  const hasInitializedRef = useRef(false);
+  
+  // Only update refs when we have valid, non-zero data
+  if (propXp && propXp > 0 && propLevel && propLevel > 0) {
+    // Only update if this is a significant change (not just a flicker)
+    const xpDiff = Math.abs((propXp ?? 0) - stableXpRef.current);
+    const levelDiff = Math.abs((propLevel ?? 1) - stableLevelRef.current);
+    
+    // Update if: first time OR significant change (more than 10 XP difference)
+    if (!hasInitializedRef.current || xpDiff > 10 || levelDiff > 0) {
+      stableXpRef.current = propXp;
+      stableLevelRef.current = propLevel;
+      hasInitializedRef.current = true;
+    }
+  }
 
   // Fetch XP data from API if autoFetch is enabled or if no XP data is provided
   useEffect(() => {
     const fetchXPData = async () => {
-      if (!autoFetch && (propXp !== undefined && propLevel !== undefined)) {
-        // Use provided data
-        const levelInfo = getNewLevelInfo(propXp, defaultXPConfig);
+      // CRITICAL FIX: Use stable refs instead of props to prevent flickering
+      const useXp = stableXpRef.current;
+      const useLevel = stableLevelRef.current;
+      
+      if (!autoFetch && hasInitializedRef.current) {
+        // Use stable ref data to prevent flickering
+        const levelInfo = getNewLevelInfo(useXp, defaultXPConfig);
         setXpData({
-          xp: propXp,
-          level: propLevel,
+          xp: useXp,
+          level: useLevel,
           levelInfo
         });
         return;
@@ -101,8 +124,11 @@ export function XpDisplay({
       }
     };
 
-    fetchXPData();
-  }, [userId, autoFetch, propXp, propLevel]);
+    // Only fetch if we have initialized data
+    if (hasInitializedRef.current || autoFetch) {
+      fetchXPData();
+    }
+  }, [userId, autoFetch]); // Removed propXp and propLevel from deps to prevent re-fetching
 
   // Use fetched data or fallback to provided props  
   const currentXP = xpData?.xp ?? propXp ?? 0;
@@ -125,16 +151,7 @@ export function XpDisplay({
     ? Math.min(100, Math.max(0, (safeXpEarned / safeXpNeededForNext) * 100))
     : 0;
   
-  console.log('XP Display Debug:', {
-    currentXP,
-    currentLevel,
-    totalXPNeeded: levelInfo.totalXPNeeded,
-    nextLevelTotalXP,
-    xpEarnedThisLevel: safeXpEarned,
-    xpNeededForNextLevel: safeXpNeededForNext,
-    progressPercent,
-    levelInfo
-  });
+  // Debug logging removed to reduce console noise
 
   if (isLoading) {
     return (

@@ -1,5 +1,20 @@
 // Comprehensive XP Service for Progressive Leveling System
-import { supabase } from './supabase';
+import 'server-only';
+import { supabase } from './supabase/client';
+import { createClient } from '@supabase/supabase-js';
+
+// Create admin client to bypass RLS for notifications
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false
+    }
+  }
+);
+
 import { 
   getXPForLevel, 
   getLevelFromXP, 
@@ -231,8 +246,9 @@ async function handleLevelUp(
       }
     }
 
-    // Create level up notification
-    await supabase.from('notifications').insert([
+    // Create level up notification using admin client to bypass RLS
+    console.log('📣 CREATING LEVEL UP NOTIFICATION for user:', userId, 'Level:', newLevel);
+    await supabaseAdmin.from('notifications').insert([
       {
         id: `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         user_id: userId,
@@ -248,9 +264,33 @@ async function handleLevelUp(
         read: 0,
       },
     ]);
+    console.log('✅ Level up notification created successfully');
+    
+    // Log to activity feed using admin client
+    try {
+      await supabaseAdmin.from('activity_feed').insert([
+        {
+          id: `levelup_activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          user_id: userId,
+          action: 'leveled_up',
+          description: `Reached Level ${newLevel}`,
+          metadata: JSON.stringify({ 
+            newLevel,
+            levelsGained,
+            rewards: { coins: levelUpBonus, keys: levelsGained } 
+          }),
+          created_at: new Date().toISOString()
+        }
+      ]);
+      console.log('✅ Level up activity logged');
+    } catch (activityError) {
+      console.error('❌ Failed to log level up activity:', activityError);
+    }
 
     // Check for level-up achievements
     await checkLevelAchievements(userId, newLevel);
+    
+    console.log('🎉 Level up complete! User', userId, 'is now level', newLevel, 'with', levelUpBonus, 'bonus coins and', levelsGained, 'keys');
 
   } catch (error) {
     console.error('Error handling level up:', error);
@@ -292,8 +332,8 @@ async function checkLevelAchievements(userId: string, level: number): Promise<vo
               unlocked_at: new Date().toISOString(),
             },
           ]);
-          // Create achievement notification
-          await supabase.from('notifications').insert([
+          // Create achievement notification using admin client
+          await supabaseAdmin.from('notifications').insert([
             {
               id: `achievement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
               user_id: userId,
