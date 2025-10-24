@@ -17,7 +17,13 @@ export async function POST(
     }
 
     const { tradeId } = params;
-    const { reason } = await request.json();
+    let reason = '';
+    try {
+      const body = await request.json();
+      reason = body.reason || '';
+    } catch (e) {
+      // Body might be empty, that's ok
+    }
 
     // Get trade details
     const { data: trade, error: tradeError } = await supabase
@@ -45,8 +51,8 @@ export async function POST(
       return NextResponse.json({ error: 'You are not authorized to cancel this trade' }, { status: 403 });
     }
 
-    // Verify trade is still pending
-    if (trade.status !== 'pending') {
+    // Verify trade is still pending or open
+    if (trade.status !== 'pending' && trade.status !== 'open') {
       return NextResponse.json({ error: `Trade is already ${trade.status}` }, { status: 400 });
     }
 
@@ -59,39 +65,53 @@ export async function POST(
       })
       .eq('id', tradeId);
 
-    // Notify both parties
-    if (isAdmin && !isSender) {
-      // Admin cancelled - notify both
-      await createNotification({
-        userId: trade.sender_id,
-        type: 'trade_cancelled',
-        title: '⚠️ Trade Cancelled by Admin',
-        message: reason || 'Your trade was cancelled by a moderator',
-        data: { tradeId: trade.id }
-      });
+    // Clear old trade notifications
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('type', 'trade_offer_received')
+      .contains('data', { tradeId: trade.id });
 
-      await createNotification({
-        userId: trade.receiver_id,
-        type: 'trade_cancelled',
-        title: '⚠️ Trade Cancelled by Admin',
-        message: reason || 'A trade offer was cancelled by a moderator',
-        data: { tradeId: trade.id }
-      });
-    } else {
-      // Sender cancelled - notify recipient
-      const { data: sender } = await supabase
-        .from('users')
-        .select('display_name')
-        .eq('id', session.user_id)
-        .single();
+    // Notify both parties if they exist
+    try {
+      if (isAdmin && !isSender) {
+        // Admin cancelled - notify both
+        await createNotification({
+          userId: trade.sender_id,
+          type: 'trade_cancelled',
+          title: '⚠️ Trade Cancelled by Admin',
+          message: reason || 'Your trade was cancelled by a moderator',
+          data: { tradeId: trade.id }
+        });
 
-      await createNotification({
-        userId: trade.receiver_id,
-        type: 'trade_cancelled',
-        title: '❌ Trade Cancelled',
-        message: `${sender?.display_name || 'Someone'} cancelled their trade offer`,
-        data: { tradeId: trade.id }
-      });
+        if (trade.receiver_id) {
+          await createNotification({
+            userId: trade.receiver_id,
+            type: 'trade_cancelled',
+            title: '⚠️ Trade Cancelled by Admin',
+            message: reason || 'A trade offer was cancelled by a moderator',
+            data: { tradeId: trade.id }
+          });
+        }
+      } else if (trade.receiver_id) {
+        // Sender cancelled - notify recipient if exists
+        const { data: sender } = await supabase
+          .from('users')
+          .select('displayName')
+          .eq('id', session.user_id)
+          .single();
+
+        await createNotification({
+          userId: trade.receiver_id,
+          type: 'trade_cancelled',
+          title: '❌ Trade Cancelled',
+          message: `${sender?.displayName || 'Someone'} cancelled their trade offer`,
+          data: { tradeId: trade.id }
+        });
+      }
+    } catch (notifError) {
+      // Notification failed but trade is cancelled, log and continue
+      console.error('Notification error:', notifError);
     }
 
     return NextResponse.json({

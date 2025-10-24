@@ -65,7 +65,7 @@ export function HeroSection() {
   const useSingleLogo = !heroPanelData?.logo_layer1 && !heroPanelData?.logo_layer2;
 
   return (
-    <section className="relative min-h-[100vh] md:h-[80vh] flex items-center justify-center text-center text-white overflow-hidden">
+    <section className="relative min-h-screen flex items-center justify-center text-center text-white overflow-hidden">
       {/* Loading State */}
       {!isDataLoaded && (
         <div className="absolute inset-0 bg-background z-50 flex items-center justify-center">
@@ -76,8 +76,8 @@ export function HeroSection() {
         </div>
       )}
       {/* Corner Logo (desktop only) */}
-      <div className={`absolute top-0 left-0 container hidden lg:flex h-14 items-center z-30 transition-all duration-1000 ease-out transform ${
-        isVisible && isDataLoaded ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
+      <div className={`absolute top-4 left-4 hidden lg:flex items-center z-30 transition-all duration-1000 ease-out transform ${
+        isVisible && isDataLoaded ? 'translate-x-0 opacity-100' : '-translate-x-full opacity-0'
       }`}>
         <div className="mr-4 flex items-center">
           <Link href="/" className="mr-6 flex items-center space-x-2">

@@ -17,6 +17,7 @@ import { rarityColors } from "../../../lib/types";
 
 interface InventoryItem {
   id: string;
+  item_id?: string;
   item_name?: string;
   name?: string;
   item_type?: string;
@@ -26,6 +27,7 @@ interface InventoryItem {
   image?: string;
   value?: number;
   equipped: boolean;
+  quantity?: number;
 }
 
 interface Trade {
@@ -36,6 +38,7 @@ interface Trade {
   receiver_items: string[];
   status: string;
   created_at: string;
+  expires_at: string;
   sender: {
     id: string;
     displayname: string;
@@ -51,24 +54,26 @@ interface Trade {
   requestedItemsDetails?: InventoryItem[];
 }
 
-// Helper function to generate image URLs (same as inventory/shop/admin)
+// Helper function to generate image URLs
 const getItemImageUrl = (itemName: string, category: string, existingImage?: string) => {
-  if (existingImage && !existingImage.includes('placeholder')) return existingImage;
+  // Use existing image if valid
+  if (existingImage && !existingImage.includes('placeholder') && existingImage.startsWith('http')) {
+    return existingImage;
+  }
   
-  const baseUrl = 'https://www.csgodatabase.com/images';
-  const categoryLower = category?.toLowerCase() || '';
-  const nameLower = itemName?.toLowerCase() || '';
+  // If no name, return placeholder immediately
+  if (!itemName || itemName === 'Unknown Item' || itemName.trim() === '') {
+    return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbGw9IiMzMzMiLz48cGF0aCBkPSJNMzIgMjBWNDRNMjAgMzJINDQiIHN0cm9rZT0iIzY2NiIgc3Ryb2tlLXdpZHRoPSI0IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=';
+  }
   
-  let folder = 'skins';
-  if (categoryLower.includes('knife') || nameLower.includes('knife')) folder = 'knives';
-  else if (categoryLower.includes('glove')) folder = 'gloves';
-  else if (categoryLower.includes('agent')) folder = 'agents';
-  
-  const cleanName = itemName?.replace(/\s*\|?\s*StatTrak™?\s*/gi, '').trim() || 'unknown';
+  // Use CS:GO Database for weapon skins
+  const cleanName = itemName.replace(/\s*\|?\s*StatTrak™?\s*/gi, '').trim();
   const formattedName = cleanName.replace(/\s+/g, '_');
   
-  return `${baseUrl}/${folder}/webp/${formattedName}.webp`;
+  return `https://www.csgodatabase.com/images/skins/webp/${formattedName}.webp`;
 };
+
+// Timer removed per user request
 
 export default function TradingPage() {
   const { user } = useAuth();
@@ -105,23 +110,74 @@ export default function TradingPage() {
   const fetchOpenTrades = async () => {
     setLoading(true);
     try {
+      console.log('🔥 Fetching OPEN TRADES from API...');
       const res = await fetch('/api/trades/open', { credentials: 'include' });
+      
+      console.log('🔍 Response status:', res.status);
+      console.log('🔍 Response headers:', res.headers.get('content-type'));
+      
+      // Check if response is actually JSON
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await res.text();
+        console.error('❌ API returned non-JSON response:', text.substring(0, 500));
+        toast({
+          title: "Error",
+          description: "API error - check console",
+          variant: "destructive"
+        });
+        return;
+      }
+      
       const data = await res.json();
-      console.log('📦 Open Trades Response:', data);
+      console.log('📦 Open Trades API Response:', data);
+      console.log('📦 Total trades from API:', data.trades?.length);
+      
       if (data.success) {
-        console.log('📦 First Trade:', data.trades?.[0]);
-        console.log('📦 First Trade Items:', data.trades?.[0]?.senderItemsDetails);
-        // Filter out expired trades (older than 1 hour with no offer)
+        if (data.trades && data.trades.length > 0) {
+          console.log('📦 First Trade Full Details:', data.trades[0]);
+          console.log('📦 First Trade expires_at:', data.trades[0]?.expires_at);
+          console.log('📦 First Trade created_at:', data.trades[0]?.created_at);
+          console.log('📦 First Trade Items:', data.trades[0]?.senderItemsDetails);
+        } else {
+          console.log('⚠️ NO TRADES RETURNED FROM API!');
+        }
+        
+        // Filter out expired and cancelled trades
         const now = Date.now();
+        console.log('🔍 Frontend filtering - current time:', new Date(now).toISOString());
+        
+        console.log('⚠️ FRONTEND FILTERS TEMPORARILY DISABLED FOR DEBUGGING');
+        
         const validTrades = (data.trades || []).filter((trade: Trade) => {
-          const createdAt = new Date(trade.created_at).getTime();
-          const hoursSinceCreated = (now - createdAt) / (1000 * 60 * 60);
-          // If open and older than 1 hour, skip it
-          if (trade.status === 'open' && hoursSinceCreated > 1) {
+          // Skip cancelled or rejected trades
+          if (trade.status === 'cancelled' || trade.status === 'rejected') {
+            console.log('❌ Filtered out cancelled/rejected trade:', trade.id);
             return false;
           }
+          
+          // TEMPORARILY DISABLED EXPIRATION CHECK
+          // if (trade.expires_at) {
+          //   const expiresAt = new Date(trade.expires_at).getTime();
+          //   const remaining = expiresAt - now;
+          //   console.log('⏱️ Trade', trade.id, 'expires_at check:', {
+          //     expiresAt: new Date(expiresAt).toISOString(),
+          //     remaining: remaining,
+          //     isExpired: remaining <= 0
+          //   });
+          //   
+          //   if (expiresAt <= now) {
+          //     console.log('❌ Filtered out EXPIRED trade:', trade.id);
+          //     return false; // Trade has expired
+          //   }
+          // }
+          
+          console.log('✅ Trade', trade.id, 'passed filters!');
           return true;
         });
+        
+        console.log('📦 Valid trades after filtering:', validTrades.length);
+        console.log('🔥 SETTING OPEN TRADES TO:', validTrades);
         setOpenTrades(validTrades);
       }
     } catch (error) {
@@ -135,9 +191,15 @@ export default function TradingPage() {
   const fetchMyTrades = async () => {
     setLoading(true);
     try {
+      console.log('👉 Fetching MY TRADES...');
       const res = await fetch('/api/trades?type=sent', { credentials: 'include' });
       const data = await res.json();
+      console.log('👉 MY TRADES Response:', data);
+      console.log('👉 Total trades received:', data.trades?.length);
+      
       if (data.success) {
+        // SHOW ALL TRADES - NO FILTERS!
+        console.log('👉 Setting myTrades to:', data.trades?.length, 'trades');
         setMyTrades(data.trades || []);
       }
     } catch (error) {
@@ -155,6 +217,15 @@ export default function TradingPage() {
     }
   }, [user]);
 
+  // Auto-refresh trades every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchOpenTrades();
+    }, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   // Create trade
   const handleCreateTrade = async () => {
     if (!selectedItem) {
@@ -167,6 +238,8 @@ export default function TradingPage() {
     }
 
     try {
+      console.log('🔥 Creating trade with itemId:', selectedItem);
+      
       const res = await fetch('/api/trades/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -175,16 +248,35 @@ export default function TradingPage() {
       });
 
       const data = await res.json();
+      console.log('🔥 Trade creation response:', data);
       
       if (data.success) {
+        console.log('🔥 Trade created successfully! Trade ID:', data.trade?.id);
+        console.log('🔥 Trade expires_at:', data.trade?.expires_at);
+        
         toast({
           title: "Trade Created!",
           description: data.message
         });
         setIsCreateOpen(false);
         setSelectedItem('');
-        fetchMyTrades();
-        fetchOpenTrades();
+        
+        // Switch to My Trades tab to show the new trade
+        setActiveTab('my-trades');
+        
+        console.log('🔥 Fetching trades now...');
+        // Immediate refresh
+        await fetchMyTrades();
+        await fetchOpenTrades();
+        console.log('🔥 First fetch complete');
+        
+        // Refresh again after 1 second to ensure new trade shows
+        setTimeout(async () => {
+          console.log('🔥 Second fetch starting...');
+          await fetchMyTrades();
+          await fetchOpenTrades();
+          console.log('🔥 Second fetch complete');
+        }, 1000);
       } else {
         toast({
           title: "Error",
@@ -285,17 +377,22 @@ export default function TradingPage() {
     try {
       const res = await fetch(`/api/trades/${tradeId}/decline`, {
         method: 'POST',
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({})
       });
 
       const data = await res.json();
       
       if (data.success) {
+        // Immediately remove from UI
+        setMyTrades(prev => prev.filter(t => t.id !== tradeId));
+        setOpenTrades(prev => prev.filter(t => t.id !== tradeId));
+        
         toast({
           title: "Trade Declined",
-          description: "The offer has been declined"
+          description: "You declined the trade offer"
         });
-        fetchMyTrades();
       } else {
         toast({
           title: "Error",
@@ -325,12 +422,14 @@ export default function TradingPage() {
       const data = await res.json();
       
       if (data.success) {
+        // Immediately remove from UI
+        setMyTrades(prev => prev.filter(t => t.id !== tradeId));
+        setOpenTrades(prev => prev.filter(t => t.id !== tradeId));
+        
         toast({
           title: "Trade Cancelled",
           description: "Your trade has been cancelled"
         });
-        fetchMyTrades();
-        fetchOpenTrades();
       } else {
         toast({
           title: "Error",
@@ -446,27 +545,43 @@ export default function TradingPage() {
                         <AvatarImage src={trade.sender.avatar_url} />
                         <AvatarFallback>{trade.sender.displayname.charAt(0)}</AvatarFallback>
                       </Avatar>
-                      <div>
+                      <div className="flex-1">
                         <CardTitle className="text-base">{trade.sender.displayname}</CardTitle>
                         <p className="text-xs text-muted-foreground">
                           {new Date(trade.created_at).toLocaleDateString()}
                         </p>
                       </div>
+                      {/* Timer removed */}
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div>
                       <p className="text-sm font-medium mb-2">Offering:</p>
                       {(trade.senderItemsDetails || []).map((item) => {
-                        const imageUrl = getItemImageUrl(item.item_name || '', item.item_type || item.type || 'weapon', item.image_url || item.image);
                         return (
-                          <div key={item.id} className="flex items-center gap-3 p-2 bg-secondary/50 rounded">
-                            <img src={imageUrl} alt={item.item_name || ''} className="w-16 h-12 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          <div key={item.id} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border/50">
+                            <div className="w-20 h-16 bg-muted/50 rounded flex items-center justify-center overflow-hidden">
+                              <img 
+                                src={item.image_url || item.image || `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(item.item_name || 'CS:GO')}`}
+                                alt={item.item_name || item.name || 'Item'} 
+                                className="w-full h-full object-contain" 
+                                loading="lazy"
+                                onError={(e) => { 
+                                  const target = e.currentTarget;
+                                  if (!target.src.includes('placeholder')) {
+                                    target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbGw9IiMzMzMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzY2NjY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+Pz88L3RleHQ+PC9zdmc+';
+                                    target.onerror = null;
+                                  }
+                                }} 
+                              />
+                            </div>
                             <div className="flex-1">
                               <p className={cn("text-sm font-medium", rarityColors[item.rarity as keyof typeof rarityColors])}>
-                                {item.item_name || 'Unknown Item'}
+                                {item.item_name || `Item #${item.item_id || item.id}`}
                               </p>
-                              <p className="text-xs text-muted-foreground">${item.value || 0}</p>
+                              <p className="text-xs text-muted-foreground">
+                                ${item.value || 10} • {item.rarity || 'common'}
+                              </p>
                             </div>
                           </div>
                         );
@@ -509,22 +624,56 @@ export default function TradingPage() {
               {myTrades.map((trade) => (
                 <Card key={trade.id}>
                   <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Badge>{trade.status}</Badge>
-                          <span className="text-sm text-muted-foreground">
+                    <div className="space-y-4">
+                      {/* Header with status, timer and cancel button */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Badge variant={trade.status === 'open' ? 'default' : trade.status === 'completed' ? 'outline' : 'secondary'}>
+                            {trade.status}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">
                             {new Date(trade.created_at).toLocaleDateString()}
                           </span>
                         </div>
+                        <div className="flex items-center gap-2">
+                          {/* Timer removed */}
+                          {trade.status === 'open' && (
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleCancel(trade.id)}
+                              className="h-8"
+                            >
+                              <X className="w-3 h-3 mr-1" />
+                              Cancel
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Trade content */}
+                      <div>
                         <div className="space-y-3">
-                          <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                            <p className="text-xs text-muted-foreground mb-2">Your Item:</p>
+                          <div className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                            <p className="text-xs font-semibold text-foreground mb-3">Your Item:</p>
                             {(trade.offeredItemsDetails || trade.senderItemsDetails || []).map((item) => {
-                              const imageUrl = getItemImageUrl(item.item_name || '', item.item_type || item.type || 'weapon', item.image_url || item.image);
                               return (
                                 <div key={item.id} className="flex items-center gap-3">
-                                  <img src={imageUrl} alt={item.item_name || ''} className="w-16 h-12 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                  <div className="w-20 h-16 bg-muted/50 rounded flex items-center justify-center overflow-hidden">
+                                    <img 
+                                      src={item.image_url || item.image || `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(item.item_name || item.name || 'CS:GO')}`}
+                                      alt={item.item_name || item.name || 'Item'} 
+                                      className="w-full h-full object-contain" 
+                                      loading="lazy"
+                                      onError={(e) => { 
+                                        const target = e.currentTarget;
+                                        if (!target.src.includes('placeholder')) {
+                                          target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbGw9IiMzMzMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzY2NjY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+Pz88L3RleHQ+PC9zdmc+';
+                                          target.onerror = null;
+                                        }
+                                      }} 
+                                    />
+                                  </div>
                                   <div>
                                     <p className={cn("text-sm font-medium", rarityColors[item.rarity as keyof typeof rarityColors])}>
                                       {item.item_name || 'Unknown Item'}
@@ -536,21 +685,34 @@ export default function TradingPage() {
                             })}
                           </div>
                           {trade.status === 'pending' && trade.receiver_id && (
-                            <div className="p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                              <div className="flex items-center gap-2 mb-2">
+                            <div className="p-3 bg-muted/30 rounded-lg border border-green-500/30">
+                              <div className="flex items-center gap-2 mb-3">
                                 <p className="text-xs text-muted-foreground">Offer from:</p>
                                 <p className="text-sm font-semibold text-green-400">{trade.receiver?.displayname || 'Unknown User'}</p>
                               </div>
                               {(trade.requestedItemsDetails || []).map((item) => {
-                                const imageUrl = getItemImageUrl(item.item_name || '', item.item_type || item.type || 'weapon', item.image_url || item.image);
                                 return (
                                   <div key={item.id} className="flex items-center gap-3 mb-2">
-                                    <img src={imageUrl} alt={item.item_name || ''} className="w-16 h-12 object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                    <div className="w-20 h-16 bg-muted/50 rounded flex items-center justify-center overflow-hidden">
+                                      <img 
+                                        src={item.image_url || item.image || `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(item.item_name || item.name || 'CS:GO')}`}
+                                        alt={item.item_name || item.name || 'Item'} 
+                                        className="w-full h-full object-contain" 
+                                        loading="lazy"
+                                        onError={(e) => { 
+                                          const target = e.currentTarget;
+                                          if (!target.src.includes('placeholder')) {
+                                            target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIGZpbGw9IiMzMzMzMzMiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZm9udC1zaXplPSIyNCIgZmlsbD0iIzY2NjY2NiIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSI+Pz88L3RleHQ+PC9zdmc+';
+                                            target.onerror = null;
+                                          }
+                                        }} 
+                                      />
+                                    </div>
                                     <div>
                                       <p className={cn("text-sm font-medium", rarityColors[item.rarity as keyof typeof rarityColors])}>
-                                        {item.item_name || 'Unknown Item'}
+                                        {item.item_name || item.name || 'Unknown Item'}
                                       </p>
-                                      <p className="text-xs text-muted-foreground">${item.value || 0}</p>
+                                      <p className="text-xs text-muted-foreground">${item.value || 10}</p>
                                     </div>
                                   </div>
                                 );
@@ -569,11 +731,6 @@ export default function TradingPage() {
                           )}
                         </div>
                       </div>
-                      {trade.status === 'open' && (
-                        <Button variant="destructive" size="sm" onClick={() => handleCancel(trade.id)}>
-                          Cancel
-                        </Button>
-                      )}
                     </div>
                   </CardContent>
                 </Card>

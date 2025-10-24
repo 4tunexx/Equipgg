@@ -44,10 +44,10 @@ export async function POST(
       return NextResponse.json({ error: 'Cannot make an offer on your own trade' }, { status: 400 });
     }
 
-    // Verify user owns the item and it's not equipped
+    // ANTI-CHEAT: Verify user owns the item and it's not equipped or already in a trade
     const { data: item, error: itemError } = await supabase
       .from('user_inventory')
-      .select('id, equipped, item_name')
+      .select('id, equipped, in_escrow, item_name')
       .eq('id', itemId)
       .eq('user_id', session.user_id)
       .single();
@@ -58,6 +58,24 @@ export async function POST(
 
     if (item.equipped) {
       return NextResponse.json({ error: 'Cannot trade equipped items. Please unequip it first.' }, { status: 400 });
+    }
+    
+    // ANTI-CHEAT: Check if item is already in escrow
+    if (item.in_escrow) {
+      return NextResponse.json({ error: 'This item is already in an active trade' }, { status: 400 });
+    }
+    
+    // ANTI-CHEAT: Check if item is in any other active trades
+    const { data: activeTrades } = await supabase
+      .from('trade_offers')
+      .select('id')
+      .or(`sender_items.cs.{${itemId}},receiver_items.cs.{${itemId}}`)
+      .in('status', ['open', 'pending'])
+      .neq('id', tradeId) // Exclude current trade
+      .limit(1);
+    
+    if (activeTrades && activeTrades.length > 0) {
+      return NextResponse.json({ error: 'This item is already in another active trade' }, { status: 400 });
     }
 
     // Update trade with offer

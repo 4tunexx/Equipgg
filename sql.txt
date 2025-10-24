@@ -161,7 +161,9 @@ CREATE TABLE public.crate_items (
   item_id integer,
   drop_chance numeric DEFAULT 0.1,
   created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT crate_items_pkey PRIMARY KEY (id)
+  CONSTRAINT crate_items_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_crate_items_crate FOREIGN KEY (crate_id) REFERENCES public.crates(id),
+  CONSTRAINT fk_crate_items_item FOREIGN KEY (item_id) REFERENCES public.items(id)
 );
 CREATE TABLE public.crate_openings (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -170,6 +172,8 @@ CREATE TABLE public.crate_openings (
   item_received_id integer,
   opened_at timestamp without time zone DEFAULT now(),
   CONSTRAINT crate_openings_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_crate_openings_crate FOREIGN KEY (crate_id) REFERENCES public.crates(id),
+  CONSTRAINT fk_crate_openings_item FOREIGN KEY (item_received_id) REFERENCES public.items(id),
   CONSTRAINT crate_openings_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.crates (
@@ -187,6 +191,11 @@ CREATE TABLE public.crates (
   rarity_epic numeric DEFAULT 0.00,
   rarity_legendary numeric DEFAULT 0.00,
   created_at timestamp without time zone DEFAULT now(),
+  type character varying DEFAULT 'standard'::character varying,
+  xp_reward integer DEFAULT 50,
+  coin_reward integer DEFAULT 100,
+  gem_reward integer DEFAULT 0,
+  contents ARRAY,
   CONSTRAINT crates_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.cs2_skin_deliveries (
@@ -236,7 +245,8 @@ CREATE TABLE public.flash_sales (
   end_time timestamp without time zone,
   active boolean DEFAULT true,
   created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT flash_sales_pkey PRIMARY KEY (id)
+  CONSTRAINT flash_sales_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_flash_sales_item FOREIGN KEY (item_id) REFERENCES public.items(id)
 );
 CREATE TABLE public.forum_categories (
   id text NOT NULL,
@@ -484,15 +494,15 @@ CREATE TABLE public.missions (
   CONSTRAINT missions_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.notifications (
-  id integer NOT NULL DEFAULT nextval('notifications_id_seq'::regclass),
-  user_id text,
+  id text NOT NULL,
+  user_id text NOT NULL,
+  type text NOT NULL,
   title text NOT NULL,
   message text,
-  type text DEFAULT 'info'::text,
+  data text,
   read boolean DEFAULT false,
-  created_at timestamp without time zone DEFAULT now(),
-  CONSTRAINT notifications_pkey PRIMARY KEY (id),
-  CONSTRAINT notifications_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+  created_at timestamp with time zone DEFAULT now(),
+  CONSTRAINT notifications_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.payment_intents (
   id text NOT NULL,
@@ -653,7 +663,7 @@ CREATE TABLE public.support_tickets (
 CREATE TABLE public.trade_offers (
   id text NOT NULL,
   sender_id text NOT NULL,
-  receiver_id text NOT NULL,
+  receiver_id text,
   sender_items jsonb DEFAULT '[]'::jsonb,
   receiver_items jsonb DEFAULT '[]'::jsonb,
   sender_coins integer DEFAULT 0,
@@ -736,7 +746,7 @@ CREATE TABLE public.user_crates (
 CREATE TABLE public.user_inventory (
   id text NOT NULL,
   user_id text,
-  item_id text,
+  item_id integer,
   item_name text,
   item_type text,
   rarity text,
@@ -747,16 +757,19 @@ CREATE TABLE public.user_inventory (
   acquired_at timestamp without time zone DEFAULT now(),
   stat_trak_wins integer DEFAULT 0,
   obtained_from text,
+  quantity integer DEFAULT 1,
   CONSTRAINT user_inventory_pkey PRIMARY KEY (id),
-  CONSTRAINT user_inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
+  CONSTRAINT user_inventory_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id),
+  CONSTRAINT fk_user_inventory_item FOREIGN KEY (item_id) REFERENCES public.items(id)
 );
 CREATE TABLE public.user_keys (
   id text NOT NULL,
   user_id text,
-  crate_id text,
+  crate_id integer,
   keys_count integer DEFAULT 0,
   acquired_at timestamp without time zone DEFAULT now(),
   CONSTRAINT user_keys_pkey PRIMARY KEY (id),
+  CONSTRAINT fk_user_keys_crate FOREIGN KEY (crate_id) REFERENCES public.crates(id),
   CONSTRAINT user_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
 CREATE TABLE public.user_mission_progress (

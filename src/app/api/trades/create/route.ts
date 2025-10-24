@@ -20,10 +20,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Item ID is required' }, { status: 400 });
     }
 
-    // Verify user owns the item and it's not equipped
+    // ANTI-CHEAT: Verify user owns the item and it's not equipped or already in a trade
     const { data: item, error: itemError } = await supabase
       .from('user_inventory')
-      .select('id, equipped')
+      .select('id, equipped, in_escrow')
       .eq('id', itemId)
       .eq('user_id', session.user_id)
       .single();
@@ -35,8 +35,52 @@ export async function POST(request: NextRequest) {
     if (item.equipped) {
       return NextResponse.json({ error: 'Cannot trade equipped items. Please unequip it first.' }, { status: 400 });
     }
+    
+    // ANTI-CHEAT: Check if item is already in escrow (another active trade)
+    if (item.in_escrow) {
+      return NextResponse.json({ error: 'This item is already in an active trade' }, { status: 400 });
+    }
+    
+    // ANTI-CHEAT: Check if user already has this item in ANY active trade
+    const { data: userTrades } = await supabase
+      .from('trade_offers')
+      .select('id, sender_items, status')
+      .eq('sender_id', session.user_id)
+      .in('status', ['open', 'pending']);
+    
+    if (userTrades) {
+      for (const trade of userTrades) {
+        const senderItems = trade.sender_items || [];
+        if (senderItems.includes(itemId)) {
+          return NextResponse.json({ 
+            error: 'You already have an active trade with this item. Cancel the existing trade first.',
+            existingTradeId: trade.id 
+          }, { status: 400 });
+        }
+      }
+    }
+    
+    // ANTI-CHEAT: Double check if item is in ANY active trade (from any user)
+    const { data: allActiveTrades } = await supabase
+      .from('trade_offers')
+      .select('id, sender_items, receiver_items')
+      .in('status', ['open', 'pending']);
+    
+    if (allActiveTrades) {
+      for (const trade of allActiveTrades) {
+        const allItems = [...(trade.sender_items || []), ...(trade.receiver_items || [])];
+        if (allItems.includes(itemId)) {
+          return NextResponse.json({ 
+            error: 'This item is currently locked in another active trade'
+          }, { status: 400 });
+        }
+      }
+    }
 
     // Create open trade listing (no receiver yet)
+    // Use server time from Supabase, not JavaScript Date
+    console.log('🕐 Creating trade - will use Supabase NOW() for consistent time');
+    
     const { data: trade, error: createError } = await supabase
       .from('trade_offers')
       .insert({
@@ -47,9 +91,9 @@ export async function POST(request: NextRequest) {
         receiver_items: [],
         sender_coins: 0,
         receiver_coins: 0,
-        status: 'open', // New status for open trades
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-        created_at: new Date().toISOString()
+        status: 'open'
+        // Don't set expires_at or created_at - let database defaults handle it
+        // Database will use NOW() for created_at and NOW() + interval for expires_at
       })
       .select()
       .single();
@@ -58,6 +102,13 @@ export async function POST(request: NextRequest) {
       console.error('Error creating trade:', createError);
       return NextResponse.json({ error: 'Failed to create trade' }, { status: 500 });
     }
+
+    console.log('✅ Trade created successfully:', {
+      id: trade.id,
+      expires_at: trade.expires_at,
+      created_at: trade.created_at,
+      status: trade.status
+    });
 
     return NextResponse.json({
       success: true,

@@ -68,11 +68,11 @@ export async function POST(
         .from('user_inventory')
         .select('id')
         .in('id', requestedItems)
-        .eq('user_id', session.user_id);
+        .eq('user_id', trade.receiver_id); // FIX: Check receiver owns their items, not sender!
 
       if (!receiverItems || receiverItems.length !== requestedItems.length) {
         await supabase.from('trade_offers').update({ status: 'cancelled' }).eq('id', tradeId);
-        return NextResponse.json({ error: 'You no longer own all requested items' }, { status: 400 });
+        return NextResponse.json({ error: 'Receiver no longer owns all requested items' }, { status: 400 });
       }
     }
 
@@ -127,6 +127,14 @@ export async function POST(
       .eq('id', session.user_id)
       .single();
 
+    // Clear old trade notifications for both users
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('type', 'trade_offer_received')
+      .eq('user_id', session.user_id)
+      .contains('data', { tradeId: trade.id });
+
     // Notify the person who made the offer (receiver)
     await createNotification({
       userId: trade.receiver_id,
@@ -139,9 +147,16 @@ export async function POST(
       }
     });
 
+    console.log('✅ Trade completed successfully:', {
+      tradeId: trade.id,
+      sender: trade.sender_id,
+      receiver: trade.receiver_id,
+      itemsExchanged: true
+    });
+
     return NextResponse.json({
       success: true,
-      message: 'Trade completed successfully',
+      message: 'Trade completed successfully! Items have been exchanged.',
       trade: { ...trade, status: 'completed' }
     });
 

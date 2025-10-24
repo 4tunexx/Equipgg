@@ -45,6 +45,13 @@ export async function POST(
       .update({ status: 'declined' })
       .eq('id', tradeId);
 
+    // Clear old trade notifications
+    await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('type', 'trade_offer_received')
+      .contains('data', { tradeId: trade.id });
+
     // Get recipient info
     const { data: recipient } = await supabase
       .from('users')
