@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
 import { trackShopVisit } from "../../../../lib/mission-tracker";
 import { trackCollectionAchievement } from "../../../../lib/achievement-tracker";
+import { trackMissionProgress, updateOwnershipMissions } from "../../../../lib/mission-integration";
+import { trackItemBought } from "../../../../lib/activity-tracker";
 import { getAuthSession } from "../../../../lib/auth-utils";
 
 export async function POST(request: NextRequest) {
@@ -121,6 +123,11 @@ export async function POST(request: NextRequest) {
     try {
       await trackShopVisit(user.id);
       await trackCollectionAchievement(user.id, 'shop_purchase');
+      await trackMissionProgress(user.id, 'item_bought', 1);
+      await trackMissionProgress(user.id, 'spend_coins', price);
+      await updateOwnershipMissions(user.id);
+      await trackItemBought(user.id, item.name, price);
+      console.log('✅ Shop purchase missions and activity tracked for user:', user.id);
     } catch (trackingError) {
       console.warn('Failed to track mission/achievement progress:', trackingError);
     }

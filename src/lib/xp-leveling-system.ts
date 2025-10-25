@@ -7,6 +7,7 @@ import { createServerSupabaseClient } from './supabase';
 import { broadcastLevelUp, broadcastXpGained } from './supabase/realtime';
 import { createNotification } from './notification-utils';
 import { calculateXpWithBoost, getRankByLevel, checkAndAwardBadges } from './badges-ranks-system';
+import { setMissionProgress, trackMissionProgress } from './mission-integration';
 
 // ============================================================================
 // XP CALCULATION
@@ -288,6 +289,16 @@ export async function addXp(
       
       // Check for level-based badges
       await checkAndAwardBadges(userId, 'level_up', { level: newLevel });
+
+      // Update missions tied to reach_level and coin earnings from level rewards
+      try {
+        await setMissionProgress(userId, 'reach_level', newLevel);
+        if (rewards.coins) {
+          await trackMissionProgress(userId, 'earn_coins', rewards.coins);
+        }
+      } catch (missionErr) {
+        console.warn('Failed to update reach_level/earn_coins missions:', missionErr);
+      }
     }
     
     return {

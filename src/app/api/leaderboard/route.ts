@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from "../../../lib/supabase";
 import { getRankByLevel } from "../../../lib/badges-ranks-system";
+import { getAuthSession } from "../../../lib/auth-utils";
+import { trackMissionProgress } from "../../../lib/mission-integration";
 
 export async function GET(request: NextRequest) {
   try {
@@ -35,6 +37,27 @@ export async function GET(request: NextRequest) {
       };
     });
     
+    // If the user is authenticated, track leaderboard-related missions
+    try {
+      const session = await getAuthSession(request);
+      if (session) {
+        await trackMissionProgress(session.user_id, 'check_leaderboard', 1);
+
+        // Determine user's current position if present in top list
+        const pos = players.findIndex(p => p.user_id === session.user_id);
+        if (pos !== -1) {
+          const rankPos = pos + 1;
+          if (rankPos <= 10) {
+            await trackMissionProgress(session.user_id, 'weekly_top_10', 1);
+          } else if (rankPos <= 100) {
+            await trackMissionProgress(session.user_id, 'weekly_top_100', 1);
+          }
+        }
+      }
+    } catch (trackErr) {
+      console.warn('Leaderboard mission tracking failed (non-fatal):', trackErr);
+    }
+
     return NextResponse.json({ 
       success: true,
       players,

@@ -5,6 +5,7 @@ import { addXpForBetPlaced } from "../../../../lib/xp-leveling-system";
 import { checkAndAwardAchievements } from "../../../../lib/achievement-integration";
 import { trackMissionProgress } from "../../../../lib/mission-integration";
 import { broadcastNewBet } from "../../../../lib/supabase/realtime";
+import { trackBetPlaced } from "../../../../lib/activity-tracker";
 
 // Note: create server admin client inside the handler to avoid import-time errors
 
@@ -171,7 +172,9 @@ export async function POST(request: NextRequest) {
     // Track mission progress (uses REAL Supabase missions - 61 total)
     try {
       await trackMissionProgress(session.user_id, 'bet_placed', 1);
-      console.log(`📝 Tracked bet placement for mission progress: User ${session.user_id}`);
+      const matchName = `${matchData.team_a_name} vs ${matchData.team_b_name}`;
+      await trackBetPlaced(session.user_id, matchName, amount, normalizedTeam);
+      console.log(`📝 Tracked bet placement for mission progress and activity: User ${session.user_id}`);
     } catch (missionError) {
       console.warn('Failed to track mission progress:', missionError);
     }

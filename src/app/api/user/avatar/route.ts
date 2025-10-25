@@ -4,6 +4,7 @@ import { join } from 'path';
 import { existsSync } from 'fs';
 import { getAuthSession } from '../../../../lib/auth-utils';
 import { supabase } from '../../../../lib/supabase';
+import { trackMissionProgress } from '../../../../lib/mission-integration';
 
 export async function POST(request: NextRequest) {
   try {
@@ -69,6 +70,9 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
+    // Track profile customization mission
+    try { await trackMissionProgress(session.user_id, 'customize_profile', 1); } catch {}
+
     return NextResponse.json({ 
       success: true, 
       url: publicUrl,
@@ -103,6 +107,9 @@ export async function DELETE(request: NextRequest) {
         error: 'Failed to remove avatar from database' 
       }, { status: 500 });
     }
+
+    // Track profile customization mission
+    try { await trackMissionProgress(session.user_id, 'customize_profile', 1); } catch {}
 
     return NextResponse.json({ 
       success: true, 

@@ -1,6 +1,8 @@
 // src/app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { trackMissionProgress } from "../../../../lib/mission-integration";
+import { trackLogin } from "../../../../lib/activity-tracker";
 
 // Use the singleton server client to avoid multiple instances
 const supabase = createServerSupabaseClient();
@@ -121,6 +123,17 @@ export async function POST(req: NextRequest) {
     });
 
     console.log('Login successful for user:', formattedUser.email);
+    
+    // Track login for missions (daily login, etc.)
+    try {
+      await trackMissionProgress(user.id, 'login', 1);
+      await trackLogin(user.id);
+      console.log('✅ Login mission and activity tracked for user:', user.id);
+    } catch (missionError) {
+      console.error('⚠️ Failed to track login mission:', missionError);
+      // Don't fail login if mission tracking fails
+    }
+    
     return response;
   } catch (err: unknown) {
     console.error("Login route error:", err instanceof Error ? err.message : err);

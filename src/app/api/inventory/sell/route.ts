@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { trackMissionProgress, updateOwnershipMissions } from "../../../../lib/mission-integration";
+import { trackItemSold } from "../../../../lib/activity-tracker";
 import { cookies } from 'next/headers';
 
 // POST /api/inventory/sell - Sell an item from inventory
@@ -123,6 +125,17 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to update balance' },
         { status: 500 }
       );
+    }
+
+    // Track mission progress for selling items
+    try {
+      await trackMissionProgress(userId, 'item_sold', 1);
+      await trackMissionProgress(userId, 'earn_coins', calculatedSellPrice);
+      await updateOwnershipMissions(userId);
+      await trackItemSold(userId, inventoryItem.item.name, calculatedSellPrice);
+      console.log('✅ Item sell mission and activity tracked for user:', userId);
+    } catch (missionError) {
+      console.warn('Failed to track sell mission:', missionError);
     }
 
     return NextResponse.json({

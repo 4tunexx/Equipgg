@@ -4,8 +4,9 @@ import { supabase } from "../../../../lib/supabase/client";
 import { createClient } from '@supabase/supabase-js';
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { addXpForCrateOpened } from "../../../../lib/xp-leveling-system";
-import { trackMissionProgress } from "../../../../lib/mission-integration";
+import { trackMissionProgress, updateOwnershipMissions } from "../../../../lib/mission-integration";
 import { createNotification } from "../../../../lib/notification-utils";
+import { trackCrateOpened } from "../../../../lib/activity-tracker";
 
 // Create Supabase admin client for secure operations
 const supabaseAdmin = createClient(
@@ -127,7 +128,15 @@ export async function POST(request: NextRequest) {
       
       console.log('🚀 ABOUT TO CALL trackMissionProgress with:', { userId: session.user_id, action: 'crate_opened', value: 1 });
       await trackMissionProgress(session.user_id, 'crate_opened', 1);
-      console.log('✅ Mission progress tracked');
+      // Special mission: unbox knife or gloves
+      const wonType = String(wonItemData.won_item_type || '').toLowerCase();
+      if (wonType === 'knife' || wonType === 'gloves') {
+        await trackMissionProgress(session.user_id, 'unbox_knife_gloves', 1);
+      }
+      // Update ownership-based missions
+      await updateOwnershipMissions(session.user_id);
+      await trackCrateOpened(session.user_id, crateData?.name || 'Unknown Crate', wonItemData.won_item_name, wonItemData.won_item_rarity);
+      console.log('✅ Mission progress and activity tracked');
       
       // Track crate opening achievements
       const { trackCrateOpening } = await import('../../../../lib/crate-achievements');

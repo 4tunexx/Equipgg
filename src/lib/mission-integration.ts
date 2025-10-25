@@ -9,6 +9,7 @@ import { createServerSupabaseClient } from './supabase';
 import { broadcastMissionCompleted } from './supabase/realtime';
 import { addXp } from './xp-leveling-system';
 import { createNotification } from './notification-utils';
+import { supabase as clientSupabase } from './supabase/client';
 
 export interface Mission {
   id: string;
@@ -22,6 +23,102 @@ export interface Mission {
   gem_reward?: number;
   repeatable: boolean;
   created_at: string;
+}
+
+/**
+ * Set mission progress to an absolute value for all missions of a requirement type.
+ * Useful for counters like reach_level, own_items, etc.
+ */
+export async function setMissionProgress(
+  userId: string,
+  actionType: string,
+  absoluteValue: number
+) {
+  const supabase = createServerSupabaseClient();
+  const { data: missions } = await supabase
+    .from('missions')
+    .select('*')
+    .eq('requirement_type', actionType);
+
+  if (!missions || missions.length === 0) return;
+
+  for (const mission of missions) {
+    await updateMissionProgress(userId, mission.id, absoluteValue);
+  }
+}
+
+/**
+ * Recalculate ownership-based missions from inventory.
+ */
+export async function updateOwnershipMissions(userId: string) {
+  const supabase = createServerSupabaseClient();
+  const { data: inventory } = await supabase
+    .from('user_inventory')
+    .select('quantity, item:items(rarity)')
+    .eq('user_id', userId);
+
+  if (!inventory) return;
+
+  let total = 0;
+  let rare = 0, epic = 0, legendary = 0;
+
+  for (const row of inventory as any[]) {
+    const qty = (row.quantity ?? 1) as number;
+    total += qty;
+    const rarity = String(row.item?.rarity || '').toLowerCase();
+    if (rarity === 'rare') rare += qty;
+    if (rarity === 'epic') epic += qty;
+    if (rarity === 'legendary') legendary += qty;
+  }
+
+  try { await setMissionProgress(userId, 'own_items', total); } catch {}
+  try { await setMissionProgress(userId, 'inventory_slots', (inventory as any[]).length); } catch {}
+  try { await setMissionProgress(userId, 'own_rare_item', rare); } catch {}
+  try { await setMissionProgress(userId, 'own_epic_item', epic); } catch {}
+  try { await setMissionProgress(userId, 'own_legendary_items', legendary); } catch {}
+}
+
+/** Check if all daily missions are completed and track aggregate mission */
+async function checkAndTrackDailyCompletion(userId: string) {
+  const supabase = createServerSupabaseClient();
+
+  const { data: dailies } = await supabase
+    .from('missions')
+    .select('id')
+    .eq('mission_type', 'daily')
+    .eq('is_active', true);
+
+  if (!dailies || dailies.length === 0) return;
+
+  const ids = dailies.map((m: any) => m.id);
+  const { data: progresses } = await supabase
+    .from('user_mission_progress')
+    .select('mission_id, completed')
+    .eq('user_id', userId)
+    .in('mission_id', ids);
+
+  const allDone = ids.every(id => progresses?.some(p => p.mission_id === id && p.completed));
+  if (!allDone) return;
+
+  // Avoid spamming: only if there is an incomplete aggregate mission
+  const { data: aggregateMissions } = await supabase
+    .from('missions')
+    .select('id')
+    .eq('requirement_type', 'complete_daily_missions');
+
+  if (!aggregateMissions || aggregateMissions.length === 0) return;
+
+  // Check if already completed
+  const { data: existing } = await supabase
+    .from('user_mission_progress')
+    .select('completed')
+    .eq('user_id', userId)
+    .in('mission_id', aggregateMissions.map((m:any)=>m.id));
+
+  const already = existing?.some(e => e.completed);
+  if (already) return;
+
+  await trackMissionProgress(userId, 'complete_daily_missions', 1);
 }
 
 /**
@@ -145,7 +242,8 @@ async function completeMission(userId: string, mission: Mission) {
   
   // Award XP
   if (mission.xp_reward) {
-    await addXp(userId, mission.xp_reward, `mission_${mission.type}`, { missionId: mission.id });
+    const mType = (mission as any).mission_type || (mission as any).type || 'general';
+    await addXp(userId, mission.xp_reward, `mission_${mType}`, { missionId: mission.id });
   }
   
   // Award coins/gems
@@ -190,6 +288,15 @@ async function completeMission(userId: string, mission: Mission) {
   });
   
   console.log(`✅ Mission completed: ${mission.name} for user ${userId}`);
+
+  // If a daily mission was completed, check if all daily missions are done
+  try {
+    if ((mission as any).mission_type === 'daily') {
+      await checkAndTrackDailyCompletion(userId);
+    }
+  } catch (e) {
+    console.warn('Failed to check daily completion:', e);
+  }
 }
 
 /**

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../lib/supabase/client";
 import { createClient } from '@supabase/supabase-js';
 import { getAuthSession } from "../../../lib/auth-utils";
+import { trackMissionProgress, updateOwnershipMissions } from "../../../lib/mission-integration";
 
 // Create Supabase admin client for secure operations
 const supabaseAdmin = createClient(
@@ -52,6 +53,14 @@ export async function POST(request: NextRequest) {
       value: 150, // Mock value
       obtained_from: 'trade_up_contract'
     };
+
+    // Track mission progress and update ownership-based missions
+    try {
+      await trackMissionProgress(session.user_id, 'trade_up', 1);
+      await updateOwnershipMissions(session.user_id);
+    } catch (e) {
+      console.warn('Trade-up mission/ownership tracking failed (non-fatal):', e);
+    }
 
     // In a real implementation, update user inventory
     // For now, just return the result

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { trackItemEquipped } from "../../../../lib/activity-tracker";
 
 const validSlots = ['perk', 'weapon', 'knife', 'gloves', 'agent'] as const;
 type SlotType = typeof validSlots[number];
@@ -86,25 +87,47 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Start transaction to update equipped items
-    const { data: equippedItem, error: equipError } = await supabase.rpc('equip_inventory_item', {
-      p_user_id: userId,
-      p_item_id: itemId,
-      p_slot: slot
-    });
+    // Unequip current item in this slot first
+    await supabase
+      .from('user_inventory')
+      .update({ equipped: false })
+      .eq('user_id', userId)
+      .eq('equipped', true)
+      .eq('slot', slot);
+
+    // Equip the new item
+    const { error: equipError } = await supabase
+      .from('user_inventory')
+      .update({ 
+        equipped: true,
+        slot: slot 
+      })
+      .eq('id', itemId)
+      .eq('user_id', userId);
 
     if (equipError) {
       console.error('Error equipping item:', equipError);
       return NextResponse.json(
-        { error: 'Failed to equip item' },
+        { error: 'Failed to equip item', details: equipError.message },
         { status: 500 }
       );
+    }
+
+    // Track activity
+    try {
+      await trackItemEquipped(userId, inventoryItem.item.name, slot);
+    } catch (err) {
+      console.warn('Failed to track equip activity:', err);
     }
 
     return NextResponse.json({
       success: true,
       message: `${inventoryItem.item.name} equipped to ${slot} slot`,
-      equippedItem
+      equippedItem: {
+        id: inventoryItem.id,
+        name: inventoryItem.item.name,
+        slot: slot
+      }
     });
 
   } catch (error) {

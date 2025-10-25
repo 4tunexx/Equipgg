@@ -2,8 +2,10 @@
 // Handles bet payouts and status updates when matches are completed
 import { secureDb } from './secure-db';
 import { addXpForBetWon } from './xp-leveling-system';
-import { trackMissionProgress } from './mission-integration';
+import { trackMissionProgress, setMissionProgress } from './mission-integration';
 import { createNotification } from './notification-utils';
+import { trackBetWon, trackBetLost } from './activity-tracker';
+import { createServerSupabaseClient } from './supabase';
 
 interface BetProcessingResult {
   matchId: string;
@@ -77,6 +79,37 @@ export async function processBetsForMatch(matchId: string, winner: 'team_a' | 't
             try {
               await addXpForBetWon(String(bet.user_id), payoutAmount, Number(bet.odds || 1.5));
               await trackMissionProgress(String(bet.user_id), 'bet_won', 1);
+              await trackMissionProgress(String(bet.user_id), 'earn_coins', payoutAmount);
+
+              // Track high odds win mission
+              const odds = Number(bet.odds || 1.0);
+              if (odds >= 2.0) {
+                await trackMissionProgress(String(bet.user_id), 'win_high_odds_bet', 1);
+              }
+
+              // Compute current win streak and set absolute progress
+              try {
+                const supabase = createServerSupabaseClient();
+                const { data: recentBets } = await supabase
+                  .from('user_bets')
+                  .select('status, settled_at')
+                  .eq('user_id', bet.user_id)
+                  .order('settled_at', { ascending: false })
+                  .limit(50);
+                let streak = 0;
+                for (const b of (recentBets || [])) {
+                  if (b.status === 'won') {
+                    streak++;
+                  } else if (b.status === 'lost') {
+                    break;
+                  }
+                }
+                if (streak > 0) {
+                  await setMissionProgress(String(bet.user_id), 'win_streak', streak);
+                }
+              } catch (streakErr) {
+                console.warn('Failed computing win streak:', streakErr);
+              }
               
               // Create notification for bet win
               await createNotification({
@@ -97,8 +130,9 @@ export async function processBetsForMatch(matchId: string, winner: 'team_a' | 't
             console.log(`💰 Paid out ${payoutAmount} coins to user ${bet.user_id} for winning bet`);
           }
         } else if (!isWinner) {
-          // Create notification for bet loss
+          // Track lost bet activity and create notification
           try {
+            await trackBetLost(String(bet.user_id), matchId, Number(bet.amount || 0));
             await createNotification({
               userId: String(bet.user_id),
               type: 'bet_lost',

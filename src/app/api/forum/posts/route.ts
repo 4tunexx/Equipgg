@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabase } from "../../../../lib/supabase";
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { v4 as uuidv4 } from 'uuid';
+import { trackMissionProgress } from "../../../../lib/mission-integration";
 
 export async function GET(request: NextRequest) {
   try {
@@ -180,6 +181,13 @@ export async function POST(request: NextRequest) {
         last_activity_at: now
       })
       .eq('id', topicId);
+
+    // Track mission progress for forum activity
+    try {
+      await trackMissionProgress(session.user_id, 'forum_post', 1);
+    } catch (e) {
+      console.warn('Failed to track forum_post mission:', e);
+    }
 
     return NextResponse.json({
       success: true,

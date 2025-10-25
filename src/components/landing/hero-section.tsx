@@ -87,7 +87,8 @@ export function HeroSection() {
                 alt="Site Logo"
                 width={48}
                 height={48}
-                className="h-12 w-auto object-contain"
+                className="h-12 object-contain"
+                style={{ width: 'auto', height: '3rem' }}
                 key={`corner-logo-${logoKey}-${effectiveLogo}`}
                 quality={100}
                 priority
@@ -137,7 +138,8 @@ export function HeroSection() {
           alt="Equip.gg Character Logo"
           width={200}
           height={150}
-          className="object-contain w-full h-full"
+          className="object-contain"
+          style={{ width: '100%', height: '100%' }}
           key={`logo1-mobile-${logoKey}`}
           priority
         />
@@ -157,7 +159,8 @@ export function HeroSection() {
           alt="Equip.gg Text Layer"
           width={210}
           height={95}
-          className="object-contain w-full h-full"
+          className="object-contain"
+          style={{ width: '100%', height: '100%' }}
           key={`logo2-mobile-${logoKey}`}
           priority
         />
@@ -226,7 +229,8 @@ export function HeroSection() {
                     alt="Site Logo" 
                     width={400}
                     height={280}
-                    className="w-auto h-auto max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                    className="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                    style={{ width: 'auto', height: 'auto' }}
                     key={`logo-big-${logoKey}`}
                     priority
                   />
@@ -243,7 +247,8 @@ export function HeroSection() {
                         alt="Equip.gg Logo" 
                         width={420}
                         height={300}
-                        className="w-auto h-auto max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                        className="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                        style={{ width: 'auto', height: 'auto' }}
                         key={`logo1-big-${logoKey}`}
                         priority
                       />
@@ -259,7 +264,8 @@ export function HeroSection() {
                         alt="Equip.gg Logo Layer" 
                         width={450}
                         height={320}
-                        className="w-auto h-auto max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                        className="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
+                        style={{ width: 'auto', height: 'auto' }}
                         key={`logo2-big-${logoKey}`}
                         priority
                       />

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSessionWithToken } from '../../../../lib/auth-utils';
 import { supabase, createRequestSupabaseClient, createServerSupabaseClient } from "../../../../lib/supabase";
+import { trackMissionProgress } from "../../../../lib/mission-integration";
 
 // Voting system for community polls and match predictions
 export async function POST(request: NextRequest) {
@@ -175,6 +176,13 @@ export async function POST(request: NextRequest) {
       }
     } catch (xpErr) {
       console.warn('Failed to award XP (non-fatal):', xpErr);
+    }
+
+    // Track mission progress for voting
+    try {
+      await trackMissionProgress(session.user_id, 'cast_vote', 1);
+    } catch (e) {
+      console.warn('Failed to track cast_vote mission:', e);
     }
 
     return NextResponse.json({
