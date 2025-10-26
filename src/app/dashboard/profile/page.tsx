@@ -7,7 +7,7 @@ import { useAuth } from "../../../hooks/use-auth";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { supabase } from "../../../lib/supabase/client";
 import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from "../../../lib/supabase/queries";
-import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History, Award, Coins, Target, TrendingUp } from "lucide-react";
+import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History, Award, Coins, Target, TrendingUp, Trash2, Mail, Bell, MessageSquare } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
 import { UserAvatar } from "../../../components/user-avatar";
 import { Progress } from "../../../components/ui/progress";
@@ -45,7 +45,13 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [ranks, setRanks] = useState<any[]>([]);
   const [userBadges, setUserBadges] = useState<any[]>([]);
-  const referralCode = "REF-4F2B9A1C";
+  const [referralCode, setReferralCode] = useState('');
+  const [referredUsers, setReferredUsers] = useState<any[]>([]);
+  const [activityHistory, setActivityHistory] = useState<any[]>([]);
+  const [gemHistory, setGemHistory] = useState<any[]>([]);
+  const [notificationPrefs, setNotificationPrefs] = useState<any>({});
+  const [emailConfirmed, setEmailConfirmed] = useState(false);
+  const [claimingAchievement, setClaimingAchievement] = useState<number | null>(null);
   // Fetch ranks from database - use user API instead of admin API
   useEffect(() => {
     const fetchRanks = async () => {
@@ -158,6 +164,69 @@ export default function ProfilePage() {
     { id: "2", name: "GamerPro", username: "GamerPro", date: "2024-01-20", status: "active", bonus: 300 }
   ];
   
+  // Fetch all new data from new APIs
+  useEffect(() => {
+    const fetchAllData = async () => {
+      try {
+        const [
+          referralResponse,
+          activityResponse,
+          gemHistoryResponse,
+          notificationPrefsResponse,
+          emailStatusResponse
+        ] = await Promise.all([
+          fetch('/api/user/referral', { credentials: 'include' }),
+          fetch('/api/user/activity-history', { credentials: 'include' }),
+          fetch('/api/user/gem-history', { credentials: 'include' }),
+          fetch('/api/user/notification-preferences', { credentials: 'include' }),
+          fetch('/api/user/confirm-email', { credentials: 'include' })
+        ]);
+
+        if (referralResponse.ok) {
+          const data = await referralResponse.json();
+          if (data.success) {
+            setReferralCode(data.referralCode);
+            setReferredUsers(data.referredUsers || []);
+          }
+        }
+
+        if (activityResponse.ok) {
+          const data = await activityResponse.json();
+          if (data.success) {
+            setActivityHistory(data.activities || []);
+          }
+        }
+
+        if (gemHistoryResponse.ok) {
+          const data = await gemHistoryResponse.json();
+          if (data.success) {
+            setGemHistory(data.transactions || []);
+          }
+        }
+
+        if (notificationPrefsResponse.ok) {
+          const data = await notificationPrefsResponse.json();
+          if (data.success) {
+            setNotificationPrefs(data.preferences || {});
+          }
+        }
+
+        if (emailStatusResponse.ok) {
+          const data = await emailStatusResponse.json();
+          if (data.success) {
+            setEmailConfirmed(data.emailConfirmed || false);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile data:', error);
+      }
+    };
+
+    if (user) {
+      fetchAllData();
+    }
+  }, [user]);
+
   // Fetch user stats from API
   useEffect(() => {
     const fetchUserData = async () => {
@@ -419,6 +488,121 @@ export default function ProfilePage() {
     }
   };
 
+  const handleClaimAchievement = async (achievementId: number) => {
+    setClaimingAchievement(achievementId);
+    try {
+      const response = await fetch('/api/user/achievements/claim', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ achievementId })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Achievement Claimed!",
+          description: `You earned ${result.rewards.coins} coins, ${result.rewards.gems} gems, and ${result.rewards.xp} XP!`,
+        });
+        // Refresh achievements
+        const achievementsResponse = await fetch('/api/user/achievements', { credentials: 'include' });
+        if (achievementsResponse.ok) {
+          const achievementsData = await achievementsResponse.json();
+          if (achievementsData.success) {
+            const categorizedData: any = {};
+            if (achievementsData.categories && Array.isArray(achievementsData.categories)) {
+              achievementsData.categories.forEach((category: any) => {
+                categorizedData[category.name] = category.achievements || [];
+              });
+            }
+            setAchievements(categorizedData);
+          }
+        }
+      } else {
+        toast({
+          title: "Claim failed",
+          description: result.error || "Failed to claim achievement.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Achievement claim error:', error);
+      toast({
+        title: "Claim failed",
+        description: "An error occurred while claiming the achievement.",
+        variant: "destructive",
+      });
+    } finally {
+      setClaimingAchievement(null);
+    }
+  };
+
+  const handleConfirmEmail = async () => {
+    try {
+      const response = await fetch('/api/user/confirm-email', {
+        method: 'POST',
+        credentials: 'include'
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Email Confirmed!",
+          description: result.message,
+        });
+        setEmailConfirmed(true);
+      } else {
+        toast({
+          title: "Confirmation failed",
+          description: result.error || "Failed to confirm email.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Email confirmation error:', error);
+      toast({
+        title: "Confirmation failed",
+        description: "An error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveNotificationPrefs = async () => {
+    try {
+      const response = await fetch('/api/user/notification-preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(notificationPrefs)
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Settings Saved!",
+          description: "Your notification preferences have been updated.",
+        });
+      } else {
+        toast({
+          title: "Save failed",
+          description: result.error || "Failed to save preferences.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Save preferences error:', error);
+      toast({
+        title: "Save failed",
+        description: "An error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       {/* User Profile Card */}
@@ -543,11 +727,20 @@ export default function ProfilePage() {
                                     +{item.reward_coins || item.coin_reward} Coins
                                   </p>
                                 )}
-                                {isAchieved && (
+                                {isAchieved ? (
                                   <UiBadge variant="default" className="text-xs bg-green-600 mt-1">
                                     Unlocked
                                   </UiBadge>
-                                )}
+                                ) : item.unlocked && !item.claimed ? (
+                                  <Button
+                                    size="sm"
+                                    className="mt-2"
+                                    onClick={() => handleClaimAchievement(item.id)}
+                                    disabled={claimingAchievement === item.id}
+                                  >
+                                    {claimingAchievement === item.id ? 'Claiming...' : 'Claim Reward'}
+                                  </Button>
+                                ) : null}
                               </div>
                             </CardHeader>
                           </Card>
@@ -776,59 +969,45 @@ export default function ProfilePage() {
          <TabsContent value="history" className="mt-4 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Betting History</CardTitle>
+                <CardTitle>Activity History</CardTitle>
+                <CardDescription>All your recent activities</CardDescription>
               </CardHeader>
               <CardContent>
-                {userHistory?.betting && userHistory.betting.length > 0 ? (
+                {activityHistory && activityHistory.length > 0 ? (
                   <div className="space-y-4">
-                    {userHistory.betting.map((bet: any) => (
-                      <div key={bet.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
-                        <div>
-                          <p className="font-semibold">{bet.match}</p>
-                          <p className="text-sm text-muted-foreground">Bet: {bet.bet} • Amount: {bet.amount} coins</p>
+                    {activityHistory.map((activity: any, index: number) => (
+                      <div key={index} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg">
+                        <div className="flex items-center gap-3">
+                          {activity.type === 'bet' && <Target className="h-5 w-5 text-orange-500" />}
+                          {activity.type === 'game' && <Trophy className="h-5 w-5 text-blue-500" />}
+                          {activity.type === 'crate_opening' && <Award className="h-5 w-5 text-purple-500" />}
+                          {activity.type === 'trade_up' && <TrendingUp className="h-5 w-5 text-cyan-500" />}
+                          {activity.type === 'purchase' && <Coins className="h-5 w-5 text-green-500" />}
+                          {activity.type === 'achievement' && <Trophy className="h-5 w-5 text-yellow-500" />}
+                          <div>
+                            <p className="font-semibold capitalize">{activity.type.replace('_', ' ')}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {activity.type === 'bet' && `Bet ${activity.data.amount} coins • ${activity.data.status}`}
+                              {activity.type === 'game' && `${activity.data.gameType} • ${activity.data.payout} coins`}
+                              {activity.type === 'crate_opening' && activity.data.crateName}
+                              {activity.type === 'trade_up' && 'Traded 5 items'}
+                              {activity.type === 'purchase' && activity.data.itemName}
+                              {activity.type === 'achievement' && activity.data.name}
+                            </p>
+                          </div>
                         </div>
                         <div className="text-right">
-                          <p className={cn("font-semibold", bet.result === 'won' ? 'text-green-400' : 'text-red-400')}>
-                            {bet.result === 'won' ? `+${bet.payout}` : `-${bet.amount}`}
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(activity.timestamp).toLocaleDateString()}
                           </p>
-                          <p className="text-xs text-muted-foreground">{new Date(bet.timestamp).toLocaleDateString()}</p>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
                   <div className="text-center py-8">
-                    <p className="text-muted-foreground">No betting history yet.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Trade-Up History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {userHistory?.tradeUp && userHistory.tradeUp.length > 0 ? (
-                  <div className="space-y-4">
-                    {userHistory.tradeUp.map((trade: any) => (
-                      <div key={trade.id} className="p-4 bg-secondary/50 rounded-lg">
-                        <p className="font-semibold mb-2">Trade-Up Result</p>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Input: {trade.inputItems.join(', ')}
-                        </p>
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Output: {trade.outputItem}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(trade.timestamp).toLocaleDateString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <p className="text-muted-foreground">No trade-up history yet.</p>
+                    <History className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-muted-foreground">No activity history yet. Start playing!</p>
                   </div>
                 )}
               </CardContent>
@@ -885,14 +1064,35 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      value={email}
-                      disabled
-                      className="bg-muted"
-                    />
-                    <p className="text-xs text-muted-foreground">Email cannot be changed. Contact support if needed.</p>
+                    <div className="flex items-center gap-2">
+                      <Input 
+                        id="email" 
+                        type="email" 
+                        value={email}
+                        disabled
+                        className="bg-muted flex-1"
+                      />
+                      {!emailConfirmed && user?.provider !== 'steam' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleConfirmEmail}
+                        >
+                          <Mail className="h-4 w-4 mr-2" />
+                          Confirm (+10 Coins)
+                        </Button>
+                      )}
+                      {emailConfirmed && (
+                        <UiBadge variant="default" className="bg-green-600">
+                          ✓ Verified
+                        </UiBadge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {emailConfirmed 
+                        ? 'Your email is verified!' 
+                        : 'Confirm your email to earn 10 coins and unlock features.'}
+                    </p>
                   </div>
                   <Button 
                     onClick={handleProfileUpdate} 
@@ -935,10 +1135,16 @@ export default function ProfilePage() {
                                     <p className="text-xs text-muted-foreground">Get notified 15 minutes before a match you bet on starts.</p>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    <Switch id="email-match-reminders" defaultChecked />
+                                    <Switch 
+                                      checked={notificationPrefs.email_match_reminders || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, email_match_reminders: checked})}
+                                    />
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    <Switch id="push-match-reminders" defaultChecked />
+                                    <Switch 
+                                      checked={notificationPrefs.push_match_reminders || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, push_match_reminders: checked})}
+                                    />
                                 </TableCell>
                             </TableRow>
                              <TableRow>
@@ -947,10 +1153,16 @@ export default function ProfilePage() {
                                     <p className="text-xs text-muted-foreground">Receive an update as soon as a match you bet on is finished.</p>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    <Switch id="email-bet-results" />
+                                    <Switch 
+                                      checked={notificationPrefs.email_bet_results || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, email_bet_results: checked})}
+                                    />
                                 </TableCell>
                                  <TableCell className="text-center">
-                                    <Switch id="push-bet-results" defaultChecked />
+                                    <Switch 
+                                      checked={notificationPrefs.push_bet_results || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, push_bet_results: checked})}
+                                    />
                                 </TableCell>
                             </TableRow>
                              <TableRow>
@@ -959,10 +1171,16 @@ export default function ProfilePage() {
                                     <p className="text-xs text-muted-foreground">Get notified when you level up or receive a special reward.</p>
                                 </TableCell>
                                <TableCell className="text-center">
-                                    <Switch id="email-level-up" />
+                                    <Switch 
+                                      checked={notificationPrefs.email_level_up || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, email_level_up: checked})}
+                                    />
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    <Switch id="push-level-up" defaultChecked />
+                                    <Switch 
+                                      checked={notificationPrefs.push_level_up || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, push_level_up: checked})}
+                                    />
                                 </TableCell>
                             </TableRow>
                              <TableRow>
@@ -971,17 +1189,26 @@ export default function ProfilePage() {
                                     <p className="text-xs text-muted-foreground">Stay up-to-date with new crates, events, and special offers.</p>
                                 </TableCell>
                                 <TableCell className="text-center">
-                                    <Switch id="email-promotions" defaultChecked />
+                                    <Switch 
+                                      checked={notificationPrefs.email_promotions || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, email_promotions: checked})}
+                                    />
                                 </TableCell>
                                  <TableCell className="text-center">
-                                    <Switch id="push-promotions" />
+                                    <Switch 
+                                      checked={notificationPrefs.push_promotions || false}
+                                      onCheckedChange={(checked) => setNotificationPrefs({...notificationPrefs, push_promotions: checked})}
+                                    />
                                 </TableCell>
                             </TableRow>
                         </TableBody>
                       </Table>
                   </CardContent>
                    <CardFooter>
-                     <Button>Save Notification Settings</Button>
+                     <Button onClick={handleSaveNotificationPrefs}>
+                       <Bell className="mr-2 h-4 w-4" />
+                       Save Notification Settings
+                     </Button>
                   </CardFooter>
                 </Card>
             </div>
@@ -1013,17 +1240,25 @@ export default function ProfilePage() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {referrals.map((ref) => (
-                            <TableRow key={ref.id}>
-                              <TableCell className="font-medium">{ref.name}</TableCell>
-                              <TableCell className="text-xs">{ref.date}</TableCell>
-                              <TableCell>
-                                 <UiBadge variant={ref.status === 'Completed' ? 'default' : 'secondary'} className={cn(ref.status === 'Completed' ? 'bg-green-600' : '','text-xs')}>
-                                  {ref.status}
-                                </UiBadge>
+                          {referredUsers && referredUsers.length > 0 ? (
+                            referredUsers.map((ref) => (
+                              <TableRow key={ref.id}>
+                                <TableCell className="font-medium">{ref.displayname || ref.username}</TableCell>
+                                <TableCell className="text-xs">{new Date(ref.created_at).toLocaleDateString()}</TableCell>
+                                <TableCell>
+                                  <UiBadge variant="default" className="bg-green-600 text-xs">
+                                    Active
+                                  </UiBadge>
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={3} className="text-center text-muted-foreground">
+                                No referrals yet. Share your code!
                               </TableCell>
                             </TableRow>
-                          ))}
+                          )}
                         </TableBody>
                       </Table>
                     </div>
@@ -1048,23 +1283,51 @@ export default function ProfilePage() {
               <CardDescription>View your gem transactions and purchases</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8">
-                <History className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                <h3 className="text-xl font-semibold mb-2">Gem History</h3>
-                <p className="text-muted-foreground mb-4">
-                  Your gem transaction history is now integrated into your profile!
-                </p>
-                <div className="flex items-center justify-center gap-4">
-                  <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-lg">
-                    <Gem className="h-5 w-5 text-purple-500" />
-                    <span className="font-bold">{balance?.gems?.toLocaleString() || 0}</span>
-                    <span className="text-muted-foreground">Gems Available</span>
+              {gemHistory && gemHistory.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead className="text-right">Balance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {gemHistory.map((transaction: any) => (
+                      <TableRow key={transaction.id}>
+                        <TableCell>{new Date(transaction.created_at).toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <UiBadge variant={transaction.type === 'purchase' ? 'default' : transaction.type === 'reward' ? 'secondary' : 'outline'}>
+                            {transaction.type}
+                          </UiBadge>
+                        </TableCell>
+                        <TableCell>{transaction.description}</TableCell>
+                        <TableCell className={cn("text-right font-semibold", transaction.amount > 0 ? 'text-green-500' : 'text-red-500')}>
+                          {transaction.amount > 0 ? '+' : ''}{transaction.amount}
+                        </TableCell>
+                        <TableCell className="text-right">{transaction.balance_after}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="text-center py-8">
+                  <Gem className="h-16 w-16 mx-auto mb-4 text-purple-500" />
+                  <h3 className="text-xl font-semibold mb-2">No Gem History</h3>
+                  <p className="text-muted-foreground mb-4">
+                    You haven't made any gem transactions yet.
+                  </p>
+                  <div className="flex items-center justify-center gap-4">
+                    <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-lg">
+                      <Gem className="h-5 w-5 text-purple-500" />
+                      <span className="font-bold">{balance?.gems?.toLocaleString() || 0}</span>
+                      <span className="text-muted-foreground">Gems Available</span>
+                    </div>
                   </div>
                 </div>
-                <p className="text-sm text-muted-foreground mt-4">
-                  Track all your gem purchases, exchanges, and CS2 skin transactions here.
-                </p>
-              </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
