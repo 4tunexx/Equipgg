@@ -1,222 +1,175 @@
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthSession } from '../../../lib/auth-utils';
-import { supabase } from "../../../lib/supabase";
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase';
+import { getAuthSession } from '@/lib/auth-utils';
+import { createNotification } from '@/lib/notification-utils';
 
-// Global chat/messages system
+// GET - Fetch user's messages
 export async function GET(request: NextRequest) {
   try {
+    const session = await getAuthSession(request);
+    
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '50');
-    const offset = parseInt(searchParams.get('offset') || '0');
-    const channel = searchParams.get('channel') || 'global';
+    const conversationWith = searchParams.get('with');
 
-    // Get recent messages
+    const supabase = createServerSupabaseClient();
+
+    if (conversationWith) {
+      // Fetch specific conversation
     const { data: messages, error } = await supabase
-      .from('chat_messages')
-      .select(`
-        id,
-        content,
-        created_at,
-        channel_id,
-        sender:sender_id (
-          id,
-          displayname,
-          level,
-          role
-        )
-      `)
-      .eq('channel_id', channel)
-      .eq('is_deleted', false)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+        .from('direct_messages')
+        .select('*, sender:users!sender_id(username, displayname, avatar_url), receiver:users!receiver_id(username, displayname, avatar_url)')
+        .or(`and(sender_id.eq.${session.user_id},receiver_id.eq.${conversationWith}),and(sender_id.eq.${conversationWith},receiver_id.eq.${session.user_id})`)
+        .order('created_at', { ascending: true })
+        .limit(100);
 
-    // If error, return empty array
     if (error) {
       console.error('Error fetching messages:', error);
+        return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      }
+
       return NextResponse.json({
         success: true,
-        messages: [],
-        hasMore: false
+        messages: messages || []
       });
-    }
+    } else {
+      // Fetch all conversations (grouped)
+      const { data: messages, error } = await supabase
+        .from('direct_messages')
+        .select('*, sender:users!sender_id(username, displayname, avatar_url, id), receiver:users!receiver_id(username, displayname, avatar_url, id)')
+        .or(`sender_id.eq.${session.user_id},receiver_id.eq.${session.user_id}`)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching conversations:', error);
+        return NextResponse.json({ error: 'Database error' }, { status: 500 });
+      }
+
+      // Group messages by conversation partner
+      const conversations = new Map();
+      messages?.forEach(msg => {
+        const partnerId = msg.sender_id === session.user_id ? msg.receiver_id : msg.sender_id;
+        const partner = msg.sender_id === session.user_id ? (msg as any).receiver : (msg as any).sender;
+        
+        if (!conversations.has(partnerId)) {
+          conversations.set(partnerId, {
+            partnerId,
+            partnerName: partner.displayname || partner.username,
+            partnerAvatar: partner.avatar_url,
+            lastMessage: msg.content,
+            lastMessageTime: msg.created_at,
+            unreadCount: 0
+          });
+        }
+
+        // Count unread messages
+        if (msg.receiver_id === session.user_id && !msg.read_at) {
+          const conv = conversations.get(partnerId);
+          conv.unreadCount++;
+        }
+      });
 
     return NextResponse.json({
       success: true,
-      messages: messages || [],
-      hasMore: (messages?.length || 0) === limit
+        conversations: Array.from(conversations.values())
     });
+    }
 
   } catch (error) {
-    console.error('Error in messages GET:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Messages GET API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 
+// POST - Send a message
 export async function POST(request: NextRequest) {
   try {
-    // Get authenticated session
     const session = await getAuthSession(request);
+    
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { message, channel = 'global' } = await request.json();
+    const { receiverId, content } = await request.json();
 
-    if (!message || message.trim().length === 0) {
-      return NextResponse.json({ 
-        error: 'Message cannot be empty' 
-      }, { status: 400 });
+    if (!receiverId || !content || content.trim().length === 0) {
+      return NextResponse.json(
+        { error: 'Receiver ID and message content are required' },
+        { status: 400 }
+      );
     }
 
-    if (message.trim().length > 500) {
-      return NextResponse.json({ 
-        error: 'Message too long (max 500 characters)' 
-      }, { status: 400 });
+    if (content.length > 1000) {
+      return NextResponse.json(
+        { error: 'Message is too long (max 1000 characters)' },
+        { status: 400 }
+      );
     }
 
-    // Basic profanity filter (simple implementation)
-    const bannedWords = ['spam', 'scam', 'hack'];
-    const lowerMessage = message.toLowerCase();
-    if (bannedWords.some(word => lowerMessage.includes(word))) {
-      return NextResponse.json({ 
-        error: 'Message contains inappropriate content' 
-      }, { status: 400 });
-    }
+    const supabase = createServerSupabaseClient();
 
-    // Check user's last message time (rate limiting)
-    const { data: lastMessage } = await supabase
-      .from('chat_messages')
-      .select('created_at')
-      .eq('sender_id', session.user_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    if (lastMessage) {
-      const lastMessageTime = new Date(lastMessage.created_at);
-      const timeDiff = Date.now() - lastMessageTime.getTime();
-      const cooldownMs = 3000; // 3 seconds cooldown
-
-      if (timeDiff < cooldownMs) {
-        return NextResponse.json({ 
-          error: `Please wait ${Math.ceil((cooldownMs - timeDiff) / 1000)} seconds before sending another message` 
-        }, { status: 429 });
-      }
-    }
-
-    // Create the message
-    const { data: newMessage, error } = await supabase
-      .from('chat_messages')
-      .insert([{
-        sender_id: session.user_id,
-        content: message.trim(),
-        channel_id: channel,
-        type: 'text',
-        created_at: new Date().toISOString()
-      }])
-      .select(`
-        id,
-        content,
-        created_at,
-        channel_id,
-        sender:sender_id (
-          id,
-          display_name,
-          level,
-          role
-        )
-      `)
-      .single();
-
-    if (error) {
-      if (error.code === 'PGRST116') {
-        return NextResponse.json({
-          error: 'Chat system not yet available - database tables pending'
-        }, { status: 503 });
-      }
-      console.error('Error creating message:', error);
-      return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Message sent successfully',
-      data: newMessage
-    });
-
-  } catch (error) {
-    console.error('Error sending message:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
-  }
-}
-
-export async function DELETE(request: NextRequest) {
-  try {
-    // Get authenticated session
-    const session = await getAuthSession(request);
-    if (!session) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const messageId = searchParams.get('id');
-
-    if (!messageId) {
-      return NextResponse.json({ 
-        error: 'Message ID is required' 
-      }, { status: 400 });
-    }
-
-    // Check if user owns the message or is admin
-    const { data: message, error: fetchError } = await supabase
-      .from('chat_messages')
-      .select('sender_id')
-      .eq('id', messageId)
-      .single();
-
-    if (fetchError) {
-      if (fetchError.code === 'PGRST116') {
-        return NextResponse.json({
-          error: 'Chat system not yet available'
-        }, { status: 503 });
-      }
-      return NextResponse.json({ error: 'Message not found' }, { status: 404 });
-    }
-
-    // Get user role
-    const { data: userData } = await supabase
+    // Check if receiver exists
+    const { data: receiver, error: receiverError } = await supabase
       .from('users')
-      .select('role')
-      .eq('id', session.user_id)
+      .select('id, username, displayname')
+      .eq('id', receiverId)
       .single();
 
-    const isOwner = message.sender_id === session.user_id;
-    const isAdmin = userData?.role === 'admin' || userData?.role === 'moderator';
-
-    if (!isOwner && !isAdmin) {
-      return NextResponse.json({ 
-        error: 'You can only delete your own messages' 
-      }, { status: 403 });
+    if (receiverError || !receiver) {
+      return NextResponse.json(
+        { error: 'Receiver not found' },
+        { status: 404 }
+      );
     }
 
-    // Delete the message
-    const { error } = await supabase
-      .from('chat_messages')
-      .delete()
-      .eq('id', messageId);
+    // Insert message
+    const { data: message, error: insertError } = await supabase
+      .from('direct_messages')
+      .insert({
+        sender_id: session.user_id,
+        receiver_id: receiverId,
+        content: content.trim(),
+        created_at: new Date().toISOString()
+      })
+      .select()
+      .single();
 
-    if (error) {
-      console.error('Error deleting message:', error);
-      return NextResponse.json({ error: 'Failed to delete message' }, { status: 500 });
+    if (insertError) {
+      console.error('Error sending message:', insertError);
+      return NextResponse.json(
+        { error: 'Failed to send message' },
+        { status: 500 }
+      );
     }
+
+    // Create notification for receiver
+    await createNotification({
+      userId: receiverId,
+      type: 'new_message',
+      title: '💬 New Message',
+      message: `You have a new message from a user`,
+      data: {
+        senderId: session.user_id,
+        messageId: message.id
+      }
+    });
 
     return NextResponse.json({
       success: true,
-      message: 'Message deleted successfully'
+      message
     });
 
   } catch (error) {
-    console.error('Error deleting message:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error('Messages POST API error:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }

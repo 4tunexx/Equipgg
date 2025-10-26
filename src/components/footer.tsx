@@ -26,13 +26,13 @@ export function Footer() {
             <Image
               src={siteSettings.logo_url}
               alt="Site Logo"
-              width={32}
-              height={32}
+              width={128}
+              height={128}
               className="h-8 w-auto object-contain"
               key={`footer-logo-${logoKey}-${siteSettings.logo_url}`} // Force re-render when logo changes
               quality={100}
               priority
-              unoptimized={process.env.NODE_ENV === 'development'}
+              unoptimized={true}
             />
           ) : (
             <Gamepad2 className="h-8 w-8 text-primary" />

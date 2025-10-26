@@ -7,7 +7,7 @@ import { useAuth } from "../../../hooks/use-auth";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { supabase } from "../../../lib/supabase/client";
 import type { DBUser, DBItem, DBAchievement, DBInventoryItem } from "../../../lib/supabase/queries";
-import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History, Award } from "lucide-react";
+import { CheckCircle, Gem, Trophy, Copy, Upload, VenetianMask, Edit, BadgeCheck, History, Award, Coins, Target, TrendingUp } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "../../../components/ui/avatar";
 import { UserAvatar } from "../../../components/user-avatar";
 import { Progress } from "../../../components/ui/progress";
@@ -448,23 +448,38 @@ export default function ProfilePage() {
             </div>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-center">
               <Card className="bg-secondary/50 p-3">
-                <p className="text-xl font-bold">{(balance?.coins || 0).toLocaleString()}</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Coins className="w-5 h-5 text-green-500" />
+                  <p className="text-xl font-bold text-green-500">{(balance?.coins || 0).toLocaleString()}</p>
+                </div>
                 <p className="text-xs text-muted-foreground">Coins</p>
               </Card>
               <Card className="bg-secondary/50 p-3">
-                <p className="text-xl font-bold text-yellow-500">{(balance?.gems || 0).toLocaleString()}</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Gem className="w-5 h-5 text-purple-500" />
+                  <p className="text-xl font-bold text-purple-500">{(balance?.gems || 0).toLocaleString()}</p>
+                </div>
                 <p className="text-xs text-muted-foreground">Gems</p>
               </Card>
               <Card className="bg-secondary/50 p-3">
-                <p className="text-xl font-bold">{userStats.items}</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Trophy className="w-5 h-5 text-blue-500" />
+                  <p className="text-xl font-bold">{userStats.items}</p>
+                </div>
                 <p className="text-xs text-muted-foreground">Items</p>
               </Card>
                <Card className="bg-secondary/50 p-3">
-                <p className="text-xl font-bold">{userStats.betsWon}</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <Target className="w-5 h-5 text-orange-500" />
+                  <p className="text-xl font-bold">{userStats.betsWon}</p>
+                </div>
                 <p className="text-xs text-muted-foreground">Bets Won</p>
               </Card>
                <Card className="bg-secondary/50 p-3">
-                <p className="text-xl font-bold">{userStats.winRate}%</p>
+                <div className="flex items-center justify-center gap-2 mb-1">
+                  <TrendingUp className="w-5 h-5 text-cyan-500" />
+                  <p className="text-xl font-bold">{userStats.winRate}%</p>
+                </div>
                 <p className="text-xs text-muted-foreground">Win Rate</p>
               </Card>
             </div>

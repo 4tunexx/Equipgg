@@ -85,14 +85,14 @@ export function HeroSection() {
               <Image
                 src={effectiveLogo}
                 alt="Site Logo"
-                width={48}
-                height={48}
+                width={256}
+                height={256}
                 className="h-12 object-contain"
                 style={{ width: 'auto', height: '3rem' }}
                 key={`corner-logo-${logoKey}-${effectiveLogo}`}
                 quality={100}
                 priority
-                unoptimized={process.env.NODE_ENV === 'development'}
+                unoptimized={true}
               />
             ) : (
               <Gamepad2 className="h-12 w-12 text-primary" />
@@ -136,12 +136,14 @@ export function HeroSection() {
         <Image
           src={effectiveLogoLayer1}
           alt="Equip.gg Character Logo"
-          width={200}
-          height={150}
+          width={400}
+          height={300}
           className="object-contain"
           style={{ width: '100%', height: '100%' }}
           key={`logo1-mobile-${logoKey}`}
           priority
+          quality={100}
+          unoptimized={true}
         />
       </div>
 
@@ -157,12 +159,14 @@ export function HeroSection() {
         <Image
           src={effectiveLogoLayer2}
           alt="Equip.gg Text Layer"
-          width={210}
-          height={95}
+          width={420}
+          height={190}
           className="object-contain"
           style={{ width: '100%', height: '100%' }}
           key={`logo2-mobile-${logoKey}`}
           priority
+          quality={100}
+          unoptimized={true}
         />
       </div>
     </>
@@ -227,12 +231,14 @@ export function HeroSection() {
                   <Image 
                     src={effectiveLogo} 
                     alt="Site Logo" 
-                    width={400}
-                    height={280}
+                    width={800}
+                    height={560}
                     className="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
                     style={{ width: 'auto', height: 'auto' }}
                     key={`logo-big-${logoKey}`}
                     priority
+                    quality={100}
+                    unoptimized={true}
                   />
                 </div>
               ) : (
@@ -245,12 +251,14 @@ export function HeroSection() {
                       <Image 
                         src={effectiveLogoLayer1} 
                         alt="Equip.gg Logo" 
-                        width={420}
-                        height={300}
+                        width={840}
+                        height={600}
                         className="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
                         style={{ width: 'auto', height: 'auto' }}
                         key={`logo1-big-${logoKey}`}
                         priority
+                        quality={100}
+                        unoptimized={true}
                       />
                     </div>
                   </div>
@@ -262,12 +270,14 @@ export function HeroSection() {
                       <Image 
                         src={effectiveLogoLayer2} 
                         alt="Equip.gg Logo Layer" 
-                        width={450}
-                        height={320}
+                        width={900}
+                        height={640}
                         className="max-w-full max-h-full object-contain transition-all duration-300 hover:scale-110 hover:animate-[logoShake_0.5s_ease-in-out] active:scale-95"
                         style={{ width: 'auto', height: 'auto' }}
                         key={`logo2-big-${logoKey}`}
                         priority
+                        quality={100}
+                        unoptimized={true}
                       />
                     </div>
                   </div>
