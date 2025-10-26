@@ -23,9 +23,9 @@ export async function GET(request: NextRequest) {
 
     // Group skins by category
     const groupedSkins = {
-      knives: inventory.filter(skin => skin.category === 'knives'),
-      gloves: inventory.filter(skin => skin.category === 'gloves'),
-      weapons: inventory.filter(skin => skin.category === 'weapons')
+      knives: inventory.filter((skin: any) => skin.category === 'knives'),
+      gloves: inventory.filter((skin: any) => skin.category === 'gloves'),
+      weapons: inventory.filter((skin: any) => skin.category === 'weapons')
     };
 
     return NextResponse.json({

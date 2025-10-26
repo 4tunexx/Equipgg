@@ -35,32 +35,48 @@ const renderInventoryGrid = (items: InventoryItem[], onSelect: (item: InventoryI
             {items.map((item) => {
               const isSelected = selectedIds?.has(item.id);
 
+              const getRarityBorderColor = (rarity: string) => {
+                const r = rarity?.toLowerCase();
+                if (r === 'common') return '#b0c3d9';
+                if (r === 'uncommon') return '#5e98d9';
+                if (r === 'rare') return '#4b69ff';
+                if (r === 'epic') return '#8847ff';
+                if (r === 'legendary') return '#d32ce6';
+                if (r === 'mythic') return '#ffd700';
+                return '#b0c3d9';
+              };
+
               return (
-                <Tooltip key={item.id}>
-                    <TooltipTrigger asChild>
-                        <Card
-                            onClick={() => onSelect(item)}
-                            className={cn(
-                            'overflow-hidden group bg-secondary/50 border-2 transition-all aspect-square flex items-center justify-center relative rounded-lg cursor-pointer',
-                            isSelected ? 'border-primary' : 'border-transparent hover:border-primary/50',
-                            rarityGlow[item.rarity]
-                            )}
-                        >
-                            <ItemImage
-                            itemName={item.name}
-                            itemType={item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
-                            width={128}
-                            height={96}
-                            className="p-2 object-contain transition-transform group-hover:scale-110"
-                            />
-                        </Card>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-background border-primary text-primary-foreground">
-                        <p className="font-bold text-base">{item.name}</p>
-                        <p><span className="font-semibold">Type:</span> {item.type}</p>
-                        <p><span className="font-semibold">Rarity:</span> <span className={cn(rarityGlow[item.rarity], 'font-bold')}>{item.rarity}</span></p>
-                    </TooltipContent>
-                </Tooltip>
+                <Card
+                  key={item.id}
+                  onClick={() => onSelect(item)}
+                  className={cn(
+                    'overflow-hidden group bg-secondary/50 border-2 transition-all aspect-square flex items-center justify-center relative rounded-lg cursor-pointer',
+                    isSelected ? 'border-primary' : 'hover:border-primary/50',
+                    rarityGlow[item.rarity]
+                  )}
+                  style={{
+                    borderColor: isSelected ? 'var(--primary)' : getRarityBorderColor(item.rarity),
+                    borderWidth: '2px'
+                  }}
+                >
+                  <ItemImage
+                    itemName={item.name}
+                    itemType={(item as any).image?.includes('/knives/') ? 'knives' :
+                              (item as any).image?.includes('/gloves/') ? 'gloves' :
+                              (item as any).image?.includes('/agents/') ? 'agents' :
+                              'skins'}
+                    imageUrl={(item as any).image}
+                    width={128}
+                    height={96}
+                    className="p-2 object-contain transition-transform group-hover:scale-110"
+                  />
+                  {(item as any).quantity > 1 && (
+                    <div className="absolute bottom-1 right-1 bg-black/80 text-white text-xs font-bold px-1.5 py-0.5 rounded-md border border-primary/50">
+                      x{(item as any).quantity}
+                    </div>
+                  )}
+                </Card>
               );
             })}
           </div>
@@ -83,8 +99,10 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
         if (result) setResult(null);
 
         const isSelected = selectedItems.find(i => i.id === item.id);
+        const quantity = (item as any).quantity || 1;
 
         if (isSelected) {
+            // Remove all instances of this item
             setSelectedItems(selectedItems.filter(i => i.id !== item.id));
         } else {
             // First item sets the rarity for the contract
@@ -105,8 +123,14 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
                 return;
             }
 
-            if (selectedItems.length < TRADEUP_SLOTS) {
-                setSelectedItems([...selectedItems, item]);
+            // For stacked items, add up to quantity but respect the 5 slot limit
+            const itemsToAdd = [];
+            for (let i = 0; i < quantity && selectedItems.length + itemsToAdd.length < TRADEUP_SLOTS; i++) {
+                itemsToAdd.push({ ...item, id: `${item.id}_${i}` }); // Create unique IDs for stacked items
+            }
+            
+            if (itemsToAdd.length > 0) {
+                setSelectedItems([...selectedItems, ...itemsToAdd]);
             } else {
                  toast({
                     variant: 'destructive',
@@ -123,6 +147,12 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
         setIsLoading(true);
         setResult(null);
 
+        // Extract base IDs (remove suffixes added for stacked items)
+        const itemIds = selectedItems.map(item => item.id.split('_')[0]);
+        
+        console.log('🔍 Trade-up - Selected items:', selectedItems);
+        console.log('🔍 Trade-up - Sending item IDs:', itemIds);
+
         try {
             const response = await fetch('/api/inventory/trade-up', {
                 method: 'POST',
@@ -131,7 +161,7 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
                 },
                 credentials: 'include',
                 body: JSON.stringify({
-                    itemIds: selectedItems.map(item => item.id)
+                    itemIds
                 })
             });
 
@@ -174,6 +204,12 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
     }
     
     const eligibleItems = inventory.filter(item => {
+        // Filter out equipped items
+        if (item.equipped) return false;
+        
+        // Filter out items in trade offers (in_escrow)
+        if ((item as any).in_escrow) return false;
+        
         if (selectedItems.length > 0) {
             return item.rarity === selectedItems[0].rarity;
         }
@@ -211,7 +247,11 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
                                     <>
                                         <ItemImage
                                           itemName={item.name}
-                                          itemType={item.type as 'skins' | 'knives' | 'gloves' | 'agents'}
+                                          itemType={(item as any).image?.includes('/knives/') ? 'knives' :
+                                                    (item as any).image?.includes('/gloves/') ? 'gloves' :
+                                                    (item as any).image?.includes('/agents/') ? 'agents' :
+                                                    'skins'}
+                                          imageUrl={(item as any).image}
                                           width={96}
                                           height={96}
                                           className='p-2'
@@ -243,7 +283,11 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
                             <div className="text-center animate-in fade-in zoom-in-50">
                                 <ItemImage
                                   itemName={result.newItem.name}
-                                  itemType={result.newItem.type as 'skins' | 'knives' | 'gloves' | 'agents'}
+                                  itemType={(result.newItem as any).image?.includes('/knives/') ? 'knives' :
+                                            (result.newItem as any).image?.includes('/gloves/') ? 'gloves' :
+                                            (result.newItem as any).image?.includes('/agents/') ? 'agents' :
+                                            'skins'}
+                                  imageUrl={(result.newItem as any).image}
                                   width={96}
                                   height={96}
                                 />

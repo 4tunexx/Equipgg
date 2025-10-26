@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
       .select('result, payout')
       .eq('user_id', session.user_id);
     const totalBets = betStats?.length || 0;
-    const betWinnings = betStats?.reduce((sum, b) => sum + (b.result === 'win' ? b.payout : 0), 0) || 0;
+    const betWinnings = betStats?.reduce((sum: number, b: any) => sum + (b.result === 'win' ? b.payout : 0), 0) || 0;
     const betWins = betStats?.filter(b => b.result === 'win').length || 0;
     const betWinRate = totalBets > 0 ? Math.round((betWins / totalBets) * 100) : 0;
     // Get game stats
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
       .select('result, winnings')
       .eq('user_id', session.user_id);
     const gamesPlayed = gameStats?.length || 0;
-    const gameWinnings = gameStats?.reduce((sum, g) => sum + (g.winnings || 0), 0) || 0;
+    const gameWinnings = gameStats?.reduce((sum: number, g: any) => sum + (g.winnings || 0), 0) || 0;
     const gamesWon = gameStats?.filter(g => g.result === 'win').length || 0;
     const gameWinRate = gamesPlayed > 0 ? Math.round((gamesWon / gamesPlayed) * 100) : 0;
     // Get inventory stats
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
       .from('user_inventory')
       .select('value')
       .eq('user_id', session.user_id);
-    const inventoryValue = inventoryValueData?.reduce((sum, i) => sum + (i.value || 0), 0) || 0;
+    const inventoryValue = inventoryValueData?.reduce((sum: number, i: any) => sum + (i.value || 0), 0) || 0;
     // Get mission completion stats
     const { data: missionStats } = await supabase
       .from('user_mission_progress')

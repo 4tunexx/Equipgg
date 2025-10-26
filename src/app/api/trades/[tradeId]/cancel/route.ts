@@ -6,7 +6,7 @@ import { createNotification } from "../../../../../lib/notification-utils";
 // POST /api/trades/[tradeId]/cancel - Cancel a trade offer (sender or admin)
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tradeId: string } }
+  { params }: { params: Promise<{ tradeId: string }> }
 ) {
   try {
     const supabase = createServerSupabaseClient();
@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { tradeId } = params;
+    const { tradeId } = await params;
     let reason = '';
     try {
       const body = await request.json();

@@ -14,7 +14,18 @@ export async function GET(request: NextRequest) {
     
     if (cookieMatch) {
       try {
-        const sessionData = JSON.parse(decodeURIComponent(cookieMatch[1]));
+        // Handle double-encoded cookies
+        let decodedValue = decodeURIComponent(cookieMatch[1]);
+        let sessionData;
+        
+        try {
+          sessionData = JSON.parse(decodedValue);
+        } catch {
+          // Try double decode
+          decodedValue = decodeURIComponent(decodedValue);
+          sessionData = JSON.parse(decodedValue);
+        }
+        
         if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
           userId = sessionData.user_id;
         }

@@ -57,7 +57,7 @@ export async function GET(
       user_email: ticket.user?.email ?? null,
   assigned_to_name: ticket.assigned?.displayname ?? null,
     };
-    const repliesOut = (replies || []).map(r => ({
+    const repliesOut = (replies || []).map((r: any) => ({
       ...r,
   user_name: r.user?.displayname ?? null,
       user_role: r.user?.role ?? null,

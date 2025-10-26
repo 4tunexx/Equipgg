@@ -6,11 +6,13 @@ import { cookies } from 'next/headers';
 
 // POST /api/inventory/sell - Sell an item from inventory
 export async function POST(request: NextRequest) {
+  console.log('💸 Sell API called');
   try {
     const cookieStore = await cookies();
     const sessionCookie = cookieStore.get('equipgg_session');
     
     if (!sessionCookie) {
+      console.log('❌ No session cookie');
       return NextResponse.json(
         { error: 'Authentication required' },
         { status: 401 }
@@ -19,12 +21,17 @@ export async function POST(request: NextRequest) {
     
     const session = JSON.parse(decodeURIComponent(sessionCookie.value));
     const userId = session.user_id;
+    console.log('✅ Session found for user:', userId);
+    
     const supabase = createServerSupabaseClient();
 
     const body = await request.json();
     const { itemId, sellPrice } = body;
 
+    console.log('📦 Sell request:', { itemId, sellPrice });
+
     if (!itemId) {
+      console.log('❌ No item ID provided');
       return NextResponse.json(
         { error: 'Item ID is required' },
         { status: 400 }
@@ -40,7 +47,7 @@ export async function POST(request: NextRequest) {
         .single(),
       supabase
         .from('user_inventory')
-        .select('*, item:items(*)')
+        .select('*, items!fk_user_inventory_item(*)')
         .eq('id', itemId)
         .eq('user_id', userId)
         .single()
@@ -66,7 +73,7 @@ export async function POST(request: NextRequest) {
     const inventoryItem = inventoryItemResponse.data;
 
     // Calculate sell price for ONE item (typically 75% of item value)
-    const itemValue = inventoryItem.item.coin_price || 100;
+    const itemValue = inventoryItem.items.coin_price || 100;
     const calculatedSellPrice = sellPrice || Math.floor(itemValue * 0.75);
     
     // Get current quantity
@@ -132,7 +139,7 @@ export async function POST(request: NextRequest) {
       await trackMissionProgress(userId, 'item_sold', 1);
       await trackMissionProgress(userId, 'earn_coins', calculatedSellPrice);
       await updateOwnershipMissions(userId);
-      await trackItemSold(userId, inventoryItem.item.name, calculatedSellPrice);
+      await trackItemSold(userId, inventoryItem.items.name, calculatedSellPrice);
       console.log('✅ Item sell mission and activity tracked for user:', userId);
     } catch (missionError) {
       console.warn('Failed to track sell mission:', missionError);
@@ -140,11 +147,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Sold 1x ${inventoryItem.item.name} for ${calculatedSellPrice.toLocaleString()} coins${currentQuantity > 1 ? ` (${currentQuantity - 1} remaining)` : ''}`,
+      message: `Sold 1x ${inventoryItem.items.name} for ${calculatedSellPrice.toLocaleString()} coins${currentQuantity > 1 ? ` (${currentQuantity - 1} remaining)` : ''}`,
       price: calculatedSellPrice,
       soldItem: {
         id: inventoryItem.id,
-        name: inventoryItem.item.name,
+        name: inventoryItem.items.name,
         sellPrice: calculatedSellPrice,
         originalValue: itemValue,
         quantitySold: 1,
@@ -194,15 +201,10 @@ export async function GET(request: NextRequest) {
       .from('user_inventory')
       .select(`
         *,
-        item:items(*),
-        market:item_market_data(
-          demand,
-          price_change,
-          average_price
-        )
+        items!fk_user_inventory_item(*)
       `)
       .eq('id', itemId)
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .single();
 
     if (itemError || !inventoryItem) {
@@ -214,28 +216,19 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate sell price (75% of item value)
-    const itemValue = inventoryItem.item.coin_price || 100;
+    const itemValue = inventoryItem.items.coin_price || 100;
     const sellPrice = Math.floor(itemValue * 0.75);
-
-    // Get market data if available, otherwise use default values
-    const marketTrends = {
-      demand: inventoryItem.market?.demand || 'normal',
-      priceChange: inventoryItem.market?.price_change || 0,
-      averagePrice: inventoryItem.market?.average_price || itemValue,
-      recommendedSellPrice: sellPrice
-    };
 
     return NextResponse.json({
       success: true,
       item: {
         id: inventoryItem.id,
-        name: inventoryItem.item.name,
-        type: inventoryItem.item.type,
-        rarity: inventoryItem.item.rarity,
+        name: inventoryItem.items.name,
+        type: inventoryItem.items.type,
+        rarity: inventoryItem.items.rarity,
         originalValue: itemValue
       },
-      sellPrice,
-      marketTrends
+      sellPrice
     });
 
   } catch (error) {

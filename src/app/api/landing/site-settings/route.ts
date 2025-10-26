@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     // Convert to key-value pairs for easier frontend usage
-    const settingsObj = settings?.reduce((acc, setting) => {
+    const settingsObj = settings?.reduce((acc: any, setting: any) => {
       acc[setting.key] = setting.value;
       return acc;
     }, {} as Record<string, any>) || {};

@@ -30,8 +30,8 @@ export async function GET(request: NextRequest) {
 
     // Get inventory stats
     const totalItems = inventory?.length || 0;
-    const totalValue = inventory?.reduce((sum, item) => sum + (item.market_price || 0), 0) || 0;
-    const availableItems = inventory?.filter(item => item.status === 'available').length || 0;
+    const totalValue = inventory?.reduce((sum: number, item: any) => sum + (item.market_price || 0), 0) || 0;
+    const availableItems = inventory?.filter((item: any) => item.status === 'available').length || 0;
 
     return NextResponse.json({
       success: true,
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
         total_items: totalItems,
         available_items: availableItems,
         total_value: totalValue,
-        pending_trades: inventory?.filter(item => item.status === 'pending_trade').length || 0
+        pending_trades: inventory?.filter((item: any) => item.status === 'pending_trade').length || 0
       }
     });
 

@@ -91,7 +91,7 @@ export async function GET(request: NextRequest) {
     };
     
     // Get item details for each trade
-    const tradesWithItems = await Promise.all(trades.map(async (trade) => {
+    const tradesWithItems = await Promise.all(trades.map(async (trade: any) => {
       const offeredItemIds = trade.sender_items || [];
       const requestedItemIds = trade.receiver_items || [];
 

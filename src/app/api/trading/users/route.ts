@@ -18,27 +18,27 @@ export async function GET(request: NextRequest) {
       .from('users')
       .select(`
         id,
-        display_name,
+        displayname,
         avatar_url,
         level,
-        last_seen,
+        last_login_at,
         created_at,
         role
       `)
       .neq('id', session.user_id); // Exclude current user
 
     if (search) {
-      query = query.ilike('display_name', `%${search}%`);
+      query = query.ilike('displayname', `%${search}%`);
     }
 
     if (onlineOnly) {
       // Consider users online if they were active in the last 15 minutes
       const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-      query = query.gte('last_seen', fifteenMinutesAgo.toISOString());
+      query = query.gte('last_login_at', fifteenMinutesAgo.toISOString());
     }
 
     const { data: users, error } = await query
-      .order('last_seen', { ascending: false })
+      .order('last_login_at', { ascending: false })
       .limit(50);
 
     if (error) {
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
 
     // Get trading statistics for each user
     const usersWithStats = await Promise.all(
-      (users || []).map(async (user) => {
+      (users || []).map(async (user: any) => {
         // Get trade count
         const { count: totalTrades } = await supabase
           .from('trade_history')
@@ -65,20 +65,20 @@ export async function GET(request: NextRequest) {
           .order('acquired_at', { ascending: false })
           .limit(6);
 
-        const isOnline = user.last_seen && 
-          new Date(user.last_seen) > new Date(Date.now() - 15 * 60 * 1000);
+        const isOnline = user.last_login_at && 
+          new Date(user.last_login_at) > new Date(Date.now() - 15 * 60 * 1000);
 
         return {
           id: user.id,
-          displayName: user.display_name || `User${user.id.slice(-4)}`,
+          displayName: user.displayname || `User${user.id.slice(-4)}`,
           avatar: user.avatar_url,
           level: user.level || 1,
           reputation: 4.5 + Math.random() * 0.5, // Mock reputation for now
           isOnline,
-          recentItems: recentItems?.map(i => i.item).filter(Boolean) || [],
+          recentItems: recentItems?.map((i: any) => i.item).filter(Boolean) || [],
           totalTrades: totalTrades || 0,
           successRate: Math.min(95 + Math.random() * 5, 100), // Mock success rate
-          lastSeen: user.last_seen
+          lastSeen: user.last_login_at
         };
       })
     );

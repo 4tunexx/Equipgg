@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
 
     // Get additional stats for each user
     const usersWithStats = await Promise.all(
-      (users || []).map(async (user) => {
+      (users || []).map(async (user: any) => {
         // Get inventory count
         const { count: inventoryCount } = await supabase
           .from('user_inventory')

@@ -46,24 +46,89 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch all 5 items from user's inventory
-    const { data: items, error: fetchError } = await supabase
-      .from('user_inventory')
-      .select('*')
-      .in('id', itemIds)
-      .eq('user_id', session.user_id);
+    // Count how many of each item ID we need
+    const itemIdCounts = new Map<string, number>();
+    itemIds.forEach(id => {
+      itemIdCounts.set(id, (itemIdCounts.get(id) || 0) + 1);
+    });
 
-    if (fetchError || !items || items.length !== 5) {
-      console.error('Error fetching items for trade-up:', fetchError);
+    console.log('🔍 Trade-up API - Item ID counts needed:', Array.from(itemIdCounts.entries()));
+
+    // Fetch all items in one query
+    const uniqueItemIds = Array.from(itemIdCounts.keys());
+    const { data: allItems, error: fetchError } = await supabase
+      .from('user_inventory')
+      .select('*, items!fk_user_inventory_item(*)')
+      .in('id', uniqueItemIds)
+      .eq('user_id', session.user_id)
+      .eq('equipped', false) // Filter out equipped items
+      .neq('in_escrow', true); // Filter out items already in trade offers
+
+    console.log('🔍 Trade-up API - Session user_id:', session.user_id);
+    console.log('🔍 Trade-up API - Fetched items:', allItems);
+
+    if (fetchError || !allItems) {
+      console.error('❌ Error fetching items for trade-up:', fetchError);
       return NextResponse.json(
         { error: 'Failed to fetch items. Make sure you own all 5 items.' },
         { status: 400 }
       );
     }
 
-    // Check if all items are the same rarity
-    const rarities = items.map(item => item.rarity.toLowerCase());
+    // Check if user has enough quantity of each item
+    for (const [itemId, neededCount] of itemIdCounts.entries()) {
+      const item = allItems.find(i => i.id === itemId);
+      if (!item) {
+        return NextResponse.json(
+          { error: `Item ${itemId} not found in your inventory.` },
+          { status: 400 }
+        );
+      }
+      const availableQuantity = item.quantity || 1;
+      if (availableQuantity < neededCount) {
+        return NextResponse.json(
+          { error: `You only have ${availableQuantity} of ${item.item_name}, but need ${neededCount}.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Expand items array to include duplicates based on quantity
+    const items: any[] = [];
+    for (const [itemId, count] of itemIdCounts.entries()) {
+      const item = allItems.find(i => i.id === itemId);
+      if (item) {
+        for (let i = 0; i < count; i++) {
+          items.push(item);
+        }
+      }
+    }
+
+    console.log('🔍 Trade-up API - Expanded items array (5 items):', items.length);
+
+    // ANTI-CHEAT: Verify all items belong to this user
+    const allItemsBelongToUser = items.every(item => item.user_id === session.user_id);
+    if (!allItemsBelongToUser) {
+      console.error('⚠️ ANTI-CHEAT: User tried to trade-up items they do not own');
+      return NextResponse.json(
+        { error: 'Invalid item ownership detected.' },
+        { status: 403 }
+      );
+    }
+
+    // ANTI-CHEAT: For trade-up, we allow the same item multiple times (for stacked items)
+    // But we need to verify the user has enough quantity of that item
+    // This check happens after we verify all items belong to the user
+
+    // Extract rarity from items (use items.rarity if available, otherwise use item.rarity)
+    const rarities = items.map(item => {
+      const rarity = item.items?.rarity || item.rarity;
+      return rarity?.toLowerCase();
+    });
     const uniqueRarities = [...new Set(rarities)];
+    
+    console.log('🔍 Trade-up API - Rarities:', rarities);
+    console.log('🔍 Trade-up API - Unique rarities:', uniqueRarities);
     
     if (uniqueRarities.length !== 1) {
       return NextResponse.json(
@@ -75,6 +140,8 @@ export async function POST(request: NextRequest) {
     const inputRarity = uniqueRarities[0];
     const outputRarity = RARITY_PROGRESSION[inputRarity];
 
+    console.log('🔍 Trade-up API - Input rarity:', inputRarity, 'Output rarity:', outputRarity);
+
     if (!outputRarity) {
       return NextResponse.json(
         { error: 'Invalid rarity for trade-up' },
@@ -82,8 +149,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate average value of input items
-    const totalValue = items.reduce((sum, item) => sum + (item.value || 100), 0);
+    // Calculate average value of input items (use items.coin_price if available)
+    const totalValue = items.reduce((sum, item) => {
+      const value = item.items?.coin_price || item.value || 100;
+      return sum + value;
+    }, 0);
     const averageValue = Math.floor(totalValue / 5);
     const outputValue = Math.floor(averageValue * RARITY_MULTIPLIERS[outputRarity] / RARITY_MULTIPLIERS[inputRarity]);
 
@@ -91,7 +161,7 @@ export async function POST(request: NextRequest) {
     const { data: availableItems, error: itemsError } = await supabase
       .from('items')
       .select('*')
-      .ilike('rarity', outputRarity)
+      .ilike('rarity', `%${outputRarity}%`)
       .eq('is_active', true)
       .limit(50);
 
@@ -106,20 +176,48 @@ export async function POST(request: NextRequest) {
     // Pick a random item
     const randomItem = availableItems[Math.floor(Math.random() * availableItems.length)];
 
-    // Delete the 5 input items
-    const { error: deleteError } = await supabase
-      .from('user_inventory')
-      .delete()
-      .in('id', itemIds)
-      .eq('user_id', session.user_id);
-
-    if (deleteError) {
-      console.error('Error deleting input items:', deleteError);
-      return NextResponse.json(
-        { error: 'Failed to process trade-up' },
-        { status: 500 }
-      );
+    // Delete the 5 input items (reduce quantity or delete completely)
+    for (const [itemId, count] of itemIdCounts.entries()) {
+      const item = allItems.find(i => i.id === itemId);
+      if (item) {
+        const currentQuantity = item.quantity || 1;
+        const newQuantity = currentQuantity - count;
+        
+        if (newQuantity <= 0) {
+          // Delete the entire stack
+          const { error } = await supabase
+            .from('user_inventory')
+            .delete()
+            .eq('id', itemId)
+            .eq('user_id', session.user_id);
+          
+          if (error) {
+            console.error('Error deleting item:', error);
+            return NextResponse.json(
+              { error: 'Failed to process trade-up' },
+              { status: 500 }
+            );
+          }
+        } else {
+          // Update quantity
+          const { error } = await supabase
+            .from('user_inventory')
+            .update({ quantity: newQuantity })
+            .eq('id', itemId)
+            .eq('user_id', session.user_id);
+          
+          if (error) {
+            console.error('Error updating item quantity:', error);
+            return NextResponse.json(
+              { error: 'Failed to process trade-up' },
+              { status: 500 }
+            );
+          }
+        }
+      }
     }
+
+    console.log('✅ Trade-up items processed successfully');
 
     // Add the new item to inventory
     const { data: newItem, error: insertError } = await supabase
@@ -189,16 +287,18 @@ export async function POST(request: NextRequest) {
       message: `Trade-up successful! You received ${randomItem.name}`,
       inputItems: items.map(i => ({
         id: i.id,
-        name: i.item_name,
-        rarity: i.rarity
+        name: i.items?.name || i.item_name,
+        rarity: i.items?.rarity || i.rarity
       })),
       outputItem: {
         id: newItem.id,
         name: randomItem.name,
         type: randomItem.type,
-        rarity: outputRarity,
+        rarity: randomItem.rarity,
         image: randomItem.image || randomItem.image_url,
-        value: outputValue
+        value: outputValue,
+        equipped: false,
+        quantity: 1
       }
     });
 

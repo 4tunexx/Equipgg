@@ -261,7 +261,7 @@ export async function GET(request: NextRequest) {
     // Group events by day for activity calendar
     const eventsByDay = {} as any;
     if (recentEvents) {
-      recentEvents.forEach(event => {
+      recentEvents.forEach((event: any) => {
         const day = event.timestamp.split('T')[0];
         if (!eventsByDay[day]) {
           eventsByDay[day] = 0;

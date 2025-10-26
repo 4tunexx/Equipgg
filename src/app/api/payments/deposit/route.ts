@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
       .gte('created_at', `${today}T00:00:00.000Z`)
       .lt('created_at', `${today}T23:59:59.999Z`);
 
-    const todayTotal = todayDeposits?.reduce((sum, t) => sum + t.amount, 0) || 0;
+    const todayTotal = todayDeposits?.reduce((sum: number, t: any) => sum + t.amount, 0) || 0;
     
     if (todayTotal + amount > dailyLimit) {
       return NextResponse.json({ 

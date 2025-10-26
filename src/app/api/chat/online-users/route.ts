@@ -19,7 +19,7 @@ export async function GET() {
     }
 
     // Transform users to match ChatUser interface
-    const onlineUsers = users.map(user => ({
+    const onlineUsers = users.map((user: any) => ({
       id: user.id,
       displayName: user.displayname || user.username || 'Unknown User',
       avatar: user.avatar_url,

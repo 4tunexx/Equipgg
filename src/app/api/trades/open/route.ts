@@ -1,74 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { getAuthSession } from "../../../../lib/auth-utils";
 
 // GET /api/trades/open - Get all open trades available for offers
 export async function GET(request: NextRequest) {
-  console.log('🔥 /api/trades/open called');
   try {
-    console.log('🔍 Starting /api/trades/open');
     const supabase = createServerSupabaseClient();
     
     if (!supabase) {
-      console.error('❌ Failed to create Supabase client');
       return NextResponse.json({ error: 'Database connection failed' }, { status: 500 });
     }
     
-    // Simple auth check using cookie
-    const cookieHeader = request.headers.get('cookie') || '';
-    const cookieMatch = cookieHeader.match(/equipgg_session=([^;]+)/);
-    
-    let userId: string | null = null;
-    
-    if (cookieMatch) {
-      try {
-        // Double decode because Next.js encodes cookies
-        let cookieValue = cookieMatch[1];
-        // Decode once
-        cookieValue = decodeURIComponent(cookieValue);
-        // If still encoded, decode again
-        if (cookieValue.startsWith('%')) {
-          cookieValue = decodeURIComponent(cookieValue);
-        }
-        const sessionData = JSON.parse(cookieValue);
-        if (sessionData.user_id && (!sessionData.expires_at || Date.now() < sessionData.expires_at)) {
-          userId = sessionData.user_id;
-        }
-      } catch (e) {
-        console.error('Failed to parse session cookie:', e);
-      }
-    }
-    
-    if (!userId) {
-      console.log('❌ No session found');
+    // Get authenticated session
+    const session = await getAuthSession(request);
+    if (!session) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    console.log('✅ Session found, user:', userId);
-
-    // First, check ALL open trades to debug
-    const { data: allOpenTrades } = await supabase
-      .from('trade_offers')
-      .select('*')
-      .eq('status', 'open');
-    
-    console.log('🔍 ALL OPEN TRADES in DB:', allOpenTrades?.length || 0);
-    if (allOpenTrades && allOpenTrades.length > 0) {
-      console.log('🔍 First trade details:', {
-        id: allOpenTrades[0].id,
-        sender_id: allOpenTrades[0].sender_id,
-        status: allOpenTrades[0].status,
-        expires_at: allOpenTrades[0].expires_at,
-        created_at: allOpenTrades[0].created_at,
-        isExpired: new Date(allOpenTrades[0].expires_at) < new Date(),
-        isSender: allOpenTrades[0].sender_id === userId
-      });
-    }
-
-    // Get all open trades (TEMPORARILY REMOVING EXPIRATION FILTER FOR DEBUG)
     const currentTime = new Date().toISOString();
-    console.log('🔍 Current server time:', currentTime);
-    console.log('🔍 Querying for: status=open, sender_id!=' + userId);
-    console.log('⚠️ EXPIRATION FILTER DISABLED FOR DEBUGGING');
     
     const { data: trades, error } = await supabase
       .from('trade_offers')
@@ -77,23 +26,20 @@ export async function GET(request: NextRequest) {
         sender:users!trade_offers_sender_id_fkey(id, displayname, avatar_url)
       `)
       .eq('status', 'open')
-      .neq('sender_id', userId)
-      // .gte('expires_at', currentTime)  // TEMPORARILY DISABLED
+      .neq('sender_id', session.user_id)
+      .gte('expires_at', currentTime)
       .order('created_at', { ascending: false });
 
     if (error) {
-      console.error('❌ Error fetching open trades:', error);
-      console.error('Error details:', JSON.stringify(error, null, 2));
+      console.error('Error fetching open trades:', error);
       return NextResponse.json({ 
         error: 'Failed to fetch trades', 
         details: error.message 
       }, { status: 500 });
     }
 
-    console.log('✅ Found', trades?.length || 0, 'open trades');
-
     // Get item details for each trade
-    const tradesWithItems = await Promise.all(trades.map(async (trade) => {
+    const tradesWithItems = await Promise.all(trades.map(async (trade: any) => {
       const itemIds = trade.sender_items || [];
       let items: any[] = [];
 
@@ -178,8 +124,6 @@ export async function GET(request: NextRequest) {
             quantity: inv.quantity || 1
           };
         });
-        
-        console.log(`📦 Trade ${trade.id} items:`, items);
       }
 
       return {
@@ -188,8 +132,6 @@ export async function GET(request: NextRequest) {
       };
     }));
 
-    console.log('📦 Returning trades with items:', tradesWithItems.length);
-
     return NextResponse.json({
       success: true,
       trades: tradesWithItems,
@@ -197,23 +139,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('❌❌❌ Get open trades CRITICAL ERROR:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
-    console.error('Error message:', error instanceof Error ? error.message : String(error));
-    console.error('Error type:', typeof error);
-    console.error('Error keys:', error && typeof error === 'object' ? Object.keys(error) : 'N/A');
-    
-    // ALWAYS return JSON, never let it fail to HTML
+    console.error('Error fetching open trades:', error);
     return NextResponse.json({ 
       error: 'Failed to fetch trades',
-      message: error instanceof Error ? error.message : String(error),
-      type: typeof error,
-      stack: error instanceof Error ? error.stack : undefined
-    }, { 
-      status: 500,
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
+      message: error instanceof Error ? error.message : String(error)
+    }, { status: 500 });
   }
 }

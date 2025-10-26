@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
           crateType,
           quantity,
           reason,
-          crateIds: newCrates.map(c => c.id)
+          crateIds: newCrates.map((c: any) => c.id)
         }),
         created_at: new Date().toISOString()
       }]);
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Successfully gave ${quantity} ${crateType} crate(s) to ${targetUser.username}`,
-      crates: newCrates.map(c => ({ 
+      crates: newCrates.map((c: any) => ({ 
         id: c.id, 
         type: c.crate_type, 
         status: c.status,
@@ -254,11 +254,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate summary statistics
-    const unopened = crates?.filter(c => c.status === 'unopened').length || 0;
-    const opened = crates?.filter(c => c.status === 'opened').length || 0;
+    const unopened = crates?.filter((c: any) => c.status === 'unopened').length || 0;
+    const opened = crates?.filter((c: any) => c.status === 'opened').length || 0;
     
     const byType = {} as any;
-    crates?.forEach(crate => {
+    crates?.forEach((crate: any) => {
       byType[crate.crate_type] = (byType[crate.crate_type] || 0) + 1;
     });
 
@@ -362,7 +362,7 @@ export async function PUT(request: NextRequest) {
     const availableRewards = crateContents[crate.crate_type as keyof typeof crateContents] || crateContents.common;
 
     // Weighted random selection
-    const totalWeight = availableRewards.reduce((sum, reward) => sum + reward.weight, 0);
+    const totalWeight = availableRewards.reduce((sum: number, reward: any) => sum + reward.weight, 0);
     const random = Math.random() * totalWeight;
     let currentWeight = 0;
     

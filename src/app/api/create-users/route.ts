@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Created ${createdUsers.length} test users with transaction history`,
-      users: createdUsers.map(u => ({ 
+      users: createdUsers.map((u: any) => ({ 
         id: u.id, 
         username: u.username, 
         email: u.email,
@@ -233,7 +233,7 @@ export async function DELETE(request: NextRequest) {
       .ilike('username', 'testuser%');
 
     if (testUsers && testUsers.length > 0) {
-      const testUserIds = testUsers.map(u => u.id);
+      const testUserIds = testUsers.map((u: any) => u.id);
       
       const { error: transactionError } = await supabase
         .from('transactions')

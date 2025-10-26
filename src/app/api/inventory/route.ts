@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         equipped,
         acquired_at,
         quantity,
-        item:items(
+        items!fk_user_inventory_item(
           id,
           name,
           type,
@@ -131,9 +131,9 @@ export async function GET(request: NextRequest) {
 
     // Transform data to match expected format
     const inventory = (inventoryItems as any[])
-      .filter(record => record.item) // Only include items with valid item data
+      .filter(record => record.items) // Only include items with valid item data
       .map(record => {
-        const item = record.item;
+        const item = record.items;
         const imageUrl = getItemImageUrl(item.name, item.type || item.category, item.image_url || item.image);
         console.log(`📦 Item: ${item.name}, Type: ${item.type}, Generated Image: ${imageUrl}`);
         
@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
           image: imageUrl,
           equipped: record.equipped || false,
           quantity: record.quantity || 1,
-          slotType: 'weapon',
+          slotType: record.slot_type || 'weapon',
           price: item.coin_price || 100, // Real shop price
           stat: {
             value: item.coin_price || 100 // Real shop price
@@ -158,10 +158,34 @@ export async function GET(request: NextRequest) {
       console.log('📸 First item image URL:', inventory[0].image);
     }
 
+    // Calculate inventory statistics
+    const totalValue = inventory.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
+    const rarityBreakdown = inventory.reduce((acc, item) => {
+      const rarity = (item.rarity || 'Common').toLowerCase();
+      const quantity = item.quantity || 1;
+      acc[rarity] = (acc[rarity] || 0) + quantity;
+      return acc;
+    }, {} as Record<string, number>);
+
+    // Calculate total item count including stacked items
+    const itemCount = inventory.reduce((sum, item) => sum + (item.quantity || 1), 0);
+
+    // Debug logging
+    console.log('📊 Inventory Stats:');
+    console.log(`  Total items (rows): ${inventory.length}`);
+    console.log(`  Total items (with quantities): ${itemCount}`);
+    console.log(`  Total value: ${totalValue}`);
+    console.log(`  Rarity breakdown:`, JSON.stringify(rarityBreakdown));
+
     return NextResponse.json({
       success: true,
       inventory,
-      total: inventory.length
+      total: inventory.length,
+      stats: {
+        totalValue,
+        itemCount,
+        rarityBreakdown
+      }
     });
 
   } catch (error) {
@@ -233,7 +257,7 @@ export async function POST(request: NextRequest) {
         acquired_at: new Date().toISOString(),
         origin: origin || 'Purchase'
       })
-      .select('*, item:items(*)')
+      .select('*, items!fk_user_inventory_item(*)')
       .single();
 
     if (insertError) {

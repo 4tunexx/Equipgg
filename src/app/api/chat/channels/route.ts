@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 
     // Get unread counts for each channel
     const channelsWithUnread = await Promise.all(
-      (channels || []).map(async (channel) => {
+      (channels || []).map(async (channel: any) => {
         // Get user's last read timestamp for this channel
         const { data: lastRead } = await supabase
           .from('chat_user_read_status')

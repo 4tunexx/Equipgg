@@ -55,7 +55,7 @@ export async function GET() {
       console.error('Error fetching topics:', topicsError);
     }
 
-    const recentTopics = (topics || []).map(topic => ({
+    const recentTopics = (topics || []).map((topic: any) => ({
       id: topic.id,
       title: topic.title,
       category: topic.category?.name || 'General',

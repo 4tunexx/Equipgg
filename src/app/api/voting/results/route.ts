@@ -110,9 +110,9 @@ export async function GET(request: NextRequest) {
       }
 
       // Count predictions
-      const team1Predictions = predictions?.filter(p => p.prediction === 'team_a').length || 0;
-      const team2Predictions = predictions?.filter(p => p.prediction === 'team_b').length || 0;
-      const drawPredictions = predictions?.filter(p => p.prediction === 'draw').length || 0;
+      const team1Predictions = predictions?.filter((p: any) => p.prediction === 'team_a').length || 0;
+      const team2Predictions = predictions?.filter((p: any) => p.prediction === 'team_b').length || 0;
+      const drawPredictions = predictions?.filter((p: any) => p.prediction === 'draw').length || 0;
       const totalPredictions = team1Predictions + team2Predictions + drawPredictions;
 
       const match = predictions?.[0]?.matches;

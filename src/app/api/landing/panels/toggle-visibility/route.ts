@@ -223,8 +223,8 @@ export async function GET(request: NextRequest) {
       }
 
       // Calculate summary
-      const visible = panels?.filter(p => p.is_visible).length || 0;
-      const hidden = panels?.filter(p => !p.is_visible).length || 0;
+      const visible = panels?.filter((p: any) => p.is_visible).length || 0;
+      const hidden = panels?.filter((p: any) => !p.is_visible).length || 0;
 
       return NextResponse.json({
         success: true,

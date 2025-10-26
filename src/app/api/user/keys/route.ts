@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Hide the full API key, only show prefix
-    const safeKeys = (apiKeys || []).map(key => ({
+    const safeKeys = (apiKeys || []).map((key: any) => ({
       ...key,
       keyDisplay: `${key.key_prefix}...`
     }));

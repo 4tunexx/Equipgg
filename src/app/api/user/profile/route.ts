@@ -26,6 +26,15 @@ export async function GET(request: NextRequest) {
     // Calculate level from XP to ensure consistency
     const calculatedLevel = getLevelFromXP(user.xp || 0);
 
+    // Get user's current rank based on level
+    const { data: rank } = await supabase
+      .from('ranks')
+      .select('*')
+      .gte('min_level', calculatedLevel)
+      .lte('max_level', calculatedLevel)
+      .eq('is_active', true)
+      .single();
+
     return NextResponse.json({
       success: true,
       user: {
@@ -39,7 +48,14 @@ export async function GET(request: NextRequest) {
         coins: user.coins || 0,
         gems: user.gems || 0,
         steam_verified: user.steam_verified || false,
-        account_status: user.account_status || 'active'
+        account_status: user.account_status || 'active',
+        rank: rank ? {
+          id: rank.id,
+          name: rank.name,
+          tier: rank.tier,
+          icon_url: rank.icon_url,
+          prestige_icon_url: rank.prestige_icon_url
+        } : null
       }
     })
 

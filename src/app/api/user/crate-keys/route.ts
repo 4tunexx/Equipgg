@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Transform array to object with crate_id as key
-    const keysObject = (userKeys || []).reduce((acc, key) => {
+    const keysObject = (userKeys || []).reduce((acc: any, key: any) => {
       acc[key.crate_id] = key.keys_count || 0;
       return acc;
     }, {} as Record<string, number>);

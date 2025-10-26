@@ -112,7 +112,7 @@ export async function GET(request: NextRequest) {
     if (error) throw error;
 
     // Add rank to each user
-    const rankedLeaderboard = leaderboard.map((user, index) => ({
+    const rankedLeaderboard = leaderboard.map((user: any, index: any) => ({
       ...user,
       rank: offset + index + 1
     }));

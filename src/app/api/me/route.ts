@@ -63,6 +63,15 @@ export async function GET(req: NextRequest) {
       // Calculate level from XP to ensure consistency
       const calculatedLevel = getLevelFromXP(user.xp || 0);
       
+      // Get user's current rank based on level
+      const { data: rank } = await supabase
+        .from('ranks')
+        .select('*')
+        .gte('min_level', calculatedLevel)
+        .lte('max_level', calculatedLevel)
+        .eq('is_active', true)
+        .single();
+      
       // Build Steam profile data if user is a Steam user
       const steamProfile = isSteamUser ? {
         steamId: user.steam_id,
@@ -88,7 +97,14 @@ export async function GET(req: NextRequest) {
           steamId: user.steam_id,
           isSteamUser: isSteamUser,
           steamProfile: steamProfile,
-          provider: isSteamUser ? 'steam' : 'default'
+          provider: isSteamUser ? 'steam' : 'default',
+          rank: rank ? {
+            id: rank.id,
+            name: rank.name,
+            tier: rank.tier,
+            icon_url: rank.icon_url,
+            prestige_icon_url: rank.prestige_icon_url
+          } : null
         }
       });
     }

@@ -129,7 +129,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create some test predictions for completed matches
-    const completedMatches = createdMatches.filter(m => m.status === 'completed');
+    const completedMatches = createdMatches.filter((m: any) => m.status === 'completed');
     if (completedMatches.length > 0) {
       // Get some users to create predictions for
       const { data: users } = await supabase
@@ -171,7 +171,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `Created ${createdMatches.length} test matches with predictions`,
-      matches: createdMatches.map(m => ({ 
+      matches: createdMatches.map((m: any) => ({ 
         id: m.id, 
         title: m.title, 
         status: m.status,
@@ -308,7 +308,7 @@ export async function DELETE(request: NextRequest) {
       .like('id', 'test_match_%');
 
     if (testMatches && testMatches.length > 0) {
-      const matchIds = testMatches.map(m => m.id);
+      const matchIds = testMatches.map((m: any) => m.id);
       
       const { error: predictionError } = await supabase
         .from('match_predictions')

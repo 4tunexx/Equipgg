@@ -145,6 +145,7 @@ export default function InventoryPage() {
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     const dragPreviewRef = useRef<HTMLDivElement>(null);
     const [lastTap, setLastTap] = useState<{ itemId: string; time: number } | null>(null);
+    const [hoveredItemId, setHoveredItemId] = useState<string | null>(null);
 
     // Refresh inventory function
     const refreshInventory = useCallback(async () => {
@@ -156,9 +157,26 @@ export default function InventoryPage() {
         try {
             // Fetch inventory and user level (balance is handled by context)
             const [inventoryResponse, userResponse] = await Promise.all([
-                fetch('/api/inventory', { credentials: 'include' }),
-                fetch('/api/me', { credentials: 'include' })
+                fetch('/api/inventory', { 
+                    credentials: 'include',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                }),
+                fetch('/api/me', { 
+                    credentials: 'include',
+                    headers: {
+                        'Cache-Control': 'no-cache'
+                    }
+                })
             ]);
+            
+            if (!inventoryResponse.ok) {
+                throw new Error(`Inventory API error: ${inventoryResponse.status} ${inventoryResponse.statusText}`);
+            }
+            if (!userResponse.ok) {
+                throw new Error(`User API error: ${userResponse.status} ${userResponse.statusText}`);
+            }
             
             const inventoryData = await inventoryResponse.json();
             const userData = await userResponse.json();
@@ -240,7 +258,18 @@ export default function InventoryPage() {
         
         // Auto-refresh every 30 seconds to catch any missed updates
         const intervalId = setInterval(() => {
-            refreshInventory();
+            // Add a small delay to avoid race conditions
+            setTimeout(() => {
+                refreshInventory().catch(err => {
+                    console.warn('Inventory refresh failed:', err);
+                    // Don't spam errors - only log once per minute
+                    if (!window.inventoryRefreshErrorLogged) {
+                        window.inventoryRefreshErrorLogged = Date.now();
+                    } else if (Date.now() - window.inventoryRefreshErrorLogged > 60000) {
+                        window.inventoryRefreshErrorLogged = Date.now();
+                    }
+                });
+            }, 1000); // 1 second delay
         }, 30000);
 
         return () => {
@@ -644,10 +673,27 @@ export default function InventoryPage() {
         const condition = 'Factory New'; // Default condition
         const wear = 0; // Default wear
         
+        const getRarityColor = (rarity: string) => {
+          const r = rarity?.toLowerCase();
+          if (r === 'common') return '#b0c3d9';
+          if (r === 'uncommon') return '#5e98d9';
+          if (r === 'rare') return '#4b69ff';
+          if (r === 'epic') return '#8847ff';
+          if (r === 'legendary') return '#d32ce6';
+          if (r === 'mythic') return '#ffd700';
+          return '#b0c3d9';
+        };
+
+        const rarityColor = getRarityColor(item.rarity);
+
         return (
-            <div className="p-3 space-y-3 min-w-[280px]">
+            <div className="p-3 space-y-3 min-w-[280px] border-4 rounded" style={{
+              borderColor: rarityColor
+            }}>
                 <div className="space-y-1">
-                    <h4 className="font-semibold text-sm">{item.name}</h4>
+                    <h4 className="font-semibold text-sm" style={{
+                      color: rarityColor
+                    }}>{item.name}</h4>
                     <p className="text-xs text-muted-foreground">{item.type}</p>
                 </div>
                 
@@ -703,6 +749,28 @@ export default function InventoryPage() {
                 </div>
             </div>
         );
+    };
+
+    // Helper function to get category from image URL or item data
+    const getItemCategory = (item: InventoryItem): string => {
+      // Check if image URL contains category path
+      if (item.image) {
+        if (item.image.includes('/knives/')) return 'knives';
+        if (item.image.includes('/gloves/')) return 'gloves';
+        if (item.image.includes('/agents/')) return 'agents';
+        if (item.image.includes('/skins/')) return 'weapons';
+      }
+      
+      // Fall back to type-based categorization
+      const type = item.type?.toLowerCase() || '';
+      
+      if (['knife'].includes(type)) return 'knives';
+      if (['gloves'].includes(type)) return 'gloves';
+      if (['agent', 'operator'].includes(type)) return 'agents';
+      if (['perk'].includes(type)) return 'perks';
+      
+      // Default weapons for pistol, rifle, smg, heavy, etc.
+      return 'weapons';
     };
 
     const renderInventoryGrid = (items: InventoryItem[], onSelect?: (item: InventoryItem) => void, selectedIds?: Set<string>) => {
@@ -773,6 +841,23 @@ export default function InventoryPage() {
                                   onTouchStart={(e) => handleTouchStart(e, item)}
                                   onTouchMove={handleTouchMove}
                                   onTouchEnd={handleTouchEnd}
+                                  onMouseEnter={() => setHoveredItemId(item.id)}
+                                  onMouseLeave={() => setHoveredItemId(null)}
+                                  style={{
+                                    borderColor: (() => {
+                                      const rarity = item.rarity?.toLowerCase();
+                                      if (rarity === 'common') return '#b0c3d9';
+                                      if (rarity === 'uncommon') return '#5e98d9';
+                                      if (rarity === 'rare') return '#4b69ff';
+                                      if (rarity === 'epic') return '#8847ff';
+                                      if (rarity === 'legendary') return '#d32ce6';
+                                      if (rarity === 'mythic') return '#ffd700';
+                                      return '#b0c3d9';
+                                    })(),
+                                    borderWidth: hoveredItemId === item.id || dragOverId === item.id || isSelected || selectedIds?.has(item.id) ? '4px' : '2px',
+                                    borderStyle: 'solid',
+                                    transition: 'all 0.2s ease-in-out'
+                                  }}
                                   onClick={(e) => {
                                     // Mobile: Detect double-tap
                                     const now = Date.now();
@@ -802,13 +887,13 @@ export default function InventoryPage() {
                                       if (onSelect) e.preventDefault();
                                   }}
                                   className={cn(
-                                    'overflow-hidden group bg-secondary/50 border transition-all aspect-square flex items-center justify-center relative rounded-lg p-1',
+                                    'overflow-hidden group bg-secondary/50 transition-all aspect-square flex items-center justify-center relative rounded-lg p-1',
+                                    'hover:scale-105 hover:brightness-110',
                                     onSelect ? 'cursor-pointer' : 'cursor-grab active:cursor-grabbing',
                                     draggedItem?.id === item.id ? 'opacity-50 scale-95' : '',
-                                    dragOverId === item.id ? 'border-primary scale-105 shadow-lg shadow-primary/25' : 'border-transparent',
-                                    isSelected ? 'border-primary' : selectedIds?.has(item.id) ? 'border-blue-500 bg-blue-500/10' : 'border-transparent hover:border-primary/50',
+                                    dragOverId === item.id && 'scale-105 shadow-lg shadow-primary/25',
                                     rarityGlow[item.rarity],
-                                    isDragging && draggedItem?.id === item.id ? 'z-50' : ''
+                                    isDragging && draggedItem?.id === item.id && 'z-50'
                                   )}
                                 >
                                   <img
@@ -924,13 +1009,26 @@ export default function InventoryPage() {
         {/* Mini Profile Hover Card */}
         <div className="bg-card/50 rounded-lg border border-white/10 p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
-              <span className="text-lg font-bold text-primary">
-                {user?.displayName?.charAt(0) || 'U'}
-              </span>
-            </div>
+            {user?.photoURL ? (
+              <img
+                src={user.photoURL}
+                alt={user?.displayName || 'User'}
+                className="w-12 h-12 rounded-full object-cover border-2 border-primary/50"
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.style.display = 'none';
+                  // Fallback will show on next render
+                }}
+              />
+            ) : (
+              <div className="w-12 h-12 bg-primary/20 rounded-full flex items-center justify-center">
+                <span className="text-lg font-bold text-primary">
+                  {user?.displayName?.charAt(0) || 'U'}
+                </span>
+              </div>
+            )}
             <div>
-              <h3 className="font-semibold text-sm">{user?.displayName || 'User'}</h3>
+              <h3 className="font-semibold text-sm">{user?.displayName || user?.username || 'User'}</h3>
               <p className="text-xs text-muted-foreground">Level {userLevel}</p>
             </div>
           </div>
@@ -950,7 +1048,7 @@ export default function InventoryPage() {
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Items</span>
-              <span className="font-medium">{localInventory.length}</span>
+              <span className="font-medium">{inventoryStats?.itemCount || localInventory.length}</span>
             </div>
             <div className="flex items-center justify-between text-xs">
               <span className="text-muted-foreground">Value</span>
@@ -1029,7 +1127,7 @@ export default function InventoryPage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-6">
               <div className="text-center">
-                <p className="text-2xl font-bold">{localInventory.length}</p>
+                <p className="text-2xl font-bold">{inventoryStats?.itemCount || localInventory.length}</p>
                 <p className="text-xs text-muted-foreground">Items</p>
               </div>
               <div className="text-center">
@@ -1037,11 +1135,11 @@ export default function InventoryPage() {
                 <p className="text-xs text-muted-foreground">Total Value</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-[#d32ce6]">{inventoryStats?.rarityBreakdown?.Legendary || 0}</p>
+                <p className="text-2xl font-bold text-[#d32ce6]">{inventoryStats?.rarityBreakdown?.legendary || 0}</p>
                 <p className="text-xs text-muted-foreground">Legendary</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-[#8847ff]">{inventoryStats?.rarityBreakdown?.Epic || 0}</p>
+                <p className="text-2xl font-bold text-[#8847ff]">{inventoryStats?.rarityBreakdown?.epic || 0}</p>
                 <p className="text-xs text-muted-foreground">Epic</p>
               </div>
             </div>
@@ -1075,19 +1173,19 @@ export default function InventoryPage() {
                 {renderInventoryGrid(localInventory, undefined, new Set())}
               </TabsContent>
               <TabsContent value="weapon" className="mt-6">
-                {renderInventoryGrid(localInventory.filter(i => ['Pistol', 'Rifle', 'SMG', 'Heavy'].includes(i.type)), undefined, new Set())}
+                {renderInventoryGrid(localInventory.filter(i => getItemCategory(i) === 'weapons'), undefined, new Set())}
               </TabsContent>
               <TabsContent value="Knife" className="mt-6">
-                {renderInventoryGrid(localInventory.filter(i => i.type === 'Knife'), undefined, new Set())}
+                {renderInventoryGrid(localInventory.filter(i => getItemCategory(i) === 'knives'), undefined, new Set())}
               </TabsContent>
               <TabsContent value="Operator" className="mt-6">
-                {renderInventoryGrid(localInventory.filter(i => i.type === 'Operator'), undefined, new Set())}
+                {renderInventoryGrid(localInventory.filter(i => getItemCategory(i) === 'agents'), undefined, new Set())}
               </TabsContent>
               <TabsContent value="Gloves" className="mt-6">
-                {renderInventoryGrid(localInventory.filter(i => i.type === 'Gloves'), undefined, new Set())}
+                {renderInventoryGrid(localInventory.filter(i => getItemCategory(i) === 'gloves'), undefined, new Set())}
               </TabsContent>
               <TabsContent value="perk" className="mt-6">
-                {renderInventoryGrid(localInventory.filter(i => i.type === 'perk' || i.type === 'Perk'), undefined, new Set())}
+                {renderInventoryGrid(localInventory.filter(i => getItemCategory(i) === 'perks'), undefined, new Set())}
               </TabsContent>
             </Tabs>
           </TabsContent>
@@ -1103,11 +1201,37 @@ export default function InventoryPage() {
 
       {/* Item Action Dialog */}
       <Dialog open={showItemDialog} onOpenChange={setShowItemDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md" style={{
+          borderColor: (() => {
+            const r = selectedItem?.rarity?.toLowerCase();
+            if (r === 'common') return '#b0c3d9';
+            if (r === 'uncommon') return '#5e98d9';
+            if (r === 'rare') return '#4b69ff';
+            if (r === 'epic') return '#8847ff';
+            if (r === 'legendary') return '#d32ce6';
+            if (r === 'mythic') return '#ffd700';
+            return '#b0c3d9';
+          })(),
+          borderWidth: '4px',
+          borderStyle: 'solid'
+        }}>
           <DialogHeader>
-            <DialogTitle>Item Actions</DialogTitle>
+            <DialogTitle style={{
+              color: (() => {
+                const r = selectedItem?.rarity?.toLowerCase();
+                if (r === 'common') return '#b0c3d9';
+                if (r === 'uncommon') return '#5e98d9';
+                if (r === 'rare') return '#4b69ff';
+                if (r === 'epic') return '#8847ff';
+                if (r === 'legendary') return '#d32ce6';
+                if (r === 'mythic') return '#ffd700';
+                return '#b0c3d9';
+              })()
+            }}>
+              {selectedItem?.name}
+            </DialogTitle>
             <DialogDescription>
-              What would you like to do with {selectedItem?.name}?
+              {selectedItem?.type}
             </DialogDescription>
           </DialogHeader>
           {selectedItem && (
@@ -1130,8 +1254,7 @@ export default function InventoryPage() {
                 )} />
               </div>
               <div>
-                <h4 className="font-semibold">{selectedItem.name}</h4>
-                <p className="text-sm text-muted-foreground">{selectedItem.type}</p>
+                <p className="text-sm text-muted-foreground">Rarity: {selectedItem.rarity}</p>
                 <Badge variant="outline" className={cn(
                   "text-xs mt-1",
                   rarityBorders[selectedItem.rarity].replace('border-', 'border-'),

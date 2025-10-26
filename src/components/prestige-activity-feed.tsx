@@ -140,17 +140,33 @@ export function PrestigeActivityFeed() {
 
     // Refresh activities every 30 seconds to get new data
     const refreshInterval = setInterval(() => {
-      fetch('/api/activities')
-        .then(res => res.json())
-        .then(data => {
-          if (data.activities && data.activities.length > 0) {
-            console.log('🔄 PRESTIGE FEED: Refreshed with', data.activities.length, 'activities');
-            setActivities(data.activities);
-          } else {
-            console.warn('⚠️ PRESTIGE FEED: Refresh returned no activities');
-          }
-        })
-        .catch(err => console.error('❌ PRESTIGE FEED: Error refreshing:', err));
+      // Add a small delay to avoid race conditions
+      setTimeout(() => {
+        fetch('/api/activities')
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            }
+            return res.json();
+          })
+          .then(data => {
+            if (data.activities && data.activities.length > 0) {
+              console.log('🔄 PRESTIGE FEED: Refreshed with', data.activities.length, 'activities');
+              setActivities(data.activities);
+            } else {
+              console.warn('⚠️ PRESTIGE FEED: Refresh returned no activities');
+            }
+          })
+          .catch(err => {
+            console.error('❌ PRESTIGE FEED: Error refreshing:', err);
+            // Don't spam errors - only log once per minute
+            if (!window.prestigeFeedErrorLogged) {
+              window.prestigeFeedErrorLogged = Date.now();
+            } else if (Date.now() - window.prestigeFeedErrorLogged > 60000) {
+              window.prestigeFeedErrorLogged = Date.now();
+            }
+          });
+      }, 1000); // 1 second delay
     }, 30000); // 30 seconds
 
     return () => clearInterval(refreshInterval);

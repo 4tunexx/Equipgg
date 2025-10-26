@@ -93,14 +93,14 @@ export async function POST(request: NextRequest) {
       .update({ equipped: false })
       .eq('user_id', userId)
       .eq('equipped', true)
-      .eq('slot', slot);
+      .eq('slot_type', slot);
 
     // Equip the new item
     const { error: equipError } = await supabase
       .from('user_inventory')
       .update({ 
         equipped: true,
-        slot: slot 
+        slot_type: slot 
       })
       .eq('id', itemId)
       .eq('user_id', userId);

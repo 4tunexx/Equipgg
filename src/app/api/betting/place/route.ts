@@ -49,10 +49,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Bet amount must be positive" }, { status: 400 });
     }
 
-    // Get user's balance
+    // Get user's balance and info
     const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
-      .select('coins')
+      .select('coins, displayname, username')
       .eq('id', session.user_id)
       .single();
 
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
     try {
       await broadcastNewBet({
         userId: session.user_id,
-        username: userData.username || 'Anonymous',
+        username: userData.displayname || userData.username || 'Anonymous',
         matchId: matchData.id,
         team: normalizedTeam,
         amount: amount,

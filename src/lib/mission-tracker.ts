@@ -343,3 +343,201 @@ export async function trackCrashGameEarnings(userId: string, earnings: number, s
     return { success: false, error };
   }
 }
+
+// Additional mission tracking functions for missing features
+
+export async function trackForumPost(userId: string, supabaseClient?: SupabaseClient) {
+  try {
+    const client = supabaseClient || supabase;
+    
+    const { data: missions } = await client
+      .from('missions')
+      .select('*')
+      .eq('requirement_type', 'forum_post')
+      .eq('is_active', true);
+    
+    if (!missions?.length) return { success: true };
+    
+    for (const mission of missions) {
+      const { data: progress } = await client
+        .from('user_mission_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('mission_id', mission.id)
+        .single();
+      
+      if (progress) {
+        await client
+          .from('user_mission_progress')
+          .update({ 
+            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progress.id);
+      } else {
+        await client
+          .from('user_mission_progress')
+          .insert({
+            user_id: userId,
+            mission_id: mission.id,
+            current_progress: 1,
+            target_progress: mission.requirement_value,
+            completed: false
+          });
+      }
+      
+      await checkAndAwardMissionRewards(userId, mission.id, client);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error tracking forum post:', error);
+    return { success: false, error };
+  }
+}
+
+export async function trackVoteCast(userId: string, supabaseClient?: SupabaseClient) {
+  try {
+    const client = supabaseClient || supabase;
+    
+    const { data: missions } = await client
+      .from('missions')
+      .select('*')
+      .eq('requirement_type', 'cast_vote')
+      .eq('is_active', true);
+    
+    if (!missions?.length) return { success: true };
+    
+    for (const mission of missions) {
+      const { data: progress } = await client
+        .from('user_mission_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('mission_id', mission.id)
+        .single();
+      
+      if (progress) {
+        await client
+          .from('user_mission_progress')
+          .update({ 
+            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progress.id);
+      } else {
+        await client
+          .from('user_mission_progress')
+          .insert({
+            user_id: userId,
+            mission_id: mission.id,
+            current_progress: 1,
+            target_progress: mission.requirement_value,
+            completed: false
+          });
+      }
+      
+      await checkAndAwardMissionRewards(userId, mission.id, client);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error tracking vote cast:', error);
+    return { success: false, error };
+  }
+}
+
+export async function trackLeaderboardCheck(userId: string, supabaseClient?: SupabaseClient) {
+  try {
+    const client = supabaseClient || supabase;
+    
+    const { data: missions } = await client
+      .from('missions')
+      .select('*')
+      .eq('requirement_type', 'check_leaderboard')
+      .eq('is_active', true);
+    
+    if (!missions?.length) return { success: true };
+    
+    for (const mission of missions) {
+      const { data: progress } = await client
+        .from('user_mission_progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('mission_id', mission.id)
+        .single();
+      
+      if (progress) {
+        await client
+          .from('user_mission_progress')
+          .update({ 
+            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', progress.id);
+      } else {
+        await client
+          .from('user_mission_progress')
+          .insert({
+            user_id: userId,
+            mission_id: mission.id,
+            current_progress: 1,
+            target_progress: mission.requirement_value,
+            completed: false
+          });
+      }
+      
+      await checkAndAwardMissionRewards(userId, mission.id, client);
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error tracking leaderboard check:', error);
+    return { success: false, error };
+  }
+}
+
+export async function trackLevelReached(userId: string, level: number, supabaseClient?: SupabaseClient) {
+  try {
+    const client = supabaseClient || supabase;
+    
+    const { data: missions } = await client
+      .from('missions')
+      .select('*')
+      .eq('requirement_type', 'reach_level')
+      .eq('is_active', true);
+    
+    if (!missions?.length) return { success: true };
+    
+    for (const mission of missions) {
+      // Only track if the user has reached the required level
+      if (level >= mission.requirement_value) {
+        const { data: progress } = await client
+          .from('user_mission_progress')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('mission_id', mission.id)
+          .single();
+        
+        if (!progress) {
+          await client
+            .from('user_mission_progress')
+            .insert({
+              user_id: userId,
+              mission_id: mission.id,
+              current_progress: mission.requirement_value,
+              target_progress: mission.requirement_value,
+              completed: true,
+              completed_at: new Date().toISOString()
+            });
+          
+          await checkAndAwardMissionRewards(userId, mission.id, client);
+        }
+      }
+    }
+    
+    return { success: true };
+  } catch (error) {
+    console.error('Error tracking level reached:', error);
+    return { success: false, error };
+  }
+}

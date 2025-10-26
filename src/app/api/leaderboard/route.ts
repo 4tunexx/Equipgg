@@ -1,73 +1,90 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from "../../../lib/supabase";
-import { getRankByLevel } from "../../../lib/badges-ranks-system";
-import { getAuthSession } from "../../../lib/auth-utils";
-import { trackMissionProgress } from "../../../lib/mission-integration";
+import { getAuthSession } from '@/lib/auth-utils';
+import { supabase } from '@/lib/supabase';
 
+// Leaderboard API
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const limit = parseInt(searchParams.get('limit') || '100');
-    
-    // Get top players by XP from Supabase
-    const { data, error } = await supabase
-      .from('users')
-      .select('id, username, xp, level, avatar_url, role, coins')
-      .order('xp', { ascending: false })
-      .order('level', { ascending: false })
-      .limit(Math.min(limit, 500));
-      
+    const category = searchParams.get('category') || 'xp';
+    const limit = parseInt(searchParams.get('limit') || '50');
+
+    const { data: leaderboard, error } = await supabase
+      .from('leaderboard')
+      .select(`
+        id,
+        rank,
+        value,
+        category,
+        user_id
+      `)
+      .eq('category', category)
+      .order('rank', { ascending: true })
+      .limit(limit);
+
     if (error) {
-      throw error;
-    }
-    
-    // Add rank field and rank name
-    const players = (data || []).map((p, i) => {
-      const rank = getRankByLevel(p.level);
-      return {
-        user_id: p.id,
-        username: p.username,
-        xp: p.xp,
-        level: p.level,
-        avatar_url: p.avatar_url,
-        role: p.role,
-        coins: p.coins,
-        rank: rank.name,
-        position: i + 1
-      };
-    });
-    
-    // If the user is authenticated, track leaderboard-related missions
-    try {
-      const session = await getAuthSession(request);
-      if (session) {
-        await trackMissionProgress(session.user_id, 'check_leaderboard', 1);
-
-        // Determine user's current position if present in top list
-        const pos = players.findIndex(p => p.user_id === session.user_id);
-        if (pos !== -1) {
-          const rankPos = pos + 1;
-          if (rankPos <= 10) {
-            await trackMissionProgress(session.user_id, 'weekly_top_10', 1);
-          } else if (rankPos <= 100) {
-            await trackMissionProgress(session.user_id, 'weekly_top_100', 1);
-          }
-        }
-      }
-    } catch (trackErr) {
-      console.warn('Leaderboard mission tracking failed (non-fatal):', trackErr);
+      console.error('Leaderboard error:', error);
+      return NextResponse.json({ success: true, leaderboard: [] });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       success: true,
-      players,
-      total: players.length
+      leaderboard: leaderboard || [],
+      category
     });
+
   } catch (error) {
-    console.error('Error fetching leaderboard:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('Leaderboard API error:', error);
+    return NextResponse.json({ error: 'Failed to fetch leaderboard' }, { status: 500 });
+  }
+}
+
+// Update leaderboard (admin only)
+export async function POST(request: NextRequest) {
+  try {
+    const session = await getAuthSession(request);
+    if (!session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const { data: user } = await supabase
+      .from('users')
+      .select('role')
+      .eq('id', session.user_id)
+      .single();
+
+    if (!user || !['admin', 'moderator'].includes(user.role)) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
+    const { category, userId, value } = await request.json();
+
+    if (!category || !userId || value === undefined) {
+      return NextResponse.json({ 
+        error: 'Category, userId, and value are required' 
+      }, { status: 400 });
+    }
+
+    // Call the update function
+    const { error } = await supabase.rpc('update_leaderboard', {
+      p_category: category,
+      p_user_id: userId,
+      p_value: value
+    });
+
+    if (error) {
+      console.error('Update leaderboard error:', error);
+      return NextResponse.json({ error: 'Failed to update leaderboard' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Leaderboard updated successfully'
+    });
+
+  } catch (error) {
+    console.error('Update leaderboard API error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

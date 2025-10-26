@@ -145,8 +145,8 @@ export async function POST(request: NextRequest) {
     // Calculate new balance and XP
     const newBalance = userData.coins - betAmount + winnings;
     const netGain = winnings - betAmount;
-    // Give more generous XP: minimum 2 XP, +1 XP per 50 coins bet
-    const xpGain = Math.max(2, Math.floor(betAmount / 50));
+    // Give balanced XP: minimum 1 XP, +1 XP per 100 coins bet (more balanced)
+    const xpGain = Math.max(1, Math.floor(betAmount / 100));
 
     // Update user balance
     const { error: updateError } = await supabase

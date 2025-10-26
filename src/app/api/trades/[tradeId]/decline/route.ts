@@ -6,7 +6,7 @@ import { createNotification } from "../../../../../lib/notification-utils";
 // POST /api/trades/[tradeId]/decline - Decline a trade offer
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tradeId: string } }
+  { params }: { params: Promise<{ tradeId: string }> }
 ) {
   try {
     const supabase = createServerSupabaseClient();
@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const { tradeId } = params;
+    const { tradeId } = await params;
 
     // Get trade details
     const { data: trade, error: tradeError } = await supabase

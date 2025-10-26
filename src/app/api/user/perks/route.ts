@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
       gem_price: any;
       duration_hours: any;
     }> = [];
-    const claimedToday = (claimsToday || []).map(c => c.perk_type);
+    const claimedToday = (claimsToday || []).map((c: any) => c.perk_type);
 
     for (const perk of perksData || []) {
       let available = false;
