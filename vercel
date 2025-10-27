@@ -1,0 +1,67 @@
+08:57:49.787 Running build in Washington, D.C., USA (East) – iad1
+08:57:49.788 Build machine configuration: 2 cores, 8 GB
+08:57:50.355 Cloning github.com/4tunexx/Equipgg (Branch: main, Commit: f242ba5)
+08:57:53.090 Cloning completed: 2.735s
+08:57:53.302 Restored build cache from previous deployment (2Qaa1xjgYdffpvzTEnH7dBt4411u)
+08:57:54.308 Running "vercel build"
+08:57:54.707 Vercel CLI 48.6.0
+08:57:55.103 Running "install" command: `npm install`...
+08:58:08.363 
+08:58:08.363 added 176 packages, removed 92 packages, changed 102 packages, and audited 1136 packages in 13s
+08:58:08.364 
+08:58:08.364 113 packages are looking for funding
+08:58:08.364   run `npm fund` for details
+08:58:08.410 
+08:58:08.411 2 vulnerabilities (1 low, 1 moderate)
+08:58:08.411 
+08:58:08.411 To address all issues (including breaking changes), run:
+08:58:08.412   npm audit fix --force
+08:58:08.412 
+08:58:08.412 Run `npm audit` for details.
+08:58:08.455 Detected Next.js version: 15.3.3
+08:58:08.456 Running "npm run build"
+08:58:08.598 
+08:58:08.599 > nextn@0.1.0 prebuild
+08:58:08.599 > echo 'Prebuild step completed'
+08:58:08.600 
+08:58:08.604 Prebuild step completed
+08:58:08.605 
+08:58:08.605 > nextn@0.1.0 build
+08:58:08.605 > next build
+08:58:08.605 
+08:58:09.667    ▲ Next.js 15.3.3
+08:58:09.668    - Experiments (use with caution):
+08:58:09.668      ✓ forceSwcTransforms
+08:58:09.668 
+08:58:09.758    Creating an optimized production build ...
+08:58:48.839  ✓ Compiled successfully in 35.0s
+08:58:48.845    Skipping validation of types
+08:58:48.845    Skipping linting
+08:58:49.127    Collecting page data ...
+08:58:50.041 🚀 Starting bet result processor...
+08:58:50.043 🔄 Processing bets for all completed matches...
+08:58:50.044 ✅ Bet result processor started
+08:58:51.060 ℹ️ No completed matches found
+08:58:55.783    Generating static pages (0/215) ...
+08:58:56.881 🚀 Starting bet result processor...
+08:58:56.881 🔄 Processing bets for all completed matches...
+08:58:56.881 ✅ Bet result processor started
+08:58:56.936    Generating static pages (53/215) 
+08:58:57.311    Generating static pages (107/215) 
+08:58:57.595 ℹ️ No completed matches found
+08:58:57.779    Generating static pages (161/215) 
+08:58:58.045  ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/verify-email". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+08:58:58.046     at a (/vercel/path0/.next/server/chunks/7366.js:3:38857)
+08:58:58.046     at d (/vercel/path0/.next/server/chunks/7366.js:5:29685)
+08:58:58.046     at p (/vercel/path0/.next/server/app/verify-email/page.js:1:496)
+08:58:58.046     at nF (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:46843)
+08:58:58.046     at nH (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:48618)
+08:58:58.046     at nW (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:67762)
+08:58:58.046     at nz (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:65337)
+08:58:58.046     at nB (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:47195)
+08:58:58.046     at nH (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:48664)
+08:58:58.046     at nH (/vercel/path0/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:76:64688)
+08:58:58.046 Error occurred prerendering page "/verify-email". Read more: https://nextjs.org/docs/messages/prerender-error
+08:58:58.047 Export encountered an error on /verify-email/page: /verify-email, exiting the build.
+08:58:58.130  ⨯ Next.js build worker exited with code: 1 and signal: null
+08:58:58.178 Error: Command "npm run build" exited with 1
