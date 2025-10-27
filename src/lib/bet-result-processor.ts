@@ -261,7 +261,18 @@ export function stopBetResultProcessor() {
   }
 }
 
-// Auto-start on server-side only
+// Auto-start on server-side only, but only when Supabase service credentials
+// are available. During Next.js build/collect-phase environment variables
+// may be absent which causes createServerSupabaseClient() to throw and
+// abort the build — guard against that here.
 if (typeof window === 'undefined') {
-  startBetResultProcessor();
+  const hasSupabaseUrl = !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL);
+  const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (hasSupabaseUrl && hasServiceRole) {
+    startBetResultProcessor();
+  } else {
+    // Avoid starting background jobs during build or when envs are missing
+    // eslint-disable-next-line no-console
+    console.warn('Bet result processor not started: missing Supabase env vars or running in build environment');
+  }
 }

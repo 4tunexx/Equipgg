@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { createHash } from 'crypto';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../../../lib/supabase';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
+// NOTE: createServerSupabaseClient() will create a service-role client at runtime
+// to avoid throwing during build when env vars are not available.
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,9 +57,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Store client seed in database for provably fair gaming
-    const { error: updateError } = await supabase
+    const supabaseAdmin = createServerSupabaseClient();
+    const { error: updateError } = await supabaseAdmin
       .from('users')
-      .update({ 
+      .update({
         client_seed: clientSeed,
         seed_updated_at: new Date().toISOString()
       })

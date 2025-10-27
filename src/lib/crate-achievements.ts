@@ -4,19 +4,8 @@
  * Tracks user progress towards crate-related achievements
  */
 
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from './supabase';
 import { createNotification } from './notification-utils';
-
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 interface CrateAchievement {
   id: string;
@@ -86,6 +75,7 @@ export async function trackCrateOpening(
   itemRarity: string
 ): Promise<void> {
   try {
+    const supabaseAdmin = createServerSupabaseClient();
     // Get total crates opened by user
     const { count: totalOpened } = await supabaseAdmin
       .from('crate_opening_history')
@@ -132,6 +122,7 @@ async function awardAchievement(
   achievement: CrateAchievement
 ): Promise<void> {
   try {
+    const supabaseAdmin = createServerSupabaseClient();
     // Check if achievement already exists
     const { data: existing } = await supabaseAdmin
       .from('user_achievements')
@@ -223,6 +214,7 @@ export async function getCrateStatistics(userId: string): Promise<{
   legendaryCount: number;
 }> {
   try {
+    const supabaseAdmin = createServerSupabaseClient();
     const { data: history } = await supabaseAdmin
       .from('crate_opening_history')
       .select('crate_id, item:items(rarity), crate:crates(name)')

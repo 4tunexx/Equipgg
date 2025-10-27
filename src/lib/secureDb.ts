@@ -1,6 +1,7 @@
 'use client';
 
-import { createClient, PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestError, SupabaseClient } from '@supabase/supabase-js';
+import { supabase as publicSupabase } from './supabase';
 
 // Database types
 export interface User {
@@ -44,17 +45,10 @@ export interface DatabaseError extends Error {
   message: string;
 }
 
-// Initialize the Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-    },
-  }
-) as SupabaseClient;
+// Use the shared guarded public Supabase client exported from `src/lib/supabase`.
+// That module returns a helpful stub when env vars are missing instead of
+// throwing at import time which would break Next.js builds.
+const supabase = (publicSupabase as unknown) as SupabaseClient;
 
 // Helper function to handle Supabase query errors
 const handleQueryError = (error: PostgrestError | Error | unknown, context: string): never => {
