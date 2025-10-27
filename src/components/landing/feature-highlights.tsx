@@ -1,3 +1,5 @@
+'use client';
+
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Target, Gift, Trophy, Zap } from "lucide-react";
 import { useEffect, useState } from 'react';
