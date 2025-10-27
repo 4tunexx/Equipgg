@@ -155,6 +155,7 @@ export async function GET(request: NextRequest) {
         // Update user profile
         await supabase.from('users').update({
           username: steamUser.username,
+          displayname: steamUser.username,
           avatar_url: steamUser.avatar,
           last_login_at: new Date().toISOString() // Use correct column name
         }).eq('id', userId);
@@ -182,6 +183,7 @@ export async function GET(request: NextRequest) {
               steam_id: steamUser.steamId,
               steam_verified: true,
               username: steamUser.username, // Update username from displayname
+              displayname: steamUser.username,
               avatar_url: steamUser.avatar,
               account_status: 'active', // Use correct column name
               last_login_at: new Date().toISOString() // Use correct column name
@@ -228,7 +230,9 @@ export async function GET(request: NextRequest) {
                 steam_verified: true,
                 account_status: 'active', // Use correct column name
                 username: steamUser.username, // Update username to Steam username
-                avatar_url: steamUser.avatar
+                displayname: steamUser.username,
+                avatar_url: steamUser.avatar,
+                last_login_at: new Date().toISOString()
               })
               .eq('id', verifyUserId);
               
@@ -268,10 +272,12 @@ export async function GET(request: NextRequest) {
                 .update({
                   email: email,
                   username: steamUser.username,
+                  displayname: steamUser.username,
                   avatar_url: steamUser.avatar,
                   steam_id: steamUser.steamId,
                   steam_verified: true,
-                  account_status: 'active' // Use correct column name
+                  account_status: 'active', // Use correct column name
+                  last_login_at: new Date().toISOString()
                 })
                 .eq('id', steamUuid);
                 
@@ -290,6 +296,7 @@ export async function GET(request: NextRequest) {
                   id: steamUuid,
                   email: email,
                   username: steamUser.username,
+                  displayname: steamUser.username,
                   avatar_url: steamUser.avatar,
                   role: 'user',
                   coins: 50, // Use correct column name

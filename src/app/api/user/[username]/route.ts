@@ -15,35 +15,56 @@ export async function GET(
 
     const supabase = createServerSupabaseClient();
 
-    // Get user data by username, displayname, or email
-    let { data: user, error } = await supabase
-      .from('users')
-      .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
-      .eq('username', username)
-      .single();
+    // Check if username is a Steam ID (numeric string starting with 7656)
+    const isSteamId = /^7656119\d{10}$/.test(username);
     
-    if (error && !user) {
-      // Try by displayname
-      const { data: userByDisplayName, error: displayError } = await supabase
+    let user: any = null;
+    let error: any = null;
+
+    if (isSteamId) {
+      // Look up by Steam ID
+      const { data, error: steamError } = await supabase
         .from('users')
         .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
-        .eq('displayname', username)
+        .eq('steam_id', username)
         .single();
       
-      if (!displayError && userByDisplayName) {
-        user = userByDisplayName;
-      } else {
-        // Try by email
-        const { data: userByEmail, error: emailError } = await supabase
+      user = data;
+      error = steamError;
+    } else {
+      // Get user data by username, displayname, or email
+      let { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
+        .eq('username', username)
+        .single();
+      
+      if (userError && !userData) {
+        // Try by displayname
+        const { data: userByDisplayName, error: displayError } = await supabase
           .from('users')
           .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
-          .eq('email', username)
+          .eq('displayname', username)
           .single();
         
-        if (!emailError && userByEmail) {
-          user = userByEmail;
+        if (!displayError && userByDisplayName) {
+          userData = userByDisplayName;
+        } else {
+          // Try by email
+          const { data: userByEmail, error: emailError } = await supabase
+            .from('users')
+            .select('id, username, displayname, avatar_url, xp, level, role, coins, created_at')
+            .eq('email', username)
+            .single();
+          
+          if (!emailError && userByEmail) {
+            userData = userByEmail;
+          }
         }
       }
+      
+      user = userData;
+      error = userError;
     }
 
     if (!user) {

@@ -14,13 +14,35 @@ export async function GET(
 
     const supabase = createServerSupabaseClient();
 
-    // Fetch user data
-    const { data: userData, error: userError } = await supabase
-      .from('users')
-      .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner')
-      .or(`username.eq.${username},displayname.eq.${username}`)
-      .eq('is_deleted', false)
-      .maybeSingle();
+    // Check if username is a Steam ID (numeric string starting with 7656)
+    const isSteamId = /^7656119\d{10}$/.test(username);
+    
+    let userData: any = null;
+    let userError: any = null;
+
+    if (isSteamId) {
+      // Look up by Steam ID
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
+        .eq('steam_id', username)
+        .eq('is_deleted', false)
+        .maybeSingle();
+      
+      userData = data;
+      userError = error;
+    } else {
+      // Look up by username or displayname
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
+        .or(`username.eq.${username},displayname.eq.${username}`)
+        .eq('is_deleted', false)
+        .maybeSingle();
+      
+      userData = data;
+      userError = error;
+    }
 
     if (userError || !userData) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
