@@ -33,52 +33,74 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
       console.log('Checking service role key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
       
       // First try admin API
-      const adminResult = await supabase.auth.admin.getUserById(userId as string as any)
-        .catch(e => {
-          console.error('Admin API error details:', e);
-          return { data: null, error: e };
-        });
-
-      // If admin fails, try standard auth API with anon key
-      const { data: authUserData, error: adminErr } = adminResult;
+      console.log('Attempting admin API getUserById...');
+      let userData: { user?: { id: string; email: string | null; created_at?: string } } | null = null;
+      let adminError: any = null;
       
-      if (adminErr || !authUserData?.user) {
-        console.error('Admin API failed, error:', adminErr);
-        console.error('Service role present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+      try {
+        const adminResult = await supabase.auth.admin.getUserById(userId);
+        userData = adminResult.data;
+        adminError = adminResult.error;
+        console.log('Admin API response:', JSON.stringify(adminResult, null, 2));
         
-        // Try to get user from auth metadata table directly
-        const { data: directAuthData } = await supabase
-          .from('auth.users')
-          .select('email, id')
-          .eq('id', userId)
-          .single()
-          .catch(e => {
-            console.error('Direct auth query failed:', e);
-            return { data: null };
-          });
-          
-        if (directAuthData?.email) {
-          console.log('Found user via direct auth query:', directAuthData);
-          authUserData = { user: directAuthData };
+        if (adminResult.error) {
+          console.error('Admin API error:', adminResult.error);
+        }
+      } catch (e) {
+        console.error('Admin API call failed:', e);
+        adminError = e;
+      }
+
+      // If admin fails, try standard auth API
+      if (!userData?.user?.email) {
+        console.log('Admin API failed to get user, trying standard auth...');
+        
+        try {
+          // Try to get user from auth metadata table
+          const { data: directAuthData, error: directError } = await supabase
+            .from('auth')
+            .select('email, id, created_at')
+            .eq('id', userId)
+            .single();
+            
+          if (directError) {
+            console.error('Direct auth query failed:', directError);
+          } else if (directAuthData?.email) {
+            console.log('Found user via direct auth query:', directAuthData);
+            userData = { 
+              user: {
+                id: directAuthData.id,
+                email: directAuthData.email,
+                created_at: directAuthData.created_at
+              }
+            };
+          }
+        } catch (directError) {
+          console.error('Error querying auth table:', directError);
         }
       }
       
-      const emailFromAuth = authUserData?.user?.email || null;
+      const emailFromAuth = userData?.user?.email || null;
       console.log('Auth metadata found:', { 
         userId, 
         email: emailFromAuth || 'none',
-        hasAuthData: !!authUserData?.user,
-        adminApiWorked: !adminErr
+        hasAuthData: !!userData?.user?.email,
+        adminApiWorked: !adminError
       });        // If we have at least an email from Auth, upsert a minimal users row so other systems work
+        // Add user to users table if we got an email
         if (emailFromAuth) {
-          const upsertPayload: any = {
+          console.log('Creating users row with email:', emailFromAuth);
+          const upsertPayload = {
             id: userId,
             email: emailFromAuth,
             role: 'user',
             coins: 0,
             xp: 0,
             level: 1,
-            created_at: new Date().toISOString()
+            created_at: new Date().toISOString(),
+            // For Steam users, mark as verified since they authenticated via Steam
+            steam_verified: userId.startsWith('steam-'),
+            email_verified: false
           };
 
         // Try to upsert with admin key first
