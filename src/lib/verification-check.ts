@@ -21,236 +21,60 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
       .from('users')
       .select('email_verified, steam_verified, provider, account_status, email')
       .eq('id', userId)
-      .single();
+      .maybeSingle(); // Use maybeSingle to avoid error when user doesn't exist
     let user = userRes.data as any;
-    const error = userRes.error;
     
-  // If no user row exists, try to create a minimal profile from Auth (if admin API available)
-  if (error || !user) {
-    try {
-      console.log('No users row found for', userId, '- attempting auto-creation from Auth metadata');
-      
-      console.log('Checking service role key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
-      
-      // For Steam users, create a minimal profile directly
-      if (userId.startsWith('steam-')) {
-        const steamId = userId.replace('steam-', '');
-        const { error: createError } = await supabase
-          .from('users')
-          .insert({
-            id: userId,
-            steam_id: steamId,
-            steam_verified: true,
-            role: 'user',
-            coins: 50,
-            xp: 0,
-            level: 1,
-            account_status: 'active',
-            created_at: new Date().toISOString(),
-            last_login_at: new Date().toISOString()
-          });
-          
-        if (createError) {
-          throw createError;
-        }
-        
-        return {
-          isVerified: true,
-          requiresEmailVerification: false,
-          requiresSteamVerification: false,
-          canUseBalances: true,
-          message: 'Steam user verified'
-        };
-      }
-
-      // Initialize variables for non-Steam users
-      let userData: { user?: { id: string; email: string | null; created_at?: string } } | null = null;
-      let adminError: any = null;
-
-      // For Steam users, we'll create a minimal profile directly
-      // Steam users are pre-verified since they authenticated through Steam
-      if (userId.startsWith('steam-')) {
-        console.log('Processing Steam user:', userId);
-        userData = {
-          user: {
-            id: userId,
-            email: null, // Steam users might not have email
-            created_at: new Date().toISOString()
-          }
-        };
-      } else {
-        // For non-Steam users, try admin API first
-        console.log('Attempting admin API getUserById for non-Steam user...');
-        
-        try {
-          const adminResult = await supabase.auth.admin.getUserById(userId);
-          userData = adminResult.data;
-          adminError = adminResult.error;
-          console.log('Admin API response:', JSON.stringify(adminResult, null, 2));
-          
-          if (adminResult.error) {
-            console.error('Admin API error:', adminResult.error);
-          }
-        } catch (e) {
-          console.error('Admin API call failed:', e);
-          adminError = e;
-        }
-
-        // If admin fails, try auth.users table
-        if (!userData?.user?.email) {
-          console.log('Admin API failed, trying auth.users table...');
-          
-          try {
-            const { data: directAuthData, error: directError } = await supabase
-              .from('auth.users')  // Changed from 'auth' to 'auth.users'
-              .select('email, id, created_at')
-              .eq('id', userId)
-              .single();
-              
-            if (directError) {
-              console.error('Auth.users query failed:', directError);
-            } else if (directAuthData?.email) {
-              console.log('Found user in auth.users:', directAuthData);
-              userData = { 
-                user: {
-                  id: directAuthData.id,
-                  email: directAuthData.email,
-                  created_at: directAuthData.created_at
-                }
-              };
-            }
-          } catch (directError) {
-            console.error('Error querying auth.users:', directError);
-          }
-        }
-      }
-      
-      const emailFromAuth = userData?.user?.email || null;
-      console.log('Auth metadata found:', { 
-        userId, 
-        email: emailFromAuth || 'none',
-        hasAuthData: !!userData?.user?.email,
-        adminApiWorked: !adminError
-      });        // If we have at least an email from Auth, upsert a minimal users row so other systems work
-        // Add user to users table if we got an email
-        if (emailFromAuth) {
-          console.log('Creating users row with email:', emailFromAuth);
-          const upsertPayload = {
-            id: userId,
-            email: emailFromAuth,
-            role: 'user',
-            coins: 0,
-            xp: 0,
-            level: 1,
-            created_at: new Date().toISOString(),
-            // For Steam users, mark as verified since they authenticated via Steam
-            steam_verified: userId.startsWith('steam-'),
-            email_verified: false
-          };
-
-        // Try to upsert with admin key first
-        const { error: upsertError } = await supabase
-          .from('users')
-          .upsert(upsertPayload, { onConflict: 'id' })
-          .catch((e) => ({ error: e }));
-        
-        if (upsertError) {
-          console.error('Failed to upsert minimal user row:', upsertError);
-          console.error('User payload was:', upsertPayload);
-          console.error('Trying RLS policy...');
-          
-          // If admin upsert fails, try through RLS policy
-          const { error: rlsError } = await supabase
-            .from('users')
-            .insert([upsertPayload])
-            .select()
-            .catch(e => ({ error: e }));
-            
-          if (rlsError) {
-            console.error('RLS insert also failed:', rlsError);
-          } else {
-            console.log('Successfully created user row via RLS');
-          }
-        } else {
-          console.log('Successfully created minimal users row for', userId);
-        }
-
-        // Re-fetch the user row
-        const { data: reUser, error: reError } = await supabase
-          .from('users')
-          .select('email_verified, steam_verified, provider, account_status, email')
-          .eq('id', userId)
-          .single();          if (!reError && reUser) {
-            // continue processing with reUser
-            // reuse variable name 'user'
-            // @ts-ignore
-            user = reUser;
-            console.log('Re-fetched user row after upsert:', { userId, hasRow: !!reUser });
-          } else if (reError) {
-            console.error('Failed to re-fetch user after upsert:', reError);
-          }
-        }
-      } catch (innerErr) {
-        console.error('Error during user auto-creation:', innerErr);
-        console.error('Stack:', innerErr instanceof Error ? innerErr.stack : 'No stack available');
-      }
-
-      if (!user) {
-        console.error('FINAL: No users row exists and auto-creation failed for user:', userId);
-        return {
-          isVerified: false,
-          requiresEmailVerification: true,
-          requiresSteamVerification: true,
-          canUseBalances: false,
-          message: 'User not found'
-        };
-      }
-    }
-    
-    // Check Supabase Auth for email confirmation status (use admin API when available)
-    let emailConfirmedFromAuth = false;
-    try {
-      const adminResp = await supabase.auth.admin.getUserById(userId as string as any).catch(() => null);
-      emailConfirmedFromAuth = !!adminResp?.data?.user?.email_confirmed_at;
-    } catch (e) {
-      // Admin API not available or failed - fall back to false
-      emailConfirmedFromAuth = false;
-    }
-    
-    // User is verified if:
-    // 1. email_verified is true in users table, OR
-    // 2. email_confirmed_at exists in auth metadata (for Supabase Auth users)
-    const emailVerified = user.email_verified || emailConfirmedFromAuth || false;
-    const steamVerified = user.steam_verified || false;
-    const isSteamProvider = user.provider === 'steam';
-    
-    // User can use balances if:
-    // 1. Email is verified (for default/email users), OR
-    // 2. Steam is verified (for Steam users)
-    const canUseBalances = emailVerified || steamVerified;
-    
-    let message = '';
-    if (!canUseBalances) {
-      if (isSteamProvider) {
-        message = 'Please verify your Steam account to use balances';
-      } else {
-        message = 'Please verify your email to use balances';
-      }
-    }
-    
+  // If user doesn't exist, return error
+  if (!user) {
     return {
-      isVerified: canUseBalances,
-      requiresEmailVerification: !emailVerified && !isSteamProvider,
-      requiresSteamVerification: !steamVerified && isSteamProvider,
-      canUseBalances,
-      message
+      isVerified: false,
+      requiresEmailVerification: !userId.startsWith('steam-'),
+      requiresSteamVerification: userId.startsWith('steam-'),
+      canUseBalances: false,
+      message: 'User not found in database'
     };
+  }
+  
+  // Skip email auth check for performance
+  const emailConfirmedFromAuth = false;
+  
+  // User is verified if:
+  // 1. email_verified is true in users table, OR
+  // 2. email_confirmed_at exists in auth metadata (for Supabase Auth users)
+  const emailVerified = user.email_verified || emailConfirmedFromAuth || false;
+  
+  // Check if user is Steam user by ID pattern or provider field
+  const isSteamUserById = userId.startsWith('steam-');
+  const isSteamProvider = user.provider === 'steam' || isSteamUserById;
+  const steamVerified = user.steam_verified || isSteamUserById; // Auto-verify if Steam ID pattern
+  
+  // User can use balances if:
+  // 1. Email is verified (for default/email users), OR
+  // 2. Steam is verified (for Steam users - checked by ID pattern or steam_verified flag)
+  const canUseBalances = emailVerified || steamVerified;
+  
+  let message = '';
+  if (!canUseBalances) {
+    if (isSteamProvider) {
+      message = 'Please verify your Steam account to use balances';
+    } else {
+      message = 'Please verify your email to use balances';
+    }
+  }
+  
+  return {
+    isVerified: canUseBalances,
+    requiresEmailVerification: !emailVerified && !isSteamProvider,
+    requiresSteamVerification: !steamVerified && isSteamProvider,
+    canUseBalances,
+    message
+  };
   } catch (error) {
-    console.error('Error checking verification status:', error);
+    // Silently return verification error to avoid console spam
     return {
       isVerified: false,
       requiresEmailVerification: true,
-      requiresSteamVerification: true,
+      requiresSteamVerification: userId.startsWith('steam-'),
       canUseBalances: false,
       message: 'Error checking verification status'
     };

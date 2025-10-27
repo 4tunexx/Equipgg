@@ -56,12 +56,22 @@ export async function POST(request: NextRequest) {
     // Check user balance
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('coins')
+      .select('coins, steam_verified, email_verified, provider')
       .eq('id', session.user_id)
       .single();
 
-    if (userError || !userData) {
-      return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 });
+    if (userError) {
+      console.error('User lookup error:', userError);
+      console.error('User ID:', session.user_id);
+      return NextResponse.json({ 
+        error: 'User not found in database',
+        details: userError.message 
+      }, { status: 404 });
+    }
+
+    if (!userData) {
+      console.error('User data is null for ID:', session.user_id);
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
     if (userData.coins < banner.price) {

@@ -55,6 +55,8 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
 
     const displayUser = { ...user, equipped_banner: equippedBanner || user?.equipped_banner };
     const username = displayUser.name || displayUser.username || 'Anonymous';
+    // Determine the best identifier for the profile URL - prefer ID, fall back to username
+    const profileIdentifier = displayUser.id || displayUser.username || displayUser.name || username;
     
     // Update banner when user prop changes
     useEffect(() => {
@@ -242,12 +244,15 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                     </div>
                 )}
             </CardContent>
-            {username !== 'Anonymous' && username !== 'Test User' && (
+            {username !== 'Anonymous' && username !== 'Test User' && profileIdentifier && (
                 <div className="p-4 pt-0">
                     <Button 
                         variant="outline" 
                         className="w-full"
-                        onClick={() => router.push(`/user/${encodeURIComponent(username)}`)}
+                        onClick={() => {
+                            console.log('🔗 Profile link clicked for:', profileIdentifier);
+                            router.push(`/user/${encodeURIComponent(profileIdentifier)}`);
+                        }}
                     >
                         <ExternalLink className="mr-2 h-4 w-4" />
                         View Full Profile

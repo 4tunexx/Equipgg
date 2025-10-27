@@ -1,9 +1,14 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
 import { useSiteSettings } from "../../hooks/use-site-settings";
 import { useHeroPanelData } from "../../hooks/use-hero-panel-data";
 import dynamic from 'next/dynamic';
+import { AuthModal } from "../auth-modal";
+import { Button } from "../ui/button";
+import { LogIn, UserPlus, Gamepad2 } from 'lucide-react';
 
 const LoadingSpinner = () => (
   <div className="absolute inset-0 bg-background z-50 flex items-center justify-center">

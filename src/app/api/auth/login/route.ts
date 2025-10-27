@@ -1,7 +1,7 @@
 // src/app/api/auth/login/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "../../../../lib/supabase";
-import { trackMissionProgress } from "../../../../lib/mission-integration";
+import { trackMissionProgress, checkAndResetDailyMissions, awardDailyLoginMission } from "../../../../lib/mission-integration";
 import { trackLogin } from "../../../../lib/activity-tracker";
 
 // Use the singleton server client to avoid multiple instances
@@ -130,6 +130,13 @@ export async function POST(req: NextRequest) {
     
     // Track login for missions (daily login, etc.)
     try {
+      // Check and reset daily missions if new day
+      await checkAndResetDailyMissions(user.id);
+      
+      // Award daily login mission
+      await awardDailyLoginMission(user.id);
+      
+      // Track other login missions
       await trackMissionProgress(user.id, 'login', 1);
       await trackLogin(user.id);
       console.log('✅ Login mission and activity tracked for user:', user.id);

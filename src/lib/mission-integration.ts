@@ -388,6 +388,48 @@ export async function resetDailyMissions(userId: string) {
 }
 
 /**
+ * Check if daily missions should be reset (called on login)
+ * This checks if it's a new day and resets repeatable daily missions
+ */
+export async function checkAndResetDailyMissions(userId: string) {
+  const supabase = createServerSupabaseClient();
+  
+  try {
+    // Check user's last login date
+    const { data: userData } = await supabase
+      .from('users')
+      .select('last_login_at')
+      .eq('id', userId)
+      .single();
+
+    if (!userData) return;
+
+    const today = new Date().toDateString();
+    const lastLoginDate = userData.last_login_at ? new Date(userData.last_login_at).toDateString() : null;
+
+    // If it's a new day, reset daily missions
+    if (lastLoginDate !== today) {
+      await resetDailyMissions(userId);
+      console.log(`✅ Daily missions reset for user ${userId}`);
+    }
+  } catch (error) {
+    console.error('Error checking daily mission reset:', error);
+  }
+}
+
+/**
+ * Award daily login mission progress
+ */
+export async function awardDailyLoginMission(userId: string) {
+  try {
+    await trackMissionProgress(userId, 'daily_login', 1);
+    console.log(`✅ Daily login mission progress awarded to user ${userId}`);
+  } catch (error) {
+    console.error('Error awarding daily login mission:', error);
+  }
+}
+
+/**
  * Reset weekly missions for a user
  */
 export async function resetWeeklyMissions(userId: string) {

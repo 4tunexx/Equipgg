@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { checkAndResetDailyMissions, awardDailyLoginMission } from '@/lib/mission-integration';
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
@@ -331,6 +332,15 @@ export async function GET(request: NextRequest) {
       // Set additional client cookies
       response.cookies.set('equipgg_user_id', userData.id, clientCookieOptions);
       response.cookies.set('equipgg_user_email', userData.email, clientCookieOptions);
+      
+      // Check and reset daily missions, award daily login mission
+      try {
+        await checkAndResetDailyMissions(userId);
+        await awardDailyLoginMission(userId);
+        console.log('✅ Daily missions reset and login mission awarded for Steam user:', userId);
+      } catch (missionError) {
+        console.error('⚠️ Failed to track login mission for Steam user:', missionError);
+      }
       
       return response;
     } catch (error) {

@@ -90,7 +90,7 @@ export default function PublicUserProfile({ params }: { params: Promise<{ userna
       window.removeEventListener('bannerEquipped', handleBannerUpdate as EventListener);
       window.removeEventListener('userUpdated', handleBannerUpdate as EventListener);
     };
-  }, [resolvedParams.username, currentUser, profile]);
+  }, [resolvedParams.username]); // Remove currentUser and profile from deps to prevent infinite loop
 
   if (loading) {
     return (

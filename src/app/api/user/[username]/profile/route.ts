@@ -8,20 +8,26 @@ export async function GET(
   try {
     const { username } = await params;
 
+    console.log('🔍 Profile API called for username:', username);
+
     if (!username) {
       return NextResponse.json({ error: 'Username required' }, { status: 400 });
     }
 
     const supabase = createServerSupabaseClient();
 
-    // Check if username is a Steam ID (numeric string starting with 7656)
-    const isSteamId = /^7656119\d{10}$/.test(username);
+    // Check if username is a Steam ID (numeric string starting with 7656) or steam- prefix
+    const isSteamIdNumeric = /^7656119\d{10}$/.test(username);
+    const isSteamIdFormat = username.startsWith('steam-');
+    
+    console.log('🔍 Username check:', { username, isSteamIdNumeric, isSteamIdFormat });
     
     let userData: any = null;
     let userError: any = null;
 
-    if (isSteamId) {
-      // Look up by Steam ID
+    if (isSteamIdNumeric) {
+      // Look up by Steam ID (numeric format)
+      console.log('🔍 Looking up by numeric Steam ID:', username);
       const { data, error } = await supabase
         .from('users')
         .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
@@ -31,8 +37,23 @@ export async function GET(
       
       userData = data;
       userError = error;
+      console.log('🔍 Steam ID lookup result:', { found: !!data, error: error?.message });
+    } else if (isSteamIdFormat) {
+      // Look up by user ID (steam- prefix format)
+      console.log('🔍 Looking up by user ID (steam- format):', username);
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
+        .eq('id', username)
+        .eq('is_deleted', false)
+        .maybeSingle();
+      
+      userData = data;
+      userError = error;
+      console.log('🔍 User ID lookup result:', { found: !!data, error: error?.message });
     } else {
       // Look up by username or displayname
+      console.log('🔍 Looking up by username/displayname:', username);
       const { data, error } = await supabase
         .from('users')
         .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
@@ -42,11 +63,15 @@ export async function GET(
       
       userData = data;
       userError = error;
+      console.log('🔍 Username lookup result:', { found: !!data, error: error?.message });
     }
 
     if (userError || !userData) {
+      console.error('❌ User not found:', { username, userError });
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
+
+    console.log('✅ User found:', userData.id, userData.username || userData.displayname);
 
     // Fetch user's inventory count (sum of quantities)
     const { data: inventoryItems } = await supabase

@@ -949,7 +949,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                 {enabled ? (
                   user ? (
                     <div className="flex items-center gap-3">
-                      <Link href={`/user/${user.username || user.displayname || user.email?.split('@')[0]}`}>
+                      <Link href={`/user/${user.id || user.username || user.displayname || user.email?.split('@')[0]}`}>
                         <div className="cursor-pointer hover:opacity-80 transition-opacity">
                           <UserAvatar user={user} size="sm" />
                         </div>
