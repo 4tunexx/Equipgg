@@ -30,16 +30,46 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
     try {
       console.log('No users row found for', userId, '- attempting auto-creation from Auth metadata');
       
-      // Try to get auth user metadata via the Admin API (requires SERVICE_ROLE key)
-      const { data: authUserData, error: adminErr } = await supabase.auth.admin.getUserById(userId as string as any).catch(() => ({ data: null, error: true }));
+      console.log('Checking service role key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+      
+      // First try admin API
+      const adminResult = await supabase.auth.admin.getUserById(userId as string as any)
+        .catch(e => {
+          console.error('Admin API error details:', e);
+          return { data: null, error: e };
+        });
 
-      if (adminErr) {
-        console.error('Admin API error - cannot access auth.admin.getUserById:', adminErr);
-        console.error('Check SUPABASE_SERVICE_ROLE_KEY is set in environment');
+      // If admin fails, try standard auth API with anon key
+      const { data: authUserData, error: adminErr } = adminResult;
+      
+      if (adminErr || !authUserData?.user) {
+        console.error('Admin API failed, error:', adminErr);
+        console.error('Service role present:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
+        
+        // Try to get user from auth metadata table directly
+        const { data: directAuthData } = await supabase
+          .from('auth.users')
+          .select('email, id')
+          .eq('id', userId)
+          .single()
+          .catch(e => {
+            console.error('Direct auth query failed:', e);
+            return { data: null };
+          });
+          
+        if (directAuthData?.email) {
+          console.log('Found user via direct auth query:', directAuthData);
+          authUserData = { user: directAuthData };
+        }
       }
       
       const emailFromAuth = authUserData?.user?.email || null;
-      console.log('Auth metadata found:', { userId, email: emailFromAuth || 'none' });        // If we have at least an email from Auth, upsert a minimal users row so other systems work
+      console.log('Auth metadata found:', { 
+        userId, 
+        email: emailFromAuth || 'none',
+        hasAuthData: !!authUserData?.user,
+        adminApiWorked: !adminErr
+      });        // If we have at least an email from Auth, upsert a minimal users row so other systems work
         if (emailFromAuth) {
           const upsertPayload: any = {
             id: userId,
@@ -51,6 +81,7 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
             created_at: new Date().toISOString()
           };
 
+        // Try to upsert with admin key first
         const { error: upsertError } = await supabase
           .from('users')
           .upsert(upsertPayload, { onConflict: 'id' })
@@ -59,6 +90,20 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
         if (upsertError) {
           console.error('Failed to upsert minimal user row:', upsertError);
           console.error('User payload was:', upsertPayload);
+          console.error('Trying RLS policy...');
+          
+          // If admin upsert fails, try through RLS policy
+          const { error: rlsError } = await supabase
+            .from('users')
+            .insert([upsertPayload])
+            .select()
+            .catch(e => ({ error: e }));
+            
+          if (rlsError) {
+            console.error('RLS insert also failed:', rlsError);
+          } else {
+            console.log('Successfully created user row via RLS');
+          }
         } else {
           console.log('Successfully created minimal users row for', userId);
         }
