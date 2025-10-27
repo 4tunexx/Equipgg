@@ -8,10 +8,13 @@ import { ShopItemCard } from "../../../components/shop-item-card";
 import { Input } from "../../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../../components/ui/select";
 import { Button } from "../../../components/ui/button";
-import { Search, Gem, Loader2, Coins, Gamepad2, ArrowUpDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Gem, Loader2, Coins, Gamepad2, ArrowUpDown, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import { useSupabase } from "../../../lib/supabase/context";
+import { useAuth } from "../../../hooks/use-auth";
 import { useBalance } from "../../../contexts/balance-context";
 import { DBShopItem, Rarity } from "../../../lib/supabase/queries";
+import { PROFILE_BANNERS, ProfileBanner, getRarityColor } from "../../../lib/profile-banners";
+import { useToast } from "../../../hooks/use-toast";
 
 const FEATURE_HIGHLIGHTS = [
   {
@@ -50,7 +53,10 @@ const FEATURE_HIGHLIGHTS = [
   ];
 
 export default function ShopPage() {
+  const { toast } = useToast();
   const [sortBy, setSortBy] = useState('default');
+  const [ownedCosmetics, setOwnedCosmetics] = useState<string[]>([]);
+  const [purchasingBanner, setPurchasingBanner] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12); // Show 12 items per page
   const [shopItems, setShopItems] = useState<DBShopItem[]>([]);
@@ -59,7 +65,8 @@ export default function ShopPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeSubTab, setActiveSubTab] = useState('all');
   const [isLoadingItems, setIsLoadingItems] = useState(true);
-  const { user } = useSupabase();
+  const { user: supabaseUser } = useSupabase();
+  const { user } = useAuth();
   const { balance: userBalance, isLoading } = useBalance();
 
   // DEBUG: Log balance values
@@ -71,6 +78,84 @@ export default function ShopPage() {
       user: user?.id
     });
   }, [userBalance, isLoading, user]);
+
+  // Fetch owned cosmetics
+  useEffect(() => {
+    const fetchOwnedCosmetics = async () => {
+      if (!user) return;
+      try {
+        const response = await fetch('/api/cosmetics/owned', { credentials: 'include' });
+        if (response.ok) {
+          const data = await response.json();
+          const ids = data.cosmetics?.map((c: any) => c.cosmetic_id) || [];
+          setOwnedCosmetics(ids);
+        }
+      } catch (error) {
+        console.error('Failed to fetch owned cosmetics:', error);
+      }
+    };
+    fetchOwnedCosmetics();
+  }, [user]);
+
+  // Handle banner purchase
+  const handlePurchaseBanner = async (banner: ProfileBanner) => {
+    if (!user && !supabaseUser) {
+      toast({
+        title: "Not logged in",
+        description: "Please log in to purchase cosmetics.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (ownedCosmetics.includes(banner.id)) {
+      toast({
+        title: "Already owned",
+        description: "You already own this banner!",
+        variant: "default"
+      });
+      return;
+    }
+
+    setPurchasingBanner(banner.id);
+
+    try {
+      const response = await fetch('/api/cosmetics/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cosmeticId: banner.id })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setOwnedCosmetics(prev => [...prev, banner.id]);
+        toast({
+          title: "Purchase successful!",
+          description: `You purchased ${banner.name}! Equip it in your profile settings.`
+        });
+        
+        // Refresh balance
+        window.dispatchEvent(new Event('balanceUpdated'));
+      } else {
+        toast({
+          title: "Purchase failed",
+          description: data.error || "Failed to purchase cosmetic.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Purchase error:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while purchasing.",
+        variant: "destructive"
+      });
+    } finally {
+      setPurchasingBanner(null);
+    }
+  };
 
   // Fetch shop items using PUBLIC ITEMS API - EXACT SAME DATA AS ADMIN PAGE
   const fetchShopItems = async () => {
@@ -548,12 +633,16 @@ export default function ShopPage() {
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       <Tabs defaultValue="items">
         <div className='flex justify-center mb-8'>
-          <TabsList className='grid grid-cols-3 w-full max-w-lg'>
+          <TabsList className='grid grid-cols-4 w-full max-w-3xl'>
             <TabsTrigger value="items">Items</TabsTrigger>
             <TabsTrigger value="perks">Perks</TabsTrigger>
             <TabsTrigger value="cs2-skins" className="flex items-center gap-2">
               <Gamepad2 className="h-4 w-4" />
               CS2 Skins
+            </TabsTrigger>
+            <TabsTrigger value="cosmetics" className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4" />
+              Cosmetics
             </TabsTrigger>
           </TabsList>
         </div>
@@ -679,6 +768,113 @@ export default function ShopPage() {
               CS2 skins will be delivered to your Steam inventory within 24-48 hours after purchase.
             </p>
           </div>
+        </TabsContent>
+
+        {/* COSMETICS TAB */}
+        <TabsContent value="cosmetics" className='space-y-8'>
+          <PageHeader 
+            title="Profile Cosmetics – Personalize Your Presence!"
+            description="Stand out from the crowd with unique profile banners! From free gradients to legendary prismatic effects, customize how others see you. Purchase banners with coins and equip them in your profile settings."
+          />
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-center text-2xl font-bold font-headline">Profile Banners Collection</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {PROFILE_BANNERS.map((banner) => {
+                  const isOwned = ownedCosmetics.includes(banner.id);
+                  const isPurchasing = purchasingBanner === banner.id;
+                  const isFree = banner.price === 0;
+
+                  return (
+                    <Card key={banner.id} className="overflow-hidden hover:shadow-lg transition-shadow">
+                      {/* Banner Preview */}
+                      <div 
+                        className="h-32 relative"
+                        style={{ background: banner.gradient }}
+                      >
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="text-white font-bold text-2xl drop-shadow-lg">
+                            {banner.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          {/* Title & Rarity */}
+                          <div>
+                            <h3 className="font-bold text-lg">{banner.name}</h3>
+                            <p className={`text-sm font-semibold ${getRarityColor(banner.rarity)}`}>
+                              {banner.rarity.charAt(0).toUpperCase() + banner.rarity.slice(1)}
+                            </p>
+                          </div>
+
+                          {/* Description */}
+                          <p className="text-sm text-muted-foreground">
+                            {banner.description}
+                          </p>
+
+                          {/* Price & Purchase */}
+                          <div className="flex items-center justify-between pt-2">
+                            <div className="flex items-center gap-2">
+                              <Coins className="h-5 w-5 text-green-500" />
+                              <span className="font-bold text-lg">
+                                {isFree ? 'FREE' : banner.price.toLocaleString()}
+                              </span>
+                            </div>
+
+                            {isOwned ? (
+                              <Button disabled variant="secondary" size="sm">
+                                ✓ Owned
+                              </Button>
+                            ) : (
+                              <Button 
+                                onClick={() => handlePurchaseBanner(banner)}
+                                disabled={isPurchasing || isFree}
+                                size="sm"
+                              >
+                                {isPurchasing ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Buying...
+                                  </>
+                                ) : isFree ? (
+                                  'Default'
+                                ) : (
+                                  'Purchase'
+                                )}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-center">How to Equip Banners</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <ol className="text-left list-decimal list-inside space-y-2 max-w-2xl mx-auto">
+                <li>Purchase a banner from this shop using coins</li>
+                <li>Go to your Profile → Settings tab</li>
+                <li>Scroll to the "Cosmetics" section</li>
+                <li>Click "Equip" on your desired banner</li>
+                <li>Your banner will appear on your profile and mini-profile card!</li>
+              </ol>
+              <p className="text-sm text-muted-foreground">
+                Banners are visible on your public profile, hover profile card, and personal profile page.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

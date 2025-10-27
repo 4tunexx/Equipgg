@@ -82,10 +82,10 @@ export async function GET() {
         }
         
         // Return sample activities if table doesn't exist
-        return NextResponse.json(generateSampleActivities(), { headers });
+        return NextResponse.json({ activities: generateSampleActivities() }, { headers });
       }
 
-      // If we get here, try to fetch activities with all necessary columns
+      // If we get here, try to fetch activities with all necessary columns and join users
       const { data: activityData, error: activityError } = await supabase
         .from('activity_feed')
         .select(`
@@ -93,7 +93,15 @@ export async function GET() {
           action,
           description,
           metadata,
-          created_at
+          created_at,
+          users(
+            username,
+            displayname,
+            avatar_url,
+            role,
+            xp,
+            level
+          )
         `)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -101,7 +109,7 @@ export async function GET() {
       if (activityError) {
         console.log('Database error fetching activities:', activityError);
         console.log('Falling back to sample activities due to Supabase error');
-        return NextResponse.json(generateSampleActivities(), { headers });
+        return NextResponse.json({ activities: generateSampleActivities() }, { headers });
       }
 
       activities = activityData || [];
@@ -127,42 +135,56 @@ export async function GET() {
       
       // Cache the sample activities too
       activitiesCache = {
-        data: sampleActivities,
+        data: { activities: sampleActivities },
         timestamp: Date.now()
       };
       
-      return NextResponse.json(sampleActivities, { headers });
+      return NextResponse.json({ activities: sampleActivities }, { headers });
     }
 
     // Transform activities to match expected format
-    const transformedActivities = activities.map((activity, index) => ({
-      id: `activity_${index}_${Date.now()}`,
-      type: activity.action,
-      message: activity.description || activity.action.replace('_', ' ').toUpperCase(),
-      amount: activity.metadata?.xp || 0,
-      gameType: activity.metadata?.gameType || 'general',
-      multiplier: activity.metadata?.multiplier || 1,
-      timestamp: activity.created_at,
-      user: activity.users ? {
-        username: activity.users.username || 'Unknown User',
-        avatar: activity.users.avatar_url || '/default-avatar.svg',
-        role: activity.users.role || 'user',
-        xp: activity.users.xp || 0,
-        level: activity.users.level || 1,
-        isVip: activity.users.is_vip || false
-      } : {
-        username: 'Unknown User',
-        avatar: '/default-avatar.svg',
-        role: 'user',
-        xp: 0,
-        level: 1,
-        isVip: false
-      }
-    }));
+    const transformedActivities = activities.map((activity, index) => {
+      // Handle both single user object and array (Supabase returns arrays for relations)
+      const userData = Array.isArray(activity.users) ? activity.users[0] : activity.users;
+      const username = userData?.displayname || userData?.username || 'Unknown User';
+      
+      // Clean up description - remove username if it's at the start
+      let description = activity.description || activity.action.replace('_', ' ').toUpperCase();
+      // Remove username prefix if present (e.g., "42une opened..." -> "opened...")
+      const usernameRegex = new RegExp(`^${username}\\s+`, 'i');
+      description = description.replace(usernameRegex, '');
+      // Also check for common username patterns
+      description = description.replace(/^[a-zA-Z0-9_-]+\s+/, '');
+      
+      return {
+        id: `activity_${index}_${Date.now()}`,
+        type: activity.action,
+        message: description,
+        amount: activity.metadata?.xp || 0,
+        gameType: activity.metadata?.gameType || 'general',
+        multiplier: activity.metadata?.multiplier || 1,
+        timestamp: activity.created_at,
+        user: userData ? {
+          username: username,
+          avatar: userData.avatar_url || '/default-avatar.svg',
+          role: userData.role || 'user',
+          xp: userData.xp || 0,
+          level: userData.level || 1,
+          isVip: false // VIP feature not implemented yet
+        } : {
+          username: 'Unknown User',
+          avatar: '/default-avatar.svg',
+          role: 'user',
+          xp: 0,
+          level: 1,
+          isVip: false
+        }
+      };
+    });
 
     // Cache the result
     activitiesCache = {
-      data: transformedActivities,
+      data: { activities: transformedActivities },
       timestamp: Date.now()
     };
 
@@ -170,14 +192,14 @@ export async function GET() {
     if (process.env.NODE_ENV === 'development') {
       console.log(`Returning ${transformedActivities.length} activities`);
     }
-    return NextResponse.json(transformedActivities, { headers });
+    return NextResponse.json({ activities: transformedActivities }, { headers });
   } catch (error) {
     console.error('Error fetching activity:', error);
     
     // Return cached sample activities if available
     const sampleActivities = generateSampleActivities();
     activitiesCache = {
-      data: sampleActivities,
+      data: { activities: sampleActivities },
       timestamp: Date.now()
     };
     
@@ -192,7 +214,7 @@ export async function GET() {
       'Expires': '0'
     };
     
-    return NextResponse.json(sampleActivities, { headers: errorHeaders });
+    return NextResponse.json({ activities: sampleActivities }, { headers: errorHeaders });
   }
 }
 

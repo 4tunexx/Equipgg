@@ -87,6 +87,7 @@ export function UserProfileLink({ user, avatarOnly = false, hideAvatar = false }
             role: user.role || 'player',
             avatar: user.avatar || undefined,
             xp: user.xp || 0,
+            equipped_banner: (user as any)?.equipped_banner,
             equippedItem: user.equippedItem ? {
                 ...user.equippedItem,
                 type: 'skins'

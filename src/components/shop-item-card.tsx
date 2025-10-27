@@ -94,6 +94,17 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
             const purchaseData = await purchaseResponse.json();
 
             if (!purchaseResponse.ok) {
+                // Check if it's a verification error
+                if (purchaseData.requiresVerification) {
+                    toast({
+                        title: "🔒 Account Verification Required",
+                        description: purchaseData.error || "Please verify your email or Steam account to use coins and gems.",
+                        variant: "destructive"
+                    });
+                    // Refresh notifications to show the new one
+                    window.dispatchEvent(new Event('notificationsUpdated'));
+                    return;
+                }
                 throw new Error(purchaseData.error || 'Purchase failed');
             }
 

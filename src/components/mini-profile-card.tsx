@@ -3,10 +3,12 @@
 
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { Card, CardContent, CardHeader } from "./ui/card";
+import { Button } from "./ui/button";
 import { cn } from "../lib/utils";
 import type { Rarity } from "../lib/supabase/queries";
-import { Trophy } from "lucide-react";
+import { Trophy, ExternalLink } from "lucide-react";
 import ItemImage from "./ItemImage";
+import { useRouter } from "next/navigation";
 
 
 type LeaderboardPlayer = {
@@ -24,6 +26,7 @@ import { getRoleColors, getRoleInlineStyle } from "../lib/role-colors";
 import { XpDisplay } from "./xp-display";
 import { getLevelFromXP } from "../lib/xp-config";
 import { useState, useEffect } from 'react';
+import { getBannerGradient } from "../lib/profile-banners";
   
 import { BadgeCheck } from "lucide-react";
 import { rarityGlow } from "../lib/constants";
@@ -37,17 +40,57 @@ interface MiniProfileCardProps {
         xp?: number;
         achievement?: { title: string, icon: React.ComponentType<React.SVGProps<SVGSVGElement>> };
         equippedItem?: { name: string, image: string, rarity: Rarity, dataAiHint: string, type: string };
+        equipped_banner?: string;
     };
 }
 
 export function MiniProfileCard({ user }: MiniProfileCardProps) {
+    const router = useRouter();
     const [userStats, setUserStats] = useState<{
         xp: number;
         level: number;
     } | null>(null);
     const [isLoading, setIsLoading] = useState<boolean>(false);
+    const [equippedBanner, setEquippedBanner] = useState<string | undefined>(user?.equipped_banner);
 
-    const displayUser = user;
+    const displayUser = { ...user, equipped_banner: equippedBanner || user?.equipped_banner };
+    const username = displayUser.name || displayUser.username || 'Anonymous';
+    
+    // Update banner when user prop changes
+    useEffect(() => {
+        // Always sync with user's equipped_banner, even if it's null/undefined
+        if (user?.equipped_banner) {
+            setEquippedBanner(user.equipped_banner);
+        } else {
+            // If no banner set, use default
+            setEquippedBanner('banner_default');
+        }
+    }, [user?.equipped_banner, user?.id]);
+    
+    // Listen for banner updates
+    useEffect(() => {
+        const handleBannerUpdate = (event: CustomEvent) => {
+            if (event.detail?.bannerId) {
+                console.log('MiniProfileCard: Banner update received:', event.detail.bannerId);
+                setEquippedBanner(event.detail.bannerId);
+            }
+        };
+        
+        const handleUserUpdate = () => {
+            // Refresh user data if needed
+            if (user?.equipped_banner) {
+                setEquippedBanner(user.equipped_banner);
+            }
+        };
+        
+        window.addEventListener('bannerEquipped', handleBannerUpdate as EventListener);
+        window.addEventListener('userUpdated', handleUserUpdate);
+        
+        return () => {
+            window.removeEventListener('bannerEquipped', handleBannerUpdate as EventListener);
+            window.removeEventListener('userUpdated', handleUserUpdate);
+        };
+    }, [user?.equipped_banner]);
 
     // Fetch real-time user stats for the specific user
     useEffect(() => {
@@ -122,8 +165,13 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
     const roleInlineStyle = getRoleInlineStyle(displayUser.role || 'user');
 
     return (
-        <Card className="w-80 border-primary/20">
-            <CardHeader className="p-4">
+        <Card className="w-80 border-primary/20 overflow-hidden">
+            {/* Profile Banner */}
+            <div 
+                className="h-16" 
+                style={{ background: getBannerGradient(displayUser.equipped_banner) }}
+            />
+            <CardHeader className="p-4 pt-2">
                 <div className="flex items-center gap-4">
                     <Avatar className={cn("w-16 h-16 border-2 border-primary", displayUser.isVip && "border-purple-400")}>
                         <AvatarImage src={userAvatar} data-ai-hint={displayUser.dataAiHint} />
@@ -194,6 +242,18 @@ export function MiniProfileCard({ user }: MiniProfileCardProps) {
                     </div>
                 )}
             </CardContent>
+            {username !== 'Anonymous' && username !== 'Test User' && (
+                <div className="p-4 pt-0">
+                    <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => router.push(`/user/${encodeURIComponent(username)}`)}
+                    >
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                        View Full Profile
+                    </Button>
+                </div>
+            )}
         </Card>
     )
 }

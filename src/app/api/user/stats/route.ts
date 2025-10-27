@@ -27,17 +27,40 @@ export async function GET(request: NextRequest) {
       
       if (userDataError) {
         console.error('Error fetching user data:', userDataError);
-        return NextResponse.json({ error: 'User not found' }, { status: 404 });
+        // If user doesn't exist in users table, return default stats
+        if (userDataError.code === 'PGRST116') {
+          console.log('User not found in users table, returning default stats');
+          userData = {
+            xp: 0,
+            level: 1,
+            coins: 0,
+            gems: 0
+          };
+        } else {
+          return NextResponse.json({ error: 'Failed to fetch user data' }, { status: 500 });
+        }
+      } else {
+        userData = data;
       }
-      
-      userData = data;
     } catch (error) {
       console.error('Error fetching user:', error);
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      // Return default stats on error instead of 404
+      userData = {
+        xp: 0,
+        level: 1,
+        coins: 0,
+        gems: 0
+      };
     }
       
     if (!userData) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      // Return default stats instead of 404
+      userData = {
+        xp: 0,
+        level: 1,
+        coins: 0,
+        gems: 0
+      };
     }
     
     // Calculate level from XP to ensure consistency

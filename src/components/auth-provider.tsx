@@ -19,6 +19,7 @@ export type LocalUser = {
   provider?: 'steam' | 'default';
   steam_verified?: boolean;
   account_status?: string;
+  equipped_banner?: string;
   steamProfile?: {
     steamId?: string;
     avatar?: string;
@@ -591,11 +592,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         try {
           const sessionData = JSON.parse(decodeURIComponent(equipggMatch[1]));
           
-          // Fetch fresh user data from our API endpoint
-          const response = await fetch('/api/me', { 
+          // Fetch fresh user data from our API endpoint with cache busting
+          const response = await fetch(`/api/me?t=${Date.now()}`, { 
             credentials: 'include',
             headers: {
-              'Cache-Control': 'no-cache'
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
             }
           });
           
@@ -610,6 +612,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 email: freshUser.email || '',
                 username: freshUser.username,
                 displayName: displayName,
+                equipped_banner: freshUser.equipped_banner || 'banner_default',
                 photoURL: photoURL,
                 role: freshUser.role || 'user',
                 level: freshUser.level || 1,

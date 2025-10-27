@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     const supabase = createServerSupabaseClient();
     const { data: user, error } = await supabase
       .from('users')
-      .select('id, email, username, displayname, avatar_url, xp, level, role, coins, gems, steam_id, steam_verified')
+      .select('id, email, username, displayname, avatar_url, xp, level, role, coins, gems, steam_id, steam_verified, equipped_banner')
       .eq('id', session.user_id)
       .single();
     
@@ -88,6 +88,7 @@ export async function GET(req: NextRequest) {
           username: user.username,
           photoURL: user.avatar_url,
           avatarUrl: user.avatar_url, // Keep both for compatibility
+          avatar_url: user.avatar_url, // Add for banner display
           xp: user.xp || 0,
           level: calculatedLevel, // Use calculated level from XP
           role: user.role || 'user',
@@ -98,6 +99,7 @@ export async function GET(req: NextRequest) {
           isSteamUser: isSteamUser,
           steamProfile: steamProfile,
           provider: isSteamUser ? 'steam' : 'default',
+          equipped_banner: user.equipped_banner || 'banner_default',
           rank: rank ? {
             id: rank.id,
             name: rank.name,

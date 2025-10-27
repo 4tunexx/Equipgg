@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from '../../../../lib/auth-utils';
-import { supabase } from "../../../../lib/supabase";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 import { trackBetPlaced, trackCrashGameEarnings } from '../../../../lib/mission-tracker';
+import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
 // Game session management and play endpoint
 export async function POST(request: NextRequest) {
@@ -34,6 +35,22 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Check verification status first - ANTI-CHEAT
+    const verificationStatus = await checkBalanceAccess(session.user_id);
+    if (!verificationStatus.canUseBalances) {
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(session.user_id, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required',
+        requiresVerification: true,
+        notificationCreated: true
+      }, { status: 403 });
+    }
+
+    const supabase = createServerSupabaseClient();
+    
     // Get user's current balance and XP data
     const { data: userData, error: userError } = await supabase
       .from('users')

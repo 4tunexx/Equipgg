@@ -33,6 +33,16 @@ export async function GET(request: NextRequest) {
 
     if (userError) {
       console.error('Error fetching user data:', userError);
+      // If user doesn't exist, return default data
+      if (userError.code === 'PGRST116') {
+        return NextResponse.json({
+          success: true,
+          referralCode: null,
+          referredBy: null,
+          referredUsers: [],
+          totalReferrals: 0
+        });
+      }
       return NextResponse.json({ error: 'Database error' }, { status: 500 });
     }
 

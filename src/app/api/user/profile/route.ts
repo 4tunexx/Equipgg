@@ -20,7 +20,34 @@ export async function GET(request: NextRequest) {
       .single();
     
     if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
+      // Return default profile data instead of 404
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: session.user_id,
+          email: '',
+          displayName: 'User',
+          photoURL: '',
+          role: 'user',
+          level: 1,
+          xp: 0,
+          coins: 0,
+          gems: 0,
+          steam_verified: false,
+          account_status: 'active',
+          rank: null
+        },
+        profile: {
+          user: {
+            displayName: 'User'
+          },
+          stats: {
+            itemCount: 0,
+            betsWon: 0,
+            winRate: 0
+          }
+        }
+      });
     }
 
     // Calculate level from XP to ensure consistency
@@ -34,6 +61,23 @@ export async function GET(request: NextRequest) {
       .lte('max_level', calculatedLevel)
       .eq('is_active', true)
       .single();
+
+    // Get user stats - sum quantities for stacked items
+    const { data: inventoryData } = await supabase
+      .from('user_inventory')
+      .select('quantity')
+      .eq('user_id', session.user_id);
+
+    const itemCount = inventoryData?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
+
+    const { data: betStats } = await supabase
+      .from('user_bets')
+      .select('status')
+      .eq('user_id', session.user_id);
+
+    const betsWon = betStats?.filter(b => b.status === 'won').length || 0;
+    const totalBets = betStats?.length || 0;
+    const winRate = totalBets > 0 ? Math.round((betsWon / totalBets) * 100) : 0;
 
     return NextResponse.json({
       success: true,
@@ -56,6 +100,16 @@ export async function GET(request: NextRequest) {
           icon_url: rank.icon_url,
           prestige_icon_url: rank.prestige_icon_url
         } : null
+      },
+      profile: {
+        user: {
+          displayName: user.displayname || user.name || 'User'
+        },
+        stats: {
+          itemCount: itemCount || 0,
+          betsWon: betsWon,
+          winRate: winRate
+        }
       }
     })
 

@@ -42,27 +42,27 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
     let action = '';
     switch (data.activityType) {
       case 'game_win':
-        description = `${data.username} won ${data.amount || 0} coins on ${data.gameType || 'game'}`;
+        description = `won ${data.amount || 0} coins on ${data.gameType || 'game'}`;
         action = 'won_game';
         break;
       case 'game_loss':
-        description = `${data.username} lost game and earned ${data.amount || 0} XP`;
+        description = `lost game and earned ${data.amount || 0} XP`;
         action = 'lost_game';
         break;
       case 'crate_open':
-        description = `${data.username} opened a crate and received ${data.itemName || 'item'}`;
+        description = `opened a crate and received ${data.itemName || 'item'}`;
         action = 'opened_crate';
         break;
       case 'level_up':
-        description = `${data.username} reached level ${data.amount || 0}`;
+        description = `reached level ${data.amount || 0}`;
         action = 'leveled_up';
         break;
       case 'achievement_unlock':
-        description = `${data.username} unlocked achievement: ${data.itemName || 'achievement'}`;
+        description = `unlocked achievement: ${data.itemName || 'achievement'}`;
         action = 'unlocked_achievement';
         break;
       default:
-        description = `${data.username} performed ${data.activityType}`;
+        description = `performed ${data.activityType}`;
         action = data.activityType;
     }
 

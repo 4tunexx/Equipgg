@@ -206,11 +206,28 @@ export function MatchCard({ match, expanded, onToggleExpand, onBetPlaced }: Matc
           onBetPlaced();
         }
       } else {
-        toast({
-          variant: 'destructive',
-          title: 'Bet Failed',
-          description: data.error || 'Failed to place bet. Please try again.',
-        });
+        // Check if it's a verification error
+        if (data.requiresVerification) {
+          toast({
+            variant: 'destructive',
+            title: '🔒 Account Verification Required',
+            description: data.error || 'Please verify your email or Steam account to place bets.',
+          });
+          // Refresh notifications to show the new one
+          window.dispatchEvent(new Event('notificationsUpdated'));
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Bet Failed',
+            description: data.error || 'Failed to place bet. Please try again.',
+          });
+        }
+        // Refund the balance update on error
+        if (balance) {
+          updateBalance({
+            coins: balance.coins + amount
+          });
+        }
       }
     } catch (error) {
       console.error('Betting error:', error);

@@ -165,6 +165,7 @@ export default function SignUpPage() {
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [username, setUsername] = useState<string>('');
+  const [referralCode, setReferralCode] = useState<string>('');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -182,7 +183,8 @@ export default function SignUpPage() {
         body: JSON.stringify({ 
           email, 
           password, 
-          displayName: username 
+          displayName: username,
+          referralCode: referralCode || undefined
         }),
         credentials: 'include'
       });
@@ -191,8 +193,21 @@ export default function SignUpPage() {
       
       if (response.ok) {
         console.log('Registration successful, redirecting...');
-        // Force page redirect to dashboard after successful registration
-        window.location.href = '/dashboard';
+        
+        // If email verification required, show notification and redirect anyway
+        if (data.emailVerificationRequired || data.redirectToDashboard) {
+          // Store notification to show on dashboard
+          localStorage.setItem('showEmailVerificationNotification', 'true');
+          // Redirect to dashboard
+          window.location.href = '/dashboard';
+        } else if (data.session) {
+          // Immediate session - redirect normally
+          window.location.href = '/dashboard';
+        } else {
+          // Email verification required but no redirect flag
+          alert('Registration successful! Please check your email to verify your account.');
+          window.location.href = '/sign-in';
+        }
       } else {
         console.error('Registration failed:', data.error || data.message);
         alert(`Registration failed: ${data.error || data.message || 'Unknown error'}`);
@@ -249,6 +264,19 @@ export default function SignUpPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="referral">Referral Code (Optional)</Label>
+                <Input 
+                  id="referral" 
+                  type="text"
+                  placeholder="REF-XXXXXXXX"
+                  value={referralCode}
+                  onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Have a referral code? Enter it to earn 50 coins! 🎁
+                </p>
               </div>
             </CardContent>
             <CardFooter>

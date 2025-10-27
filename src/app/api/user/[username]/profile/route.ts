@@ -17,7 +17,7 @@ export async function GET(
     // Fetch user data
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified')
+      .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner')
       .or(`username.eq.${username},displayname.eq.${username}`)
       .eq('is_deleted', false)
       .maybeSingle();
@@ -26,11 +26,13 @@ export async function GET(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Fetch user's inventory count
-    const { count: itemCount } = await supabase
+    // Fetch user's inventory count (sum of quantities)
+    const { data: inventoryItems } = await supabase
       .from('user_inventory')
-      .select('*', { count: 'exact', head: true })
+      .select('quantity')
       .eq('user_id', userData.id);
+    
+    const itemCount = inventoryItems?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
 
     // Fetch user's badges
     const { data: userBadges } = await supabase
@@ -67,6 +69,7 @@ export async function GET(
     return NextResponse.json({
       success: true,
       user: {
+        id: userData.id,
         username: userData.username || userData.displayname,
         displayname: userData.displayname,
         avatar_url: userData.avatar_url,
@@ -77,7 +80,8 @@ export async function GET(
         rankIcon: rankData?.icon_url,
         created_at: userData.created_at,
         provider: userData.provider,
-        steam_verified: userData.steam_verified
+        steam_verified: userData.steam_verified,
+        equipped_banner: userData.equipped_banner || 'banner_default'
       },
       stats: {
         itemCount: itemCount || 0,

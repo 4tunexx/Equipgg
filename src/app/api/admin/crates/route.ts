@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
-import { supabase } from "../../../../lib/supabase/client";
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {
@@ -14,6 +14,8 @@ export async function GET(request: NextRequest) {
       return createForbiddenResponse('You do not have permission to access admin functions.');
     }
 
+    const supabase = createServerSupabaseClient();
+    
     // Fetch crates with their items
     const { data: crates, error } = await supabase
       .from('crates')

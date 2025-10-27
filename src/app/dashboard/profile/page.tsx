@@ -3,6 +3,8 @@
 'use client';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../../components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../../../components/ui/alert-dialog";
 import { useAuth } from "../../../hooks/use-auth";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
 import { supabase } from "../../../lib/supabase/client";
@@ -26,6 +28,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { useBalance } from "../../../contexts/balance-context";
 import { useState, useEffect } from "react";
 import { getRoleColors, getRoleInlineStyle } from "../../../lib/role-colors";
+import { getBannerGradient, PROFILE_BANNERS, getBannerById } from "../../../lib/profile-banners";
 import { XpDisplay } from "../../../components/xp-display";
 
 
@@ -33,6 +36,7 @@ export default function ProfilePage() {
   const { user, loading, refreshUser } = useAuth();
   const { balance } = useBalance();
   const { toast } = useToast();
+  const [currentBanner, setCurrentBanner] = useState<string | undefined>(user?.equipped_banner);
   const [userStats, setUserStats] = useState({
     items: 0,
     betsWon: 0,
@@ -52,6 +56,22 @@ export default function ProfilePage() {
   const [notificationPrefs, setNotificationPrefs] = useState<any>({});
   const [emailConfirmed, setEmailConfirmed] = useState(false);
   const [claimingAchievement, setClaimingAchievement] = useState<number | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState('');
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showFinalDeleteWarning, setShowFinalDeleteWarning] = useState(false);
+  const [newEmail, setNewEmail] = useState('');
+  const [isAddingEmail, setIsAddingEmail] = useState(false);
+  // Showcase tab state
+  const [showcaseAchievement, setShowcaseAchievement] = useState<string>('');
+  const [showcaseItem1, setShowcaseItem1] = useState<string>('');
+  const [showcaseItem2, setShowcaseItem2] = useState<string>('');
+  const [showcaseItem3, setShowcaseItem3] = useState<string>('');
+  const [userInventory, setUserInventory] = useState<any[]>([]);
+  const [unlockedAchievements, setUnlockedAchievements] = useState<any[]>([]);
+  // Cosmetics state
+  const [ownedCosmetics, setOwnedCosmetics] = useState<any[]>([]);
+  const [isLoadingCosmetics, setIsLoadingCosmetics] = useState(true);
+  const [equippingBanner, setEquippingBanner] = useState<string | null>(null);
   // Fetch ranks from database - use user API instead of admin API
   useEffect(() => {
     const fetchRanks = async () => {
@@ -141,23 +161,7 @@ export default function ProfilePage() {
     return currentRank?.name || 'Unranked';
   };
   
-  const achievedItems = new Set([
-    "First Win Badge",
-    "Lucky Streak Badge",
-    "High Roller Badge"
-  ]);
-  
-  const equippedItems = {
-    primary: { id: "ak47-redline", name: "AK-47 | Redline" },
-    secondary: { id: "glock-fade", name: "Glock-18 | Fade" },
-    knife: { id: "karambit-doppler", name: "Karambit | Doppler" }
-  };
-  
-  const inventoryData = [
-    { id: "ak47-redline", name: "AK-47 | Redline" },
-    { id: "m4a4-asiimov", name: "M4A4 | Asiimov" },
-    { id: "glock-fade", name: "Glock-18 | Fade" }
-  ];
+  // Mock data removed - using real data from state (unlockedAchievements, userInventory)
   
   const referrals = [
     { id: "1", name: "Player123", username: "Player123", date: "2024-01-15", status: "active", bonus: 500 },
@@ -227,6 +231,184 @@ export default function ProfilePage() {
     }
   }, [user]);
 
+  // Fetch owned cosmetics
+  useEffect(() => {
+    const fetchOwnedCosmetics = async () => {
+      if (!user) {
+        setIsLoadingCosmetics(false);
+        return;
+      }
+      setIsLoadingCosmetics(true);
+      try {
+        const response = await fetch(`/api/cosmetics/owned?t=${Date.now()}`, { 
+          credentials: 'include',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setOwnedCosmetics(data.cosmetics || []);
+        }
+      } catch (error) {
+        console.error('Failed to fetch owned cosmetics:', error);
+      } finally {
+        setIsLoadingCosmetics(false);
+      }
+    };
+    fetchOwnedCosmetics();
+  }, [user, user?.equipped_banner]);
+
+  // Handle banner equip
+  const handleEquipBanner = async (bannerId: string) => {
+    setEquippingBanner(bannerId);
+    try {
+      const response = await fetch('/api/cosmetics/equip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ cosmeticId: bannerId })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast({
+          title: "Banner equipped!",
+          description: data.message || "Your new banner is now active!"
+        });
+        
+        // Update local state immediately for instant UI update
+        setCurrentBanner(bannerId);
+        
+        // Update ownedCosmetics to reflect the new equipped status
+        setOwnedCosmetics(prev => prev.map(cosmetic => ({
+          ...cosmetic,
+          equipped: cosmetic.cosmetic_id === bannerId
+        })));
+        
+        // Dispatch events to update banner everywhere
+        window.dispatchEvent(new CustomEvent('bannerEquipped', { 
+          detail: { bannerId } 
+        }));
+        window.dispatchEvent(new Event('userUpdated'));
+        window.dispatchEvent(new Event('balanceUpdated'));
+        
+        // Force immediate refresh with cache busting
+        await refreshUser();
+        
+        // Refetch cosmetics to ensure everything is in sync
+        setTimeout(async () => {
+          try {
+            const response = await fetch('/api/cosmetics/owned', { credentials: 'include' });
+            if (response.ok) {
+              const data = await response.json();
+              setOwnedCosmetics(data.cosmetics || []);
+            }
+          } catch (error) {
+            console.error('Failed to refresh cosmetics:', error);
+          }
+        }, 500);
+        
+        // Force multiple refreshes to ensure UI updates everywhere
+        setTimeout(() => {
+          refreshUser();
+        }, 100);
+        setTimeout(() => {
+          refreshUser();
+        }, 500);
+        setTimeout(() => {
+          refreshUser();
+        }, 1000);
+      } else {
+        toast({
+          title: "Failed to equip banner",
+          description: data.error || "An error occurred.",
+          variant: "destructive"
+        });
+      }
+    } catch (error) {
+      console.error('Equip error:', error);
+      toast({
+        title: "Error",
+        description: "An error occurred while equipping the banner.",
+        variant: "destructive"
+      });
+    } finally {
+      setEquippingBanner(null);
+    }
+  };
+
+  // Update current banner when user changes or component mounts
+  useEffect(() => {
+    // Always sync with user's equipped_banner from database
+    const bannerFromUser = user?.equipped_banner;
+    if (bannerFromUser) {
+      setCurrentBanner(bannerFromUser);
+    } else if (bannerFromUser === null || bannerFromUser === undefined) {
+      // If no banner set, use default
+      setCurrentBanner('banner_default');
+    }
+  }, [user?.equipped_banner, user?.id]);
+
+  // Listen for banner equip events to refresh user data
+  useEffect(() => {
+    const handleBannerEquipped = (event: CustomEvent) => {
+      if (event.detail?.bannerId) {
+        setCurrentBanner(event.detail.bannerId);
+      }
+      refreshUser();
+    };
+    
+    const handleUserUpdate = () => {
+      refreshUser();
+    };
+    
+    window.addEventListener('bannerEquipped', handleBannerEquipped as EventListener);
+    window.addEventListener('userUpdated', handleUserUpdate);
+    
+    return () => {
+      window.removeEventListener('bannerEquipped', handleBannerEquipped as EventListener);
+      window.removeEventListener('userUpdated', handleUserUpdate);
+    };
+  }, [refreshUser]);
+
+  // Fetch showcase data and inventory
+  useEffect(() => {
+    const fetchShowcaseData = async () => {
+      try {
+        const [showcaseRes, inventoryRes] = await Promise.all([
+          fetch('/api/user/showcase', { credentials: 'include' }),
+          fetch('/api/inventory', { credentials: 'include' })
+        ]);
+
+        if (showcaseRes.ok) {
+          const showcaseData = await showcaseRes.json();
+          if (showcaseData.success && showcaseData.showcase) {
+            setShowcaseAchievement(showcaseData.showcase.achievement_id?.toString() || '');
+            setShowcaseItem1(showcaseData.showcase.item_id_1 || '');
+            setShowcaseItem2(showcaseData.showcase.item_id_2 || '');
+            setShowcaseItem3(showcaseData.showcase.item_id_3 || '');
+          }
+        }
+
+        if (inventoryRes.ok) {
+          const inventoryData = await inventoryRes.json();
+          if (inventoryData.success && inventoryData.inventory) {
+            setUserInventory(inventoryData.inventory);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching showcase data:', error);
+      }
+    };
+
+    if (user) {
+      fetchShowcaseData();
+    }
+  }, [user]);
+  
   // Fetch user stats from API
   useEffect(() => {
     const fetchUserData = async () => {
@@ -255,12 +437,20 @@ export default function ProfilePage() {
           if (achievementsData.success) {
             // Use categories data which groups achievements by category
             const categorizedData: any = {};
+            const unlockedList: any[] = [];
             if (achievementsData.categories && Array.isArray(achievementsData.categories)) {
               achievementsData.categories.forEach((category: any) => {
                 categorizedData[category.name] = category.achievements || [];
+                // Extract unlocked achievements for showcase
+                category.achievements?.forEach((ach: any) => {
+                  if (ach.unlocked) {
+                    unlockedList.push(ach);
+                  }
+                });
               });
             }
             setAchievements(categorizedData);
+            setUnlockedAchievements(unlockedList);
           }
         }
         
@@ -276,7 +466,7 @@ export default function ProfilePage() {
     };
     
     if (user) {
-      setUsername(user.displayName || user.email?.split('@')[0] || '');
+      setUsername(user.displayName || user.email?.split('@')[0] || user.username || '');
       setEmail(user.email || '');
       fetchUserData();
     }
@@ -505,6 +695,10 @@ export default function ProfilePage() {
           title: "Achievement Claimed!",
           description: `You earned ${result.rewards.coins} coins, ${result.rewards.gems} gems, and ${result.rewards.xp} XP!`,
         });
+        
+        // Refresh user data to update balance
+        await refreshUser();
+        
         // Refresh achievements
         const achievementsResponse = await fetch('/api/user/achievements', { credentials: 'include' });
         if (achievementsResponse.ok) {
@@ -539,20 +733,42 @@ export default function ProfilePage() {
   };
 
   const handleConfirmEmail = async () => {
+    // For Steam users, validate the new email input
+    if ((user?.provider === 'steam' || email.includes('@steam.local')) && !newEmail) {
+      toast({
+        title: "Email Required",
+        description: "Please enter a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAddingEmail(true);
     try {
       const response = await fetch('/api/user/confirm-email', {
         method: 'POST',
-        credentials: 'include'
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          newEmail: (user?.provider === 'steam' || email.includes('@steam.local')) ? newEmail : undefined 
+        })
       });
 
       const result = await response.json();
 
       if (response.ok && result.success) {
+        setEmailConfirmed(true);
+        if (newEmail) {
+          setEmail(newEmail); // Update email state
+        }
         toast({
           title: "Email Confirmed!",
-          description: result.message,
+          description: result.message || `You earned 10 coins!`,
         });
-        setEmailConfirmed(true);
+        setNewEmail('');
+        
+        // Refresh user data to update balance
+        await refreshUser();
       } else {
         toast({
           title: "Confirmation failed",
@@ -567,6 +783,8 @@ export default function ProfilePage() {
         description: "An error occurred.",
         variant: "destructive",
       });
+    } finally {
+      setIsAddingEmail(false);
     }
   };
 
@@ -603,16 +821,132 @@ export default function ProfilePage() {
     }
   };
 
+  const handleInitiateDelete = () => {
+    setShowDeleteDialog(true);
+    setDeleteConfirmation('');
+  };
+
+  const handleFirstConfirmation = () => {
+    if (deleteConfirmation !== 'DELETE') {
+      toast({
+        title: "Confirmation Required",
+        description: "Please type DELETE exactly as shown.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setShowDeleteDialog(false);
+    setShowFinalDeleteWarning(true);
+  };
+
+  const handleFinalDelete = async () => {
+    setShowFinalDeleteWarning(false);
+
+    try {
+      const response = await fetch('/api/user/delete-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ confirmation: 'DELETE' })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Account Deleted",
+          description: "Your account has been permanently deleted. Redirecting...",
+        });
+        // Redirect to home page after 2 seconds
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      } else {
+        toast({
+          title: "Deletion failed",
+          description: result.error || "Failed to delete account.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Delete account error:', error);
+      toast({
+        title: "Deletion failed",
+        description: "An error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSaveShowcase = async () => {
+    setIsSaving(true);
+    try {
+      const response = await fetch('/api/user/showcase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          achievement_id: showcaseAchievement ? parseInt(showcaseAchievement) : null,
+          item_id_1: showcaseItem1 || null,
+          item_id_2: showcaseItem2 || null,
+          item_id_3: showcaseItem3 || null
+        })
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast({
+          title: "Showcase Saved!",
+          description: result.message || "Your profile showcase has been updated.",
+        });
+      } else {
+        toast({
+          title: "Save failed",
+          description: result.error || "Failed to save showcase settings.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Showcase save error:', error);
+      toast({
+        title: "Save failed",
+        description: "An error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="p-4 sm:p-6 lg:p-8 space-y-8">
       {/* User Profile Card */}
-      <Card className="overflow-hidden">
+      <Card className="overflow-hidden rounded-2xl">
         <CardHeader className="p-0">
-          <div className="bg-secondary h-24" />
+          <div 
+            className="h-32" 
+            style={{ background: getBannerGradient(currentBanner || user?.equipped_banner || 'banner_default') }}
+          />
         </CardHeader>
         <CardContent className="p-6 pt-0">
-          <div className="flex items-end gap-4 -mt-12">
-            <UserAvatar user={userAvatarProps} size="lg" className={cn("w-24 h-24 border-4 border-background ring-2 ring-primary", isVip && "ring-purple-400")} />
+          <div className="flex items-end gap-4 -mt-16">
+            <div className="w-24 h-24 rounded-full border-4 border-background ring-2 ring-primary shadow-lg overflow-hidden bg-secondary">
+              {(user as any)?.avatar_url || user?.photoURL ? (
+                <img 
+                  src={(user as any)?.avatar_url || user?.photoURL || ''} 
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center bg-primary/10">
+                  <span className="text-3xl font-bold">
+                    {(displayName || 'U')[0].toUpperCase()}
+                  </span>
+                </div>
+              )}
+            </div>
             <div>
               <h1 className={cn("text-2xl font-bold font-headline", isVip && "text-purple-400 animate-pulse", roleColors.text)} style={roleInlineStyle}>{displayName}</h1>
               <p className="text-muted-foreground">{user.provider === 'steam' ? 'Steam User' : 'Registered User'}</p>
@@ -648,21 +982,21 @@ export default function ProfilePage() {
               <Card className="bg-secondary/50 p-3">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Trophy className="w-5 h-5 text-blue-500" />
-                  <p className="text-xl font-bold">{userStats.items}</p>
+                <p className="text-xl font-bold">{userStats.items}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Items</p>
               </Card>
                <Card className="bg-secondary/50 p-3">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <Target className="w-5 h-5 text-orange-500" />
-                  <p className="text-xl font-bold">{userStats.betsWon}</p>
+                <p className="text-xl font-bold">{userStats.betsWon}</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Bets Won</p>
               </Card>
                <Card className="bg-secondary/50 p-3">
                 <div className="flex items-center justify-center gap-2 mb-1">
                   <TrendingUp className="w-5 h-5 text-cyan-500" />
-                  <p className="text-xl font-bold">{userStats.winRate}%</p>
+                <p className="text-xl font-bold">{userStats.winRate}%</p>
                 </div>
                 <p className="text-xs text-muted-foreground">Win Rate</p>
               </Card>
@@ -683,6 +1017,10 @@ export default function ProfilePage() {
             Gem History
           </TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="delete-account" className="flex items-center gap-2 text-red-500">
+            <Trash2 className="h-4 w-4" />
+            Delete Account
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="achievements" className="mt-4">
           <Card>
@@ -899,6 +1237,8 @@ export default function ProfilePage() {
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
                     <div className="flex items-center justify-center p-4 bg-secondary/30 rounded-lg">
                          <MiniProfileCard user={{
+                           ...user,
+                           equipped_banner: currentBanner || user?.equipped_banner,
                            name: user?.displayName || 'User',
                            avatar: (user as any)?.avatar_url || user?.photoURL,
                            dataAiHint: 'user profile',
@@ -911,45 +1251,77 @@ export default function ProfilePage() {
                     <div className="space-y-6">
                         <div className="space-y-2">
                            <Label htmlFor="showcase-achievement">Showcase Achievement (Unlocked at Lvl 5)</Label>
-                            <Select defaultValue="master-predictor" disabled={(balance?.level || 0) < 5}>
+                            <Select 
+                              value={showcaseAchievement} 
+                              onValueChange={setShowcaseAchievement}
+                              disabled={(balance?.level || 0) < 5}
+                            >
                                 <SelectTrigger id="showcase-achievement">
                                     <SelectValue placeholder="Select an achievement" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                   {Array.from(achievedItems).map(item => <SelectItem key={item} value={item.toLowerCase().replace(/\s/g, '-')}>{item}</SelectItem>)}
+                                   {unlockedAchievements.map(ach => (
+                                     <SelectItem key={ach.id} value={ach.id.toString()}>
+                                       {ach.name}
+                                     </SelectItem>
+                                   ))}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-2">
                            <Label htmlFor="showcase-item">Showcase Item (Unlocked at Lvl 10)</Label>
-                            <Select defaultValue={equippedItems.primary.id} disabled={(balance?.level || 0) < 10}>
+                            <Select 
+                              value={showcaseItem1} 
+                              onValueChange={setShowcaseItem1}
+                              disabled={(balance?.level || 0) < 10}
+                            >
                                 <SelectTrigger id="showcase-item">
                                     <SelectValue placeholder="Select an item from your inventory" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                   {inventoryData.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                                   {userInventory.map(item => (
+                                     <SelectItem key={item.id} value={item.item_id || item.id}>
+                                       {item.items?.name || item.name || 'Unknown Item'}
+                                     </SelectItem>
+                                   ))}
                                 </SelectContent>
                             </Select>
                         </div>
                          <div className="space-y-2">
                            <Label htmlFor="showcase-item-2">Showcase Item 2 (Unlocked at Lvl 25)</Label>
-                            <Select defaultValue={equippedItems.secondary.id} disabled={(balance?.level || 0) < 25}>
+                            <Select 
+                              value={showcaseItem2} 
+                              onValueChange={setShowcaseItem2}
+                              disabled={(balance?.level || 0) < 25}
+                            >
                                 <SelectTrigger id="showcase-item-2">
                                     <SelectValue placeholder="Select an item from your inventory" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                   {inventoryData.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                                   {userInventory.map(item => (
+                                     <SelectItem key={item.id} value={item.item_id || item.id}>
+                                       {item.items?.name || item.name || 'Unknown Item'}
+                                     </SelectItem>
+                                   ))}
                                 </SelectContent>
                             </Select>
                         </div>
                          <div className="space-y-2">
                            <Label htmlFor="showcase-item-3">Showcase Item 3 (Unlocked at Lvl 50)</Label>
-                            <Select defaultValue={equippedItems.knife.id} disabled={(balance?.level || 0) < 50}>
+                            <Select 
+                              value={showcaseItem3} 
+                              onValueChange={setShowcaseItem3}
+                              disabled={(balance?.level || 0) < 50}
+                            >
                                 <SelectTrigger id="showcase-item-3">
                                     <SelectValue placeholder="Select an item from your inventory" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                   {inventoryData.map(item => <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>)}
+                                   {userInventory.map(item => (
+                                     <SelectItem key={item.id} value={item.item_id || item.id}>
+                                       {item.items?.name || item.name || 'Unknown Item'}
+                                     </SelectItem>
+                                   ))}
                                 </SelectContent>
                             </Select>
                         </div>
@@ -958,9 +1330,9 @@ export default function ProfilePage() {
                            <Input id="showcase-rank" value={getRankByLevel(balance?.level || 1) || 'No Rank'} disabled />
                            <p className="text-xs text-muted-foreground">Your highest achieved rank is always shown.</p>
                         </div>
-                        <Button>
+                        <Button onClick={handleSaveShowcase} disabled={isSaving}>
                             <Edit className="mr-2 h-4 w-4"/>
-                            Save Showcase
+                            {isSaving ? 'Saving...' : 'Save Showcase'}
                         </Button>
                     </div>
                 </CardContent>
@@ -984,22 +1356,22 @@ export default function ProfilePage() {
                           {activity.type === 'trade_up' && <TrendingUp className="h-5 w-5 text-cyan-500" />}
                           {activity.type === 'purchase' && <Coins className="h-5 w-5 text-green-500" />}
                           {activity.type === 'achievement' && <Trophy className="h-5 w-5 text-yellow-500" />}
-                          <div>
+                        <div>
                             <p className="font-semibold capitalize">{activity.type.replace('_', ' ')}</p>
                             <p className="text-sm text-muted-foreground">
-                              {activity.type === 'bet' && `Bet ${activity.data.amount} coins • ${activity.data.status}`}
-                              {activity.type === 'game' && `${activity.data.gameType} • ${activity.data.payout} coins`}
-                              {activity.type === 'crate_opening' && activity.data.crateName}
-                              {activity.type === 'trade_up' && 'Traded 5 items'}
-                              {activity.type === 'purchase' && activity.data.itemName}
-                              {activity.type === 'achievement' && activity.data.name}
+                              {activity.type === 'bet' && `Bet ${activity.data?.amount || 0} coins • ${activity.data?.status || 'pending'}`}
+                              {activity.type === 'game' && `${activity.data?.gameType || 'Unknown'} • Bet: ${activity.data?.bet || 0} • Won: ${activity.data?.payout || 0} coins`}
+                              {activity.type === 'crate_opening' && (activity.data?.crateName || 'Crate Opened')}
+                              {activity.type === 'trade_up' && 'Traded 5 items for better rarity'}
+                              {activity.type === 'purchase' && (activity.data?.itemName || 'Item Purchased')}
+                              {activity.type === 'achievement' && (activity.data?.name || 'Achievement Unlocked')}
                             </p>
-                          </div>
                         </div>
+                      </div>
                         <div className="text-right">
-                          <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-muted-foreground">
                             {new Date(activity.timestamp).toLocaleDateString()}
-                          </p>
+                        </p>
                         </div>
                       </div>
                     ))}
@@ -1057,42 +1429,21 @@ export default function ProfilePage() {
                     <Label htmlFor="username">Username</Label>
                     <Input 
                       id="username" 
-                      value={username}
+                      value={username || ''}
                       onChange={(e) => setUsername(e.target.value)}
                       placeholder="Enter your username"
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="email">Email</Label>
-                    <div className="flex items-center gap-2">
-                      <Input 
-                        id="email" 
-                        type="email" 
-                        value={email}
-                        disabled
-                        className="bg-muted flex-1"
-                      />
-                      {!emailConfirmed && user?.provider !== 'steam' && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleConfirmEmail}
-                        >
-                          <Mail className="h-4 w-4 mr-2" />
-                          Confirm (+10 Coins)
-                        </Button>
-                      )}
-                      {emailConfirmed && (
-                        <UiBadge variant="default" className="bg-green-600">
-                          ✓ Verified
-                        </UiBadge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {emailConfirmed 
-                        ? 'Your email is verified!' 
-                        : 'Confirm your email to earn 10 coins and unlock features.'}
-                    </p>
+                    <Input 
+                      id="email" 
+                      type="email" 
+                      value={email || ''}
+                      disabled
+                      className="bg-muted"
+                    />
+                    <p className="text-xs text-muted-foreground">Email cannot be changed. Contact support if needed.</p>
                   </div>
                   <Button 
                     onClick={handleProfileUpdate} 
@@ -1110,10 +1461,201 @@ export default function ProfilePage() {
                         <p className="text-xs text-muted-foreground">Connect your Steam account to sync your avatar and display a verification badge.</p>
                    </div>
                 </CardContent>
-                <CardFooter>
-                  <Button>Save Changes</Button>
-                </CardFooter>
               </Card>
+
+              {/* Profile Cosmetics Card */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Trophy className="h-5 w-5 text-purple-500" />
+                    Profile Cosmetics
+                  </CardTitle>
+                  <CardDescription>
+                    Customize your profile with unique banners. Purchase more in the Shop → Cosmetics tab.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {isLoadingCosmetics ? (
+                    <div className="flex items-center justify-center py-8">
+                      <div className="flex flex-col items-center gap-2">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                        <p className="text-sm text-muted-foreground">Loading cosmetics...</p>
+                      </div>
+                    </div>
+                  ) : ownedCosmetics.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                      {ownedCosmetics.map((cosmetic) => {
+                        const banner = getBannerById(cosmetic.cosmetic_id);
+                        if (!banner) return null;
+                        
+                        // Check if this banner is currently equipped (prioritize currentBanner state, then user data)
+                        const equippedBannerId = currentBanner || user?.equipped_banner || 'banner_default';
+                        const isEquipped = cosmetic.cosmetic_id === equippedBannerId;
+                        const isEquipping = equippingBanner === cosmetic.cosmetic_id;
+
+                        return (
+                          <div key={cosmetic.cosmetic_id || cosmetic.id} className="border rounded-lg overflow-hidden">
+                            {/* Banner Preview */}
+                            <div 
+                              className="h-20 relative"
+                              style={{ background: banner.gradient }}
+                            >
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-white font-bold drop-shadow-lg">
+                                  {banner.name}
+                                </span>
+                              </div>
+                              {isEquipped && (
+                                <div className="absolute top-2 right-2">
+                                  <UiBadge variant="secondary" className="bg-green-500 text-white">
+                                    ✓ Equipped
+                                  </UiBadge>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Banner Info */}
+                            <div className="p-4 flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold">{banner.name}</p>
+                                <p className="text-xs text-muted-foreground capitalize">
+                                  {banner.rarity}
+                                </p>
+                              </div>
+                              <Button 
+                                onClick={() => handleEquipBanner(cosmetic.cosmetic_id)}
+                                disabled={isEquipped || isEquipping}
+                                size="sm"
+                                variant={isEquipped ? "secondary" : "default"}
+                              >
+                                {isEquipping ? 'Equipping...' : isEquipped ? 'Equipped' : 'Equip'}
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 px-4 bg-secondary/50 rounded-lg">
+                      <Trophy className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        You don't own any profile banners yet
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Visit the Shop → Cosmetics tab to purchase banners with coins
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Email Confirmation Card (for all users including Steam) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Email Confirmation</CardTitle>
+                  <CardDescription>
+                    {user?.provider === 'steam' 
+                      ? 'Add your real email address to earn 10 coins and enable account recovery'
+                      : 'Verify your email address to unlock all features'}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {emailConfirmed && !email.includes('@steam.local') ? (
+                    <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/50 rounded-lg">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center">
+                          <Mail className="h-5 w-5 text-white" />
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-green-600">Email Verified!</p>
+                        <p className="text-sm text-muted-foreground">
+                          Your email {email} is confirmed and verified.
+                        </p>
+                      </div>
+                      <UiBadge variant="default" className="bg-green-600">
+                        ✓ Verified
+                      </UiBadge>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-3 p-4 bg-amber-500/10 border border-amber-500/50 rounded-lg">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-amber-500 flex items-center justify-center">
+                            <Mail className="h-5 w-5 text-white" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-semibold text-amber-600">
+                            {user?.provider === 'steam' || email.includes('@steam.local') 
+                              ? 'No Real Email Added'
+                              : 'Email Not Verified'}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            {user?.provider === 'steam' || email.includes('@steam.local')
+                              ? 'Add and verify a real email to earn 10 Coins and enable account recovery!'
+                              : 'Confirm your email to earn 10 Coins and unlock all features!'}
+                          </p>
+                        </div>
+                      </div>
+
+                      {user?.provider === 'steam' || email.includes('@steam.local') ? (
+                        <>
+                          <div className="space-y-2">
+                            <Label htmlFor="new-email">Enter Your Real Email Address</Label>
+                            <Input
+                              id="new-email"
+                              type="email"
+                              value={newEmail}
+                              onChange={(e) => setNewEmail(e.target.value)}
+                              placeholder="your.email@example.com"
+                              disabled={isAddingEmail}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              We'll send a confirmation link to this email address.
+                            </p>
+                          </div>
+
+                          <Button
+                            className="w-full"
+                            onClick={handleConfirmEmail}
+                            disabled={isAddingEmail || !newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)}
+                          >
+                            <Mail className="mr-2 h-4 w-4" />
+                            {isAddingEmail ? 'Adding Email...' : 'Add Email & Earn 10 Coins'}
+                          </Button>
+
+                          <p className="text-xs text-center text-muted-foreground">
+                            Steam users need to add a real email for account recovery and rewards.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm text-muted-foreground">Current Email:</span>
+                              <span className="text-sm font-medium">{email}</span>
+                            </div>
+                          </div>
+
+                          <Button
+                            className="w-full"
+                            onClick={handleConfirmEmail}
+                          >
+                            <Mail className="mr-2 h-4 w-4" />
+                            Confirm Email & Earn 10 Coins
+                          </Button>
+
+                          <p className="text-xs text-center text-muted-foreground">
+                            Check your inbox for a confirmation email (or click the button to send a new one).
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
               <Card>
                   <CardHeader>
                     <CardTitle>Notification Settings</CardTitle>
@@ -1223,7 +1765,7 @@ export default function ProfilePage() {
                     <div>
                       <Label htmlFor="referral-code">Your Unique Referral Code</Label>
                       <div className="flex items-center gap-2 mt-2">
-                        <Input id="referral-code" value={referralCode} readOnly className="font-mono bg-secondary/50"/>
+                        <Input id="referral-code" value={referralCode || ''} readOnly className="font-mono bg-secondary/50"/>
                         <Button variant="outline" size="icon" onClick={handleCopy}>
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -1242,15 +1784,15 @@ export default function ProfilePage() {
                         <TableBody>
                           {referredUsers && referredUsers.length > 0 ? (
                             referredUsers.map((ref) => (
-                              <TableRow key={ref.id}>
+                            <TableRow key={ref.id}>
                                 <TableCell className="font-medium">{ref.displayname || ref.username}</TableCell>
                                 <TableCell className="text-xs">{new Date(ref.created_at).toLocaleDateString()}</TableCell>
-                                <TableCell>
+                              <TableCell>
                                   <UiBadge variant="default" className="bg-green-600 text-xs">
                                     Active
-                                  </UiBadge>
-                                </TableCell>
-                              </TableRow>
+                                </UiBadge>
+                              </TableCell>
+                            </TableRow>
                             ))
                           ) : (
                             <TableRow>
@@ -1313,25 +1855,167 @@ export default function ProfilePage() {
                   </TableBody>
                 </Table>
               ) : (
-                <div className="text-center py-8">
+              <div className="text-center py-8">
                   <Gem className="h-16 w-16 mx-auto mb-4 text-purple-500" />
                   <h3 className="text-xl font-semibold mb-2">No Gem History</h3>
-                  <p className="text-muted-foreground mb-4">
+                <p className="text-muted-foreground mb-4">
                     You haven't made any gem transactions yet.
-                  </p>
-                  <div className="flex items-center justify-center gap-4">
-                    <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-lg">
-                      <Gem className="h-5 w-5 text-purple-500" />
-                      <span className="font-bold">{balance?.gems?.toLocaleString() || 0}</span>
-                      <span className="text-muted-foreground">Gems Available</span>
-                    </div>
+                </p>
+                <div className="flex items-center justify-center gap-4">
+                  <div className="flex items-center gap-2 bg-secondary/50 px-4 py-2 rounded-lg">
+                    <Gem className="h-5 w-5 text-purple-500" />
+                    <span className="font-bold">{balance?.gems?.toLocaleString() || 0}</span>
+                    <span className="text-muted-foreground">Gems Available</span>
                   </div>
+                </div>
                 </div>
               )}
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="delete-account" className="mt-4">
+          <Card className="border-red-500/50">
+            <CardHeader>
+              <CardTitle className="text-red-500 flex items-center gap-2">
+                <Trash2 className="h-5 w-5" />
+                Delete Account
+              </CardTitle>
+              <CardDescription>Permanently delete your account and all associated data</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
+                <h4 className="font-semibold text-red-500 mb-2">⚠️ Warning: This action cannot be undone!</h4>
+                <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                  <li>All your coins, gems, and XP will be lost</li>
+                  <li>Your inventory items will be deleted</li>
+                  <li>Your betting history and achievements will be removed</li>
+                  <li>Your username will become available for others</li>
+                  <li>You will be logged out immediately</li>
+                </ul>
+              </div>
+
+              <div className="space-y-4">
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  onClick={handleInitiateDelete}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Permanently Delete My Account
+                </Button>
+
+                <p className="text-xs text-center text-muted-foreground">
+                  Need help? <a href="/support" className="text-primary hover:underline">Contact Support</a>
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
       </Tabs>
+
+      {/* First Confirmation Dialog - Type DELETE */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-red-500 flex items-center gap-2">
+              <Trash2 className="h-5 w-5" />
+              Confirm Account Deletion
+            </DialogTitle>
+            <DialogDescription>
+              This action is permanent. All your data will be lost forever.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
+              <p className="text-sm font-semibold text-red-500 mb-2">⚠️ You will lose:</p>
+              <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                <li>All coins, gems, and XP</li>
+                <li>Your entire inventory</li>
+                <li>All achievements and badges</li>
+                <li>Betting history and statistics</li>
+              </ul>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="delete-input">
+                Type <span className="font-bold text-red-500">DELETE</span> to confirm
+              </Label>
+              <Input
+                id="delete-input"
+                value={deleteConfirmation}
+                onChange={(e) => setDeleteConfirmation(e.target.value)}
+                placeholder="Type DELETE"
+                className="border-red-500/50"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && deleteConfirmation === 'DELETE') {
+                    handleFirstConfirmation();
+                  }
+                }}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowDeleteDialog(false);
+                setDeleteConfirmation('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleFirstConfirmation}
+              disabled={deleteConfirmation !== 'DELETE'}
+            >
+              Continue
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Final Warning Alert Dialog */}
+      <AlertDialog open={showFinalDeleteWarning} onOpenChange={setShowFinalDeleteWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-500 text-xl">
+              ⚠️ FINAL WARNING - Are you absolutely sure?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-4">
+              <p className="text-base font-semibold">
+                This will PERMANENTLY DELETE your account and ALL associated data.
+              </p>
+              <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-4">
+                <p className="text-sm font-bold text-red-500 mb-2">
+                  This action CANNOT be undone!
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Your account, coins, gems, XP, inventory, achievements, badges, betting history, 
+                  and all other data will be permanently deleted and cannot be recovered.
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                You will be immediately logged out and your username will become available for others to use.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setShowFinalDeleteWarning(false)}>
+              Cancel - Keep My Account
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleFinalDelete}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Yes, Delete Everything Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

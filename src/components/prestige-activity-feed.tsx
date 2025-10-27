@@ -89,7 +89,7 @@ export function PrestigeActivityFeed() {
     const fetchActivities = async () => {
       try {
         console.log('🌎 PRESTIGE FEED: Fetching activities from API...');
-        const response = await fetch('/api/activities');
+        const response = await fetch('/api/activity');
         
         if (response.ok) {
           const data = await response.json();
@@ -142,7 +142,7 @@ export function PrestigeActivityFeed() {
     const refreshInterval = setInterval(() => {
       // Add a small delay to avoid race conditions
       setTimeout(() => {
-        fetch('/api/activities')
+        fetch('/api/activity')
           .then(res => {
             if (!res.ok) {
               throw new Error(`HTTP ${res.status}: ${res.statusText}`);
@@ -150,11 +150,14 @@ export function PrestigeActivityFeed() {
             return res.json();
           })
           .then(data => {
-            if (data.activities && data.activities.length > 0) {
-              console.log('🔄 PRESTIGE FEED: Refreshed with', data.activities.length, 'activities');
-              setActivities(data.activities);
+            // Check both possible response formats: { activities: [...] } or just [...]
+            const activitiesArray = data.activities || data || [];
+            if (activitiesArray.length > 0) {
+              console.log('🔄 PRESTIGE FEED: Refreshed with', activitiesArray.length, 'activities');
+              setActivities(activitiesArray);
             } else {
-              console.warn('⚠️ PRESTIGE FEED: Refresh returned no activities');
+              // Don't log warning for empty activities, it's normal
+              // console.warn('⚠️ PRESTIGE FEED: Refresh returned no activities');
             }
           })
           .catch(err => {

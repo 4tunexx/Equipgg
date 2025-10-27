@@ -7,6 +7,7 @@ import { addXpForCrateOpened } from "../../../../lib/xp-leveling-system";
 import { trackMissionProgress, updateOwnershipMissions } from "../../../../lib/mission-integration";
 import { createNotification } from "../../../../lib/notification-utils";
 import { trackCrateOpened } from "../../../../lib/activity-tracker";
+import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
 // Create Supabase admin client for secure operations
 const supabaseAdmin = createClient(
@@ -40,6 +41,20 @@ export async function POST(request: NextRequest) {
     
     if (!crateId) {
       return NextResponse.json({ error: "Crate ID is required" }, { status: 400 });
+    }
+
+    // Check verification status first - ANTI-CHEAT
+    const verificationStatus = await checkBalanceAccess(session.user_id);
+    if (!verificationStatus.canUseBalances) {
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(session.user_id, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required',
+        requiresVerification: true,
+        notificationCreated: true
+      }, { status: 403 });
     }
 
     // ANTI-CHEAT: Check if user is already opening a crate

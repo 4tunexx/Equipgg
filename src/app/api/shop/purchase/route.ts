@@ -5,6 +5,7 @@ import { trackCollectionAchievement } from "../../../../lib/achievement-tracker"
 import { trackMissionProgress, updateOwnershipMissions } from "../../../../lib/mission-integration";
 import { trackItemBought } from "../../../../lib/activity-tracker";
 import { getAuthSession } from "../../../../lib/auth-utils";
+import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,6 +23,20 @@ export async function POST(request: NextRequest) {
 
     if (!itemId || !itemName || !price) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
+
+    // Check verification status first - ANTI-CHEAT
+    const verificationStatus = await checkBalanceAccess(userId);
+    if (!verificationStatus.canUseBalances) {
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(userId, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required',
+        requiresVerification: true,
+        notificationCreated: true
+      }, { status: 403 });
     }
 
     // Get user info and current balance

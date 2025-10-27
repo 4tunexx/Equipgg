@@ -6,6 +6,7 @@ import { checkAndAwardAchievements } from "../../../../lib/achievement-integrati
 import { trackMissionProgress } from "../../../../lib/mission-integration";
 import { broadcastNewBet } from "../../../../lib/supabase/realtime";
 import { trackBetPlaced } from "../../../../lib/activity-tracker";
+import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
 // Note: create server admin client inside the handler to avoid import-time errors
 
@@ -47,6 +48,20 @@ export async function POST(request: NextRequest) {
 
     if (amount <= 0) {
       return NextResponse.json({ error: "Bet amount must be positive" }, { status: 400 });
+    }
+
+    // Check verification status first - ANTI-CHEAT
+    const verificationStatus = await checkBalanceAccess(session.user_id);
+    if (!verificationStatus.canUseBalances) {
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(session.user_id, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required',
+        requiresVerification: true,
+        notificationCreated: true
+      }, { status: 403 });
     }
 
     // Get user's balance and info
