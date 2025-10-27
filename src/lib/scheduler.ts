@@ -85,5 +85,15 @@ export const matchScheduler = new MatchScheduler();
 
 // Auto-start scheduler when module is imported
 if (typeof window === 'undefined') { // Only run on server side
-  matchScheduler.start();
+  // Only start scheduler when Supabase credentials are available. This
+  // prevents build-time invocation of server-only code during Next.js
+  // build/collect-phase where env vars may be missing.
+  const hasSupabaseUrl = !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL);
+  const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (hasSupabaseUrl && hasServiceRole) {
+    matchScheduler.start();
+  } else {
+    // eslint-disable-next-line no-console
+    console.warn('Match scheduler not started: missing Supabase env vars or running in build environment');
+  }
 }

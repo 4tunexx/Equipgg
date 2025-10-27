@@ -17,25 +17,76 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
     const supabase = createServerSupabaseClient();
     
     // Check both users table and auth metadata
-    const { data: user, error } = await supabase
+    const userRes = await supabase
       .from('users')
       .select('email_verified, steam_verified, provider, account_status, email')
       .eq('id', userId)
       .single();
+    let user = userRes.data as any;
+    const error = userRes.error;
     
+    // If no user row exists, try to create a minimal profile from Auth (if admin API available)
     if (error || !user) {
-      return {
-        isVerified: false,
-        requiresEmailVerification: true,
-        requiresSteamVerification: true,
-        canUseBalances: false,
-        message: 'User not found'
-      };
+      try {
+        // Try to get auth user metadata via the Admin API (requires SERVICE_ROLE key)
+        const { data: authUserData, error: adminErr } = await supabase.auth.admin.getUserById(userId as string as any).catch(() => ({ data: null, error: true }));
+
+        const emailFromAuth = authUserData?.user?.email || null;
+
+        // If we have at least an email from Auth, upsert a minimal users row so other systems work
+        if (emailFromAuth) {
+          const upsertPayload: any = {
+            id: userId,
+            email: emailFromAuth,
+            role: 'user',
+            coins: 0,
+            xp: 0,
+            level: 1,
+            created_at: new Date().toISOString()
+          };
+
+          await supabase.from('users').upsert(upsertPayload, { onConflict: 'id' }).catch((e) => {
+            console.warn('Failed to upsert minimal user row:', e);
+          });
+
+          // Re-fetch the user row
+          const { data: reUser, error: reError } = await supabase
+            .from('users')
+            .select('email_verified, steam_verified, provider, account_status, email')
+            .eq('id', userId)
+            .single();
+
+          if (!reError && reUser) {
+            // continue processing with reUser
+            // reuse variable name 'user'
+            // @ts-ignore
+            user = reUser;
+          }
+        }
+      } catch (innerErr) {
+        console.warn('Unable to auto-create user row during verification check:', innerErr);
+      }
+
+      if (!user) {
+        return {
+          isVerified: false,
+          requiresEmailVerification: true,
+          requiresSteamVerification: true,
+          canUseBalances: false,
+          message: 'User not found'
+        };
+      }
     }
     
-    // Check Supabase Auth for email confirmation status
-    const { data: authUser } = await supabase.auth.admin.getUserById(userId);
-    const emailConfirmedFromAuth = authUser?.user?.email_confirmed_at !== null;
+    // Check Supabase Auth for email confirmation status (use admin API when available)
+    let emailConfirmedFromAuth = false;
+    try {
+      const adminResp = await supabase.auth.admin.getUserById(userId as string as any).catch(() => null);
+      emailConfirmedFromAuth = !!adminResp?.data?.user?.email_confirmed_at;
+    } catch (e) {
+      // Admin API not available or failed - fall back to false
+      emailConfirmedFromAuth = false;
+    }
     
     // User is verified if:
     // 1. email_verified is true in users table, OR
