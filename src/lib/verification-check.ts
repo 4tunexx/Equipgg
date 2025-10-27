@@ -32,51 +32,65 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
       
       console.log('Checking service role key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
       
-      // First try admin API
-      console.log('Attempting admin API getUserById...');
+      // Initialize variables
       let userData: { user?: { id: string; email: string | null; created_at?: string } } | null = null;
       let adminError: any = null;
-      
-      try {
-        const adminResult = await supabase.auth.admin.getUserById(userId);
-        userData = adminResult.data;
-        adminError = adminResult.error;
-        console.log('Admin API response:', JSON.stringify(adminResult, null, 2));
-        
-        if (adminResult.error) {
-          console.error('Admin API error:', adminResult.error);
-        }
-      } catch (e) {
-        console.error('Admin API call failed:', e);
-        adminError = e;
-      }
 
-      // If admin fails, try standard auth API
-      if (!userData?.user?.email) {
-        console.log('Admin API failed to get user, trying standard auth...');
+      // For Steam users, we'll create a minimal profile directly
+      // Steam users are pre-verified since they authenticated through Steam
+      if (userId.startsWith('steam-')) {
+        console.log('Processing Steam user:', userId);
+        userData = {
+          user: {
+            id: userId,
+            email: null, // Steam users might not have email
+            created_at: new Date().toISOString()
+          }
+        };
+      } else {
+        // For non-Steam users, try admin API first
+        console.log('Attempting admin API getUserById for non-Steam user...');
         
         try {
-          // Try to get user from auth metadata table
-          const { data: directAuthData, error: directError } = await supabase
-            .from('auth')
-            .select('email, id, created_at')
-            .eq('id', userId)
-            .single();
-            
-          if (directError) {
-            console.error('Direct auth query failed:', directError);
-          } else if (directAuthData?.email) {
-            console.log('Found user via direct auth query:', directAuthData);
-            userData = { 
-              user: {
-                id: directAuthData.id,
-                email: directAuthData.email,
-                created_at: directAuthData.created_at
-              }
-            };
+          const adminResult = await supabase.auth.admin.getUserById(userId);
+          userData = adminResult.data;
+          adminError = adminResult.error;
+          console.log('Admin API response:', JSON.stringify(adminResult, null, 2));
+          
+          if (adminResult.error) {
+            console.error('Admin API error:', adminResult.error);
           }
-        } catch (directError) {
-          console.error('Error querying auth table:', directError);
+        } catch (e) {
+          console.error('Admin API call failed:', e);
+          adminError = e;
+        }
+
+        // If admin fails, try auth.users table
+        if (!userData?.user?.email) {
+          console.log('Admin API failed, trying auth.users table...');
+          
+          try {
+            const { data: directAuthData, error: directError } = await supabase
+              .from('auth.users')  // Changed from 'auth' to 'auth.users'
+              .select('email, id, created_at')
+              .eq('id', userId)
+              .single();
+              
+            if (directError) {
+              console.error('Auth.users query failed:', directError);
+            } else if (directAuthData?.email) {
+              console.log('Found user in auth.users:', directAuthData);
+              userData = { 
+                user: {
+                  id: directAuthData.id,
+                  email: directAuthData.email,
+                  created_at: directAuthData.created_at
+                }
+              };
+            }
+          } catch (directError) {
+            console.error('Error querying auth.users:', directError);
+          }
         }
       }
       
