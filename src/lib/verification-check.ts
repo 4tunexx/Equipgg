@@ -25,15 +25,21 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
     let user = userRes.data as any;
     const error = userRes.error;
     
-    // If no user row exists, try to create a minimal profile from Auth (if admin API available)
-    if (error || !user) {
-      try {
-        // Try to get auth user metadata via the Admin API (requires SERVICE_ROLE key)
-        const { data: authUserData, error: adminErr } = await supabase.auth.admin.getUserById(userId as string as any).catch(() => ({ data: null, error: true }));
+  // If no user row exists, try to create a minimal profile from Auth (if admin API available)
+  if (error || !user) {
+    try {
+      console.log('No users row found for', userId, '- attempting auto-creation from Auth metadata');
+      
+      // Try to get auth user metadata via the Admin API (requires SERVICE_ROLE key)
+      const { data: authUserData, error: adminErr } = await supabase.auth.admin.getUserById(userId as string as any).catch(() => ({ data: null, error: true }));
 
-        const emailFromAuth = authUserData?.user?.email || null;
-
-        // If we have at least an email from Auth, upsert a minimal users row so other systems work
+      if (adminErr) {
+        console.error('Admin API error - cannot access auth.admin.getUserById:', adminErr);
+        console.error('Check SUPABASE_SERVICE_ROLE_KEY is set in environment');
+      }
+      
+      const emailFromAuth = authUserData?.user?.email || null;
+      console.log('Auth metadata found:', { userId, email: emailFromAuth || 'none' });        // If we have at least an email from Auth, upsert a minimal users row so other systems work
         if (emailFromAuth) {
           const upsertPayload: any = {
             id: userId,
@@ -45,29 +51,40 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
             created_at: new Date().toISOString()
           };
 
-          await supabase.from('users').upsert(upsertPayload, { onConflict: 'id' }).catch((e) => {
-            console.warn('Failed to upsert minimal user row:', e);
-          });
+        const { error: upsertError } = await supabase
+          .from('users')
+          .upsert(upsertPayload, { onConflict: 'id' })
+          .catch((e) => ({ error: e }));
+        
+        if (upsertError) {
+          console.error('Failed to upsert minimal user row:', upsertError);
+          console.error('User payload was:', upsertPayload);
+        } else {
+          console.log('Successfully created minimal users row for', userId);
+        }
 
-          // Re-fetch the user row
-          const { data: reUser, error: reError } = await supabase
-            .from('users')
-            .select('email_verified, steam_verified, provider, account_status, email')
-            .eq('id', userId)
-            .single();
-
-          if (!reError && reUser) {
+        // Re-fetch the user row
+        const { data: reUser, error: reError } = await supabase
+          .from('users')
+          .select('email_verified, steam_verified, provider, account_status, email')
+          .eq('id', userId)
+          .single();          if (!reError && reUser) {
             // continue processing with reUser
             // reuse variable name 'user'
             // @ts-ignore
             user = reUser;
+            console.log('Re-fetched user row after upsert:', { userId, hasRow: !!reUser });
+          } else if (reError) {
+            console.error('Failed to re-fetch user after upsert:', reError);
           }
         }
       } catch (innerErr) {
-        console.warn('Unable to auto-create user row during verification check:', innerErr);
+        console.error('Error during user auto-creation:', innerErr);
+        console.error('Stack:', innerErr instanceof Error ? innerErr.stack : 'No stack available');
       }
 
       if (!user) {
+        console.error('FINAL: No users row exists and auto-creation failed for user:', userId);
         return {
           isVerified: false,
           requiresEmailVerification: true,
