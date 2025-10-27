@@ -1,6 +1,4 @@
 
-'use client';
-
 import { PrestigeActivityFeed } from "../components/prestige-activity-feed";
 import { Footer } from "../components/footer";
 import { FeaturedItemsCarousel } from "../components/landing/featured-items-carousel";
@@ -11,38 +9,13 @@ import { HeroSection } from "../components/landing/hero-section";
 import { FeatureHighlights } from "../components/landing/feature-highlights";
 import { FlashSaleBanner } from "../components/flash-sale-banner";
 import { Particles } from "../components/particles";
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { DashboardRedirect } from "../components/landing/dashboard-redirect";
 
 export default function Home() {
-  const router = useRouter();
-
-  useEffect(() => {
-    // Add a small delay to prevent race conditions with logout
-    const timer = setTimeout(async () => {
-      try {
-        const res = await fetch('/api/me', { credentials: 'include' });
-        if (res.ok) {
-          const responseText = await res.text();
-          let data;
-          try {
-            data = JSON.parse(responseText);
-          } catch (parseError) {
-            console.error('Failed to parse /api/me response:', parseError, responseText);
-            return;
-          }
-          if (data?.user) router.replace('/dashboard');
-        }
-      } catch (error) {
-        console.error('Error checking user session:', error);
-      }
-    }, 100);
-    
-    return () => clearTimeout(timer);
-  }, [router]);
 
   return (
     <div className="flex flex-col bg-background text-foreground relative">
+      <DashboardRedirect />
       <Particles />
       <PrestigeActivityFeed />
       <main className="flex-1">

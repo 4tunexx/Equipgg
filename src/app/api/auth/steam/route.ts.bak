@@ -1,0 +1,530 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { createServerSupabaseClient } from '@/lib/supabase';
+
+const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
+const STEAM_API_KEY = process.env.STEAM_API_KEY;
+
+function getBaseUrl(request: NextRequest) {
+  const host = request.headers.get('host') || '';
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const isCodespaces = host.includes('.app.github.dev');
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (isCodespaces) return `https://${host}`;
+  if (isProduction) return process.env.NEXT_PUBLIC_BASE_URL || 'https://www.equipgg.net';
+  
+  // Local development with proper protocol handling
+  const protocol = forwardedProto || 'http';
+  return `${protocol}://${host}`;
+}
+
+// Supabase clients will be created inside handlers using the server helper
+
+// Steam OpenID parameters
+export function buildSteamAuthUrl(returnUrl: string, baseUrl: string) {
+  const params = new URLSearchParams({
+    'openid.ns': 'http://specs.openid.net/auth/2.0',
+    'openid.mode': 'checkid_setup',
+    'openid.return_to': returnUrl,
+    'openid.realm': baseUrl,
+    'openid.identity': 'http://specs.openid.net/auth/2.0/identifier_select',
+    'openid.claimed_id': 'http://specs.openid.net/auth/2.0/identifier_select'
+  });
+  
+  return `${STEAM_OPENID_URL}?${params.toString()}`;
+}
+
+// Verify Steam OpenID response
+export async function verifySteamResponse(params: URLSearchParams): Promise<string | null> {
+  try {
+    // Change mode to check_authentication
+    const verifyParams = new URLSearchParams(params);
+    verifyParams.set('openid.mode', 'check_authentication');
+    
+    const response = await fetch(STEAM_OPENID_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
+      body: verifyParams.toString()
+    });
+    
+    const result = await response.text();
+    
+    if (result.includes('is_valid:true')) {
+      // Extract Steam ID from claimed_id
+      const claimedId = params.get('openid.claimed_id');
+      if (claimedId) {
+        const steamId = claimedId.replace('https://steamcommunity.com/openid/id/', '');
+        return steamId;
+      }
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Steam verification error:', error);
+    return null;
+  }
+}
+
+// Get Steam user info
+export async function getSteamUserInfo(steamId: string) {
+  if (!STEAM_API_KEY) {
+    console.warn('Steam API key not configured, using fallback profile data');
+    return {
+      steamId: steamId,
+      username: `Player_${steamId.slice(-4)}`,
+      avatar: 'https://avatars.steamstatic.com/fef49e7fa7e1997310d705b2a6158ff8dc1cdfeb.jpg',
+      profileUrl: `https://steamcommunity.com/profiles/${steamId}`
+    };
+  }
+  try {
+    const response = await fetch(
+      `https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=${STEAM_API_KEY}&steamids=${steamId}`
+    );
+    const data = await response.json();
+    if (data.response?.players?.length > 0) {
+      const player = data.response.players[0];
+      return {
+        steamId: player.steamid,
+        username: player.personaname,
+        avatar: player.avatarfull || player.avatarmedium || player.avatar,
+        profileUrl: player.profileurl
+      };
+    }
+    return null;
+  } catch (error) {
+    console.error('Steam API error:', error);
+    return null;
+  }
+}
+
+// Handle GET request - initiate Steam auth
+export async function GET(request: NextRequest) {
+  const supabase = createServerSupabaseClient();
+  const { searchParams } = new URL(request.url);
+  const baseUrl = getBaseUrl(request);
+  const host = request.headers.get('host') || '';
+  
+  console.log('=== STEAM AUTH ENDPOINT HIT ===');
+  console.log('URL:', request.url);
+  console.log('Has openid.mode:', searchParams.has('openid.mode'));
+  console.log('openid.mode value:', searchParams.get('openid.mode'));
+  
+  // If this is a callback from Steam
+  if (searchParams.has('openid.mode')) {
+    console.log('=== STEAM CALLBACK RECEIVED ===');
+    try {
+      const steamId = await verifySteamResponse(searchParams);
+      const baseUrl = getBaseUrl(request);
+      
+      if (!steamId) {
+        console.error('Steam verification failed');
+        return NextResponse.redirect(`${baseUrl}/sign-in?error=steam_verification_failed`);
+      }
+      
+      console.log('Steam verification successful, Steam ID:', steamId);
+      
+      // Get Steam user info
+      const steamUser = await getSteamUserInfo(steamId);
+      if (!steamUser) {
+        console.error('Failed to get Steam user info');
+        return NextResponse.redirect(`${baseUrl}/sign-in?error=steam_api_failed`);
+      }
+      
+      console.log('Steam user info retrieved:', steamUser);
+      // Use simple database-only approach (no admin APIs)
+      const email = `${steamUser.steamId}@steam.local`;
+      let userId: string | null = null;
+      let isVerification = false; // Track if this is linking an existing account
+      
+      console.log('Looking up Steam user by Steam ID:', steamUser.steamId);
+      
+      // First, check if this Steam ID is already linked to any account
+      const { data: existingSteamUsers, error: steamLookupError } = await supabase
+        .from('users')
+        .select('id, email, steam_id')
+        .eq('steam_id', steamUser.steamId)
+        .limit(1);
+        
+      if (steamLookupError) {
+        console.error('Failed to lookup Steam user:', steamLookupError);
+        return NextResponse.redirect(`${baseUrl}/sign-in?error=steam_lookup_failed`);
+      }
+      
+      if (existingSteamUsers && existingSteamUsers.length > 0) {
+        // Steam ID already linked to an account
+        userId = existingSteamUsers[0].id;
+        console.log('Found existing Steam-linked user:', userId);
+        
+        // Update user profile
+        await supabase.from('users').update({
+          username: steamUser.username,
+          avatar_url: steamUser.avatar,
+          last_login_at: new Date().toISOString()
+        }).eq('id', userId);
+      } else {
+        // Check if user exists by email (legacy users or partial records)
+        const { data: existingEmailUsers, error: emailLookupError } = await supabase
+          .from('users')
+          .select('id, email, steam_id, username, displayname')
+          .eq('email', email)
+          .limit(1);
+          
+        if (emailLookupError) {
+          console.error('Failed to lookup user by email:', emailLookupError);
+          return NextResponse.redirect(`${baseUrl}/sign-in?error=email_lookup_failed`);
+        }
+        
+        if (existingEmailUsers && existingEmailUsers.length > 0) {
+          // Found existing user by email - update with Steam info
+          userId = existingEmailUsers[0].id;
+          console.log('Found existing user by email, linking Steam:', userId);
+          
+          const { error: linkError } = await supabase
+            .from('users')
+            .update({
+              steam_id: steamUser.steamId,
+              steam_verified: true,
+              username: steamUser.username,
+              avatar_url: steamUser.avatar,
+              account_status: 'active',
+              last_login_at: new Date().toISOString()
+            })
+            .eq('id', userId);
+            
+          if (linkError) {
+            console.error('Failed to link Steam to existing user:', linkError);
+            return NextResponse.redirect(`${baseUrl}/sign-in?error=steam_link_failed`);
+          }
+          
+          // Get host for cookie options
+          const host = request.headers.get('host') || '';
+          
+          console.log('Successfully linked Steam to existing user:', userId);
+        } else {
+          // Check if there's a pending Steam verification request
+          const urlParams = new URL(request.url).searchParams;
+          const verifyUserId = urlParams.get('verify_user');
+          
+          if (verifyUserId) {
+            // This is a Steam verification for an existing email account
+            console.log('Verifying Steam for existing user:', verifyUserId);
+            
+            // First check if this Steam ID is already linked to a different account
+            const { data: conflictingUsers, error: conflictError } = await supabase
+              .from('users')
+              .select('id, email')
+              .eq('steam_id', steamUser.steamId)
+              .neq('id', verifyUserId)
+              .limit(1);
+              
+            if (conflictError) {
+              console.error('Error checking for Steam ID conflicts:', conflictError);
+              return NextResponse.redirect(`${baseUrl}/dashboard?error=verification_check_failed`);
+            }
+            
+            if (conflictingUsers && conflictingUsers.length > 0) {
+              console.error('Steam ID already linked to another account:', conflictingUsers[0]);
+              return NextResponse.redirect(`${baseUrl}/dashboard?error=steam_already_linked`);
+            }
+            
+            const { error: verifyError } = await supabase
+              .from('users')
+              .update({
+                steam_id: steamUser.steamId,
+                steam_verified: true,
+                account_status: 'active',
+                username: steamUser.username,
+                avatar_url: steamUser.avatar
+              })
+              .eq('id', verifyUserId);
+              
+            if (verifyError) {
+              console.error('Failed to verify Steam for user:', verifyError);
+              return NextResponse.redirect(`${baseUrl}/dashboard?error=steam_verification_failed`);
+            }
+            
+            userId = verifyUserId;
+            isVerification = true;
+            console.log('Successfully verified Steam for user:', userId);
+          } else {
+            // This is a new Steam-only registration
+            console.log('Creating new Steam-only user');
+            
+            // Generate a consistent UUID for Steam users
+            const steamUuid = `steam-${steamUser.steamId}`;
+            
+            // Check if a user with this ID already exists (from previous failed attempts)
+            const { data: existingUser, error: checkError } = await supabase
+              .from('users')
+              .select('id, steam_id')
+              .eq('id', steamUuid)
+              .single();
+              
+              if (checkError && checkError.code !== 'PGRST116') {
+              console.error('Error checking for existing user:', checkError);
+              return NextResponse.redirect(`${baseUrl}/sign-in?error=user_check_failed`);
+            }
+            
+            if (existingUser) {
+              // User already exists, just update their info and use them
+              console.log('Found existing user with Steam UUID, updating info:', steamUuid);
+              
+              const { error: updateError } = await supabase
+                .from('users')
+                .update({
+                  email: email,
+                  username: steamUser.username,
+                  avatar_url: steamUser.avatar,
+                  steam_id: steamUser.steamId,
+                  steam_verified: true,
+                  account_status: 'active'
+                })
+                .eq('id', steamUuid);
+                
+              if (updateError) {
+                console.error('Failed to update existing Steam user:', updateError);
+                return NextResponse.redirect(`${baseUrl}/sign-in?error=user_update_failed`);
+              }              userId = steamUuid;
+              console.log('Successfully updated existing Steam user:', userId);
+            } else {
+              // Create user directly in users table with retry mechanism
+              const createUser = async (retries = 3): Promise<{ id: string } | null> => {
+                try {
+                  const { data: newUser, error: createError } = await supabase
+                    .from('users')
+                    .insert({
+                      id: steamUuid,
+                      email: email,
+                      username: steamUser.username,
+                      avatar_url: steamUser.avatar,
+                      role: 'user',
+                      coins: 50,
+                      xp: 0,
+                      level: 1,
+                      steam_id: steamUser.steamId,
+                      steam_verified: true,
+                      account_status: 'active',
+                      created_at: new Date().toISOString(),
+                      last_login_at: new Date().toISOString()
+                    })
+                    .select('id')
+                    .single();
+
+                  if (createError) {
+                    throw createError;
+                  }
+                  
+                  return newUser;
+                } catch (error) {
+                  if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    return createUser(retries - 1);
+                  }
+                  throw error;
+                }
+              };
+              
+              try {
+                const newUser = await createUser();
+                if (!newUser) {
+                  throw new Error('User creation returned no data');
+                }
+                userId = newUser.id;
+                console.log('Successfully created Steam user:', userId);
+              } catch (error: any) {
+              console.error('Failed to create Steam user:', error);
+              return NextResponse.redirect(
+                `${baseUrl}/sign-in?error=user_create_failed&code=${error.code || 'unknown'}&msg=${encodeURIComponent(error.message)}`
+              );
+            }
+          }
+        }
+      }
+
+      // Check for redirect parameter in the original request
+      const urlParams = new URL(request.url).searchParams;
+      const redirectTo = urlParams.get('redirect') || '/dashboard';
+      
+      console.log('Redirect destination:', redirectTo);
+      
+      const redirectUrl = isVerification 
+        ? `${baseUrl}${redirectTo}?steam_verified=success`
+        : `${baseUrl}${redirectTo}?steam_auth=success&user_id=${userId}`;
+      
+      console.log('Final redirect URL:', redirectUrl);
+              }
+            }
+          }
+        }
+      }
+
+      // Redirect to dashboard with appropriate message
+      console.log('Steam auth successful, redirecting to dashboard');
+      
+      // Get the referring domain for cookie domain
+      const referer = request.headers.get('referer');
+      const domain = referer ? new URL(referer).hostname : null;
+      
+      // Check for redirect parameter in the original request
+      const urlParams = new URL(request.url).searchParams;
+      const redirectTo = urlParams.get('redirect') || '/dashboard';
+      
+      console.log('Redirect destination:', redirectTo);
+      
+      const redirectUrl = isVerification 
+        ? `${BASE_URL}${redirectTo}?steam_verified=success`
+        : `${BASE_URL}${redirectTo}?steam_auth=success&user_id=${userId}`;
+      
+      console.log('Final redirect URL:', redirectUrl);
+      
+      // Get domain from current request for cookie settings
+      const host = request.headers.get('host') || '';
+      const isDev = process.env.NODE_ENV === 'development' || host.includes('localhost') || host.includes('.app.github.dev');
+      
+      const response = NextResponse.redirect(redirectUrl);
+      
+      // Get user data for session
+      const { data: userData, error: userDataError } = await supabase
+        .from('users')
+        .select('id, email, role, username, avatar_url, steam_id, steam_verified, displayname')
+        .eq('id', userId)
+        .single();
+
+      if (userDataError) {
+        console.error('Failed to get user data for session:', userDataError);
+        return NextResponse.redirect(`${BASE_URL}/sign-in?error=session_create_failed`);
+      }
+
+      // Create session object matching auth-utils format
+      const sessionData = {
+        user_id: userData.id,
+        email: userData.email,
+        role: userData.role || 'user',
+        provider: 'steam',
+        avatarUrl: userData.avatar_url,
+        steamProfile: {
+          steamId: userData.steam_id,
+          avatar: userData.avatar_url
+        },
+        steamVerified: userData.steam_verified || true,
+        displayName: userData.username || userData.displayname,
+        expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
+      };
+
+      // Clear any existing session cookies first to prevent conflicts
+      response.cookies.set('equipgg_session', '', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/'
+      });
+      
+      response.cookies.set('equipgg_session_client', '', {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 0,
+        path: '/'
+      });
+      
+      // Set proper session cookie in JSON format (httpOnly for security)
+      response.cookies.set('equipgg_session', encodeURIComponent(JSON.stringify(sessionData)), {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      });
+      
+      // Also set a client-readable session cookie for the AuthProvider
+      response.cookies.set('equipgg_session_client', encodeURIComponent(JSON.stringify(sessionData)), {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: '/'
+      });
+      
+      // Also set user-friendly cookies for client-side access
+      if (userId) {
+        response.cookies.set('equipgg_user_id', userId, {
+          httpOnly: false,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 60 * 60 * 24 * 7,
+          path: '/'
+        });
+      }
+      
+      response.cookies.set('equipgg_user_email', userData.email, {
+        httpOnly: false,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax', 
+        maxAge: 60 * 60 * 24 * 7,
+        path: '/'
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('Steam auth callback error:', error);
+      return NextResponse.redirect(`${baseUrl}/sign-in?error=steam_auth_failed`);
+    }
+  }
+  
+  // Initiate Steam authentication
+  const baseUrl = getBaseUrl(request);
+  const returnUrl = `${baseUrl}/api/auth/steam${request.url.includes('?') ? request.url.substring(request.url.indexOf('?')) : ''}`;
+  const steamAuthUrl = buildSteamAuthUrl(returnUrl, baseUrl);
+  return NextResponse.redirect(steamAuthUrl);
+}
+
+// Handle POST request - for manual verification if needed
+export async function POST(request: NextRequest) {
+  try {
+    const supabase = createServerSupabaseClient();
+    const { steamId } = await request.json();
+    if (!steamId) {
+      return NextResponse.json({ error: 'Steam ID is required' }, { status: 400 });
+    }
+    
+    // Get Steam user info
+    const steamUser = await getSteamUserInfo(steamId);
+    if (!steamUser) {
+      return NextResponse.json({ error: 'Steam user not found' }, { status: 404 });
+    }
+    
+    // Create new user with Steam info
+    const { data: newUser, error: createError } = await supabase
+      .from('users')
+      .insert({
+        id: `steam-${steamId}`,
+        email: `${steamId}@steam.local`,
+        username: steamUser.username,
+        avatar_url: steamUser.avatar,
+        role: 'user',
+        steam_id: steamId,
+        steam_verified: true,
+        account_status: 'active',
+        created_at: new Date().toISOString(),
+        last_login_at: new Date().toISOString()
+      })
+      .select()
+      .single();
+
+    if (createError) {
+      console.error('Failed to create Steam user:', createError);
+      return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      success: true,
+      user: newUser
+    });
+  } catch (error) {
+    console.error('Steam auth POST error:', error);
+    return NextResponse.json({ error: 'Steam authentication failed' }, { status: 500 });
+  }
+}

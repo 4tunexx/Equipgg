@@ -149,7 +149,9 @@ export async function getMissionsByType(type: string): Promise<Mission[]> {
   const { data, error } = await supabase
     .from('missions')
     .select('*')
-    .eq('type', type)
+    // The missions table uses the column name `mission_type` for categorization.
+    // Using `type` here was returning no rows in some environments.
+    .eq('mission_type', type)
     .order('id');
   
   if (error) {

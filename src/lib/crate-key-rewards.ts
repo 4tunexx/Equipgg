@@ -5,25 +5,14 @@
  * such as leveling up, completing missions, daily login streaks, etc.
  */
 
-import { createClient } from '@supabase/supabase-js';
-
-// Create Supabase admin client for secure operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+import { createServerSupabaseClient } from './supabase';
 
 /**
  * Award crate keys to a user
  */
 export async function awardCrateKeys(userId: string, crateId: number, keysCount: number): Promise<void> {
   try {
+    const supabaseAdmin = createServerSupabaseClient();
     const { error } = await supabaseAdmin
       .rpc('add_crate_keys', {
         p_user_id: userId,
@@ -145,6 +134,7 @@ export async function awardEventCrateKey(userId: string, eventName: string): Pro
  */
 export async function checkDailyLoginRewards(userId: string): Promise<void> {
   try {
+    const supabaseAdmin = createServerSupabaseClient();
     // Check user's login streak
     const { data: userData } = await supabaseAdmin
       .from('users')

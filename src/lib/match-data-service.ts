@@ -45,7 +45,15 @@ class MatchDataService {
     
     // Start automatic updates if in production
     if (process.env.NODE_ENV === 'production') {
-      this.startAutoUpdate();
+      const hasSupabaseUrl = !!(process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL);
+      const hasServiceRole = !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (hasSupabaseUrl && hasServiceRole) {
+        this.startAutoUpdate();
+      } else {
+        // Avoid starting auto-updates during build or when envs are missing
+        // eslint-disable-next-line no-console
+        console.warn('MatchDataService auto-update not started: missing Supabase env vars or running in build environment');
+      }
     }
   }
 

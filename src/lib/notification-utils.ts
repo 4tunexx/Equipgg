@@ -1,17 +1,9 @@
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import { v4 as uuidv4 } from 'uuid';
 
-// Use admin client for notifications to bypass RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+function getSupabaseAdmin() {
+  return createServerSupabaseClient();
+}
 
 export interface NotificationData {
   ticketId?: string;
@@ -70,7 +62,7 @@ export async function createNotification({
       message: message.substring(0, 50) + '...'
     });
     
-    const { data: result, error } = await supabaseAdmin.from('notifications').insert([
+  const { data: result, error } = await getSupabaseAdmin().from('notifications').insert([
       {
         id: notificationId,
         user_id: userId,
@@ -122,7 +114,7 @@ export async function createBulkNotifications({
       created_at: now,
     }));
     if (notifications.length > 0) {
-      const { error } = await supabaseAdmin.from('notifications').insert(notifications);
+  const { error } = await getSupabaseAdmin().from('notifications').insert(notifications);
       if (error) {
         console.error('Error creating bulk notifications:', error);
       } else {
@@ -151,7 +143,7 @@ export async function createNotificationsForRoles({
   data?: NotificationData;
 }): Promise<void> {
   try {
-    const { data: users, error } = await supabaseAdmin
+    const { data: users, error } = await getSupabaseAdmin()
       .from('users')
       .select('id')
       .in('role', roles);

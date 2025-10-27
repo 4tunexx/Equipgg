@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 const CREATE_TABLES_SQL = `
 -- Enable UUID extension
@@ -210,6 +205,7 @@ CREATE INDEX IF NOT EXISTS idx_landing_panels_order ON landing_panels(display_or
 export async function POST(request: NextRequest) {
   try {
     console.log('Creating database tables...');
+    const supabase = createServerSupabaseClient();
     
     // Execute the SQL to create tables
     const { data, error } = await supabase.rpc('execute_sql', { 

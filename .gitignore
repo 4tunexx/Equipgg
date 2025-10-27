@@ -122,6 +122,9 @@ scanme.txt
 tryme*.txt
 keys.txt
 
+# Prevent accidental check-in of raw keys file
+keys
+
 # Temporary scripts and utilities
 check-*.js
 test-*.js

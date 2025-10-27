@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '../../../lib/supabase';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE);
+// Create the admin client at runtime inside handlers to avoid build-time errors
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,7 +13,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Get user's Steam verification status
-    const { data: user, error } = await supabase
+    const supabaseAdmin = createServerSupabaseClient();
+    const { data: user, error } = await supabaseAdmin
       .from('users')
       .select('id, email, steam_verified, steam_id, account_status')
       .eq('id', userId)
@@ -47,6 +45,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { userId, force = false } = await request.json();
+    const supabaseAdmin = createServerSupabaseClient();
     
     if (!userId) {
       return NextResponse.json({ error: 'User ID required' }, { status: 400 });
@@ -54,7 +53,7 @@ export async function POST(request: NextRequest) {
 
     if (force) {
       // Admin function to force verify a user (for testing)
-      const { error } = await supabase
+      const { error } = await supabaseAdmin
         .from('users')
         .update({ 
           steam_verified: true,

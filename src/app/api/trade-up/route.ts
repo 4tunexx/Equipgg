@@ -1,20 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "../../../lib/supabase/client";
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import { getAuthSession } from "../../../lib/auth-utils";
 import { trackMissionProgress, updateOwnershipMissions } from "../../../lib/mission-integration";
 
-// Create Supabase admin client for secure operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Supabase admin client is created inside handlers when needed via createServerSupabaseClient()
 
 export async function POST(request: NextRequest) {
   try {

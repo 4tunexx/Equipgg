@@ -42,8 +42,11 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export function createServerSupabaseClient() {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
+  // If env vars are missing, return a proxy that will throw when first used.
+  // This prevents Next.js from aborting build-time module evaluation while
+  // still giving an actionable error when the admin client is actually invoked at runtime.
   if (!supabaseUrl || !serviceRoleKey) {
-    throw new Error('createServerSupabaseClient: missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE URL in environment');
+    return makeMissingClientProxy('Supabase admin client');
   }
 
   return createClient(supabaseUrl, serviceRoleKey, {
@@ -65,7 +68,8 @@ export function createRequestSupabaseClient(token?: string) {
   const client = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
+      persistSession: false,
+      detectSessionInUrl: true
     }
   });
 

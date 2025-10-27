@@ -39,13 +39,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Update equipped_banner in users table
-    const { error: updateUserError } = await supabase
+    // Update equipped_banner in users table and return updated user row
+    const { data: updatedUser, error: updateUserError } = await supabase
       .from('users')
       .update({ equipped_banner: cosmeticId })
-      .eq('id', session.user_id);
+      .eq('id', session.user_id)
+      .select('*')
+      .maybeSingle();
 
-    if (updateUserError) {
+    if (updateUserError || !updatedUser) {
       console.error('Error updating equipped banner:', updateUserError);
       return NextResponse.json({ error: 'Failed to equip cosmetic' }, { status: 500 });
     }
@@ -65,7 +67,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: `${banner.name} equipped successfully!`,
-      equippedBanner: cosmeticId
+      equippedBanner: cosmeticId,
+      user: updatedUser
     });
 
   } catch (error) {
