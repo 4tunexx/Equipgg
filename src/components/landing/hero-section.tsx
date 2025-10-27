@@ -1,28 +1,23 @@
-import Image from 'next/image';
-import Link from 'next/link';
-import { Button } from "../ui/button";
-import { AuthModal } from "../auth-modal";
-import { Gamepad2, LogIn, UserPlus } from 'lucide-react';
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useSiteSettings } from "../../hooks/use-site-settings";
 import { useHeroPanelData } from "../../hooks/use-hero-panel-data";
+import dynamic from 'next/dynamic';
 
-interface LandingPanel {
-  id: string;
-  type: string;
-  title: string;
-  content: string;
-  image_url?: string;
-  logo_layer1?: string;
-  logo_layer2?: string;
-  button_text?: string;
-  button_url?: string;
-  icon?: string;
-  stats?: any;
-  author?: string;
-  is_active: boolean;
-  display_order: number;
-}
+const LoadingSpinner = () => (
+  <div className="absolute inset-0 bg-background z-50 flex items-center justify-center">
+    <div className="text-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+      <p className="text-foreground/60">Loading...</p>
+    </div>
+  </div>
+);
+
+const HeroContent = dynamic(() => import('./hero-content').then(mod => ({ default: mod.HeroContent })), {
+  loading: LoadingSpinner,
+  ssr: false
+});
 
 export function HeroSection() {
   const [isVisible, setIsVisible] = useState(false);
@@ -31,18 +26,33 @@ export function HeroSection() {
   const { heroPanelData, loading } = useHeroPanelData();
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsVisible(true), 100);
-    return () => clearTimeout(timer);
+    let mounted = true;
+    const timer = setTimeout(() => {
+      if (mounted) setIsVisible(true);
+    }, 100);
+    return () => {
+      mounted = false;
+      clearTimeout(timer);
+    };
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return; // Skip on server
+
+    let mounted = true;
     const handleLogoUpdate = () => {
+      if (!mounted) return;
       setLogoKey(prev => prev + 1);
       setIsVisible(false);
-      setTimeout(() => setIsVisible(true), 50);
+      setTimeout(() => {
+        if (mounted) setIsVisible(true);
+      }, 50);
     };
     window.addEventListener('logoUpdated', handleLogoUpdate);
-    return () => window.removeEventListener('logoUpdated', handleLogoUpdate);
+    return () => {
+      mounted = false;
+      window.removeEventListener('logoUpdated', handleLogoUpdate);
+    };
   }, []);
 
   // Wait for both siteSettings and heroPanelData to load before showing content

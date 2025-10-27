@@ -32,7 +32,38 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
       
       console.log('Checking service role key:', !!process.env.SUPABASE_SERVICE_ROLE_KEY);
       
-      // Initialize variables
+      // For Steam users, create a minimal profile directly
+      if (userId.startsWith('steam-')) {
+        const steamId = userId.replace('steam-', '');
+        const { error: createError } = await supabase
+          .from('users')
+          .insert({
+            id: userId,
+            steam_id: steamId,
+            steam_verified: true,
+            role: 'user',
+            coins: 50,
+            xp: 0,
+            level: 1,
+            account_status: 'active',
+            created_at: new Date().toISOString(),
+            last_login_at: new Date().toISOString()
+          });
+          
+        if (createError) {
+          throw createError;
+        }
+        
+        return {
+          isVerified: true,
+          requiresEmailVerification: false,
+          requiresSteamVerification: false,
+          canUseBalances: true,
+          message: 'Steam user verified'
+        };
+      }
+
+      // Initialize variables for non-Steam users
       let userData: { user?: { id: string; email: string | null; created_at?: string } } | null = null;
       let adminError: any = null;
 

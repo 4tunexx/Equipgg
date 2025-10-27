@@ -1,362 +1,274 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { buildSteamAuthUrl, verifySteamResponse, getSteamUserInfo } from '../route';
-import { supabase } from '@/lib/supabase';
+import { createServerSupabaseClient } from '@/lib/supabase';
 
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001';
+function getBaseUrl(request: NextRequest) {
+  const host = request.headers.get('host') || '';
+  const forwardedProto = request.headers.get('x-forwarded-proto');
+  const isCodespaces = host.includes('.app.github.dev');
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  if (isCodespaces) {
+    // GitHub Codespaces - use the provided hostname
+    return `https://${host}`;
+  } else if (isProduction) {
+    // Production environment
+    return 'https://www.equipgg.net';
+  } else {
+    // Local development - always use localhost:3001
+    return 'http://localhost:3001';
+  }
+}
 
-// Handle GET request - initiate Steam auth for popup
+function returnHtml(success: boolean, error?: string, data?: any) {
+  return new NextResponse(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <script>
+        if (window.opener) {
+          window.opener.postMessage({
+            type: 'steam_auth_complete',
+            success: ${success},
+            ${error ? `error: "${error}",` : ''}
+            ${data ? `...${JSON.stringify(data)},` : ''}
+          }, '*');
+        }
+        setTimeout(() => window.close(), 100);
+      </script>
+    </head>
+    <body>
+      <p>${success ? 'Authentication successful!' : error || 'Authentication failed.'}</p>
+      <p>This window will close automatically...</p>
+    </body>
+    </html>
+  `, {
+    headers: { 'Content-Type': 'text/html' }
+  });
+}
+
 export async function GET(request: NextRequest) {
+  const supabase = createServerSupabaseClient();
   const { searchParams } = new URL(request.url);
-  const url = new URL(request.url);
-  const verifyUserId = url.searchParams.get('verify_user');
-  const redirectParam = url.searchParams.get('redirect');
+  const baseUrl = getBaseUrl(request);
   
-  console.log('=== STEAM POPUP AUTH ENDPOINT HIT ===');
-  console.log('URL:', request.url);
-  console.log('Has openid.mode:', searchParams.has('openid.mode'));
-  console.log('openid.mode value:', searchParams.get('openid.mode'));
-  
-  // If this is a callback from Steam (popup completion)
+  // Handle Steam callback
   if (searchParams.has('openid.mode')) {
-    console.log('=== STEAM POPUP CALLBACK RECEIVED ===');
     try {
+      console.log('=== POPUP ROUTE: HANDLING STEAM CALLBACK ===');
       const steamId = await verifySteamResponse(searchParams);
       if (!steamId) {
-        console.error('Steam verification failed');
-        // Return HTML that closes popup and sends error message
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'Steam verification failed'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>Steam verification failed. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
+        return returnHtml(false, 'Steam verification failed');
       }
       
-      console.log('Steam verification successful, Steam ID:', steamId);
-      
-      // Get Steam user info
       const steamUser = await getSteamUserInfo(steamId);
       if (!steamUser) {
-        console.error('Failed to get Steam user info');
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'Failed to get Steam user info'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>Failed to get Steam user info. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
+        return returnHtml(false, 'Failed to get Steam user info');
       }
       
-      console.log('Steam user info retrieved:', steamUser);
+      // Get verification user ID from return URL
+      const verifyUserId = searchParams.get('verify_user');
+      let userData;
       
-      // Get the verify_user parameter from the return URL
-      const returnUrl = searchParams.get('openid.return_to') || '';
-      const verifyUserMatch = returnUrl.match(/verify_user=([^&]+)/);
-      const verifyUserId = verifyUserMatch ? verifyUserMatch[1] : null;
-      
-      console.log('Verify user ID:', verifyUserId);
-      
-      if (!verifyUserId) {
-        console.error('No verify_user parameter found');
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'No user ID provided for verification'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>No user ID provided for verification. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
-      }
-      
-      // Check if Steam ID is already linked to another account
-      const { data: conflictingUsers, error: conflictError } = await supabase
-        .from('users')
-        .select('id, email')
-        .eq('steam_id', steamUser.steamId)
-        .neq('id', verifyUserId)
-        .limit(1);
+      if (verifyUserId) {
+        console.log('Handling verification flow for user:', verifyUserId);
+        // Verification flow
+        const { data: conflicts } = await supabase
+          .from('users')
+          .select('id')
+          .eq('steam_id', steamUser.steamId)
+          .neq('id', verifyUserId)
+          .limit(1);
         
-      if (conflictError) {
-        console.error('Error checking for Steam ID conflicts:', conflictError);
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'Database error during verification'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>Database error during verification. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
-      }
-      
-      if (conflictingUsers && conflictingUsers.length > 0) {
-        console.error('Steam ID already linked to another account:', conflictingUsers[0]);
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'This Steam account is already linked to another EquipGG account'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>This Steam account is already linked to another EquipGG account. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
-      }
-      
-      // Update user with Steam verification
-      const { error: verifyError } = await supabase
-        .from('users')
-        .update({
-          steam_id: steamUser.steamId,
-          steam_verified: true,
-          account_status: 'active',
-          username: steamUser.username,
-          avatar_url: steamUser.avatar,
-          last_login_at: new Date().toISOString()
-        })
-        .eq('id', verifyUserId);
+        if (conflicts && conflicts.length > 0) {
+          return returnHtml(false, 'This Steam account is already linked to another EquipGG account');
+        }
         
-      if (verifyError) {
-        console.error('Failed to verify Steam for user:', verifyError);
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'Failed to update user account'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>Failed to update user account. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
+        // Update user with Steam info
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({
+            steam_id: steamUser.steamId,
+            steam_verified: true,
+            account_status: 'active',
+            username: steamUser.username,
+            avatar_url: steamUser.avatar,
+            last_login_at: new Date().toISOString()
+          })
+          .eq('id', verifyUserId);
+        
+        if (updateError) {
+          console.error('Failed to update user:', updateError);
+          return returnHtml(false, 'Failed to update user account');
+        }
+        
+        // Get updated user data
+        const { data: verifiedUser, error: userDataError } = await supabase
+          .from('users')
+          .select('id, email, role, username, steam_id, steam_verified, avatar_url')
+          .eq('id', verifyUserId)
+          .single();
+        
+        if (userDataError) {
+          console.error('Failed to get user data:', userDataError);
+          return returnHtml(false, 'Failed to get user data');
+        }
+        
+        userData = verifiedUser;
+      } else {
+        console.log('Handling login flow for Steam ID:', steamId);
+        // Login flow - check if Steam ID exists
+        const { data: existingUser } = await supabase
+          .from('users')
+          .select('id, email, role, username, steam_id, steam_verified, avatar_url')
+          .eq('steam_id', steamId)
+          .single();
+        
+        if (existingUser) {
+          console.log('Found existing user:', existingUser.id);
+          // Update last login
+          await supabase
+            .from('users')
+            .update({ last_login_at: new Date().toISOString() })
+            .eq('id', existingUser.id);
+          
+          userData = existingUser;
+        } else {
+          console.log('Creating new user for Steam ID:', steamId);
+          // Create new user
+          const newUserId = `steam-${steamId}`;
+          const { data: newUser, error: createError } = await supabase
+            .from('users')
+            .insert({
+              id: newUserId,
+              email: `${steamId}@steam.local`,
+              username: steamUser.username,
+              avatar_url: steamUser.avatar,
+              role: 'user',
+              coins: 50,
+              xp: 0,
+              level: 1,
+              steam_id: steamId,
+              steam_verified: true,
+              account_status: 'active',
+              created_at: new Date().toISOString(),
+              last_login_at: new Date().toISOString()
+            })
+            .select('id, email, role, username, steam_id, steam_verified, avatar_url')
+            .single();
+          
+          if (createError || !newUser) {
+            console.error('Failed to create Steam user:', createError);
+            return returnHtml(false, 'Failed to create user account');
+          }
+          
+          userData = newUser;
+        }
       }
       
-      console.log('Successfully verified Steam for user:', verifyUserId);
-      
-      // Get user data for session
-      const { data: userData, error: userDataError } = await supabase
-        .from('users')
-        .select('id, email, role, username, steam_id, steam_verified, avatar_url')
-        .eq('id', verifyUserId)
-        .single();
-
-      if (userDataError) {
-        console.error('Failed to get user data for session:', userDataError);
-        return new NextResponse(`
-          <!DOCTYPE html>
-          <html>
-          <head>
-            <script>
-              if (window.opener) {
-                window.opener.postMessage({
-                  type: 'steam_auth_complete',
-                  success: false,
-                  error: 'Failed to create session'
-                }, '*');
-              }
-              window.close();
-            </script>
-          </head>
-          <body>
-            <p>Failed to create session. You can close this window.</p>
-          </body>
-          </html>
-        `, {
-          headers: { 'Content-Type': 'text/html' }
-        });
-      }
-
-      // Create session object matching auth-utils format
+      // Create session object
       const sessionData = {
         user_id: userData.id,
         email: userData.email,
         role: userData.role || 'user',
-        expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000), // 7 days from now
-        steamProfile: userData.steam_verified ? {
+        provider: 'steam',
+        avatarUrl: userData.avatar_url,
+        steamProfile: {
           steamId: userData.steam_id,
-          avatar: userData.avatar_url || '',
+          avatar: userData.avatar_url,
           profileUrl: `https://steamcommunity.com/profiles/${userData.steam_id}`
-        } : undefined
+        },
+        steamVerified: userData.steam_verified || true,
+        displayName: userData.username,
+        expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days
       };
-
-      console.log('Creating session data for Steam verification:', sessionData);
-
-      // Create response with session cookies
-      const response = new NextResponse(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <script>
-            console.log('Steam verification successful, sending message to parent...');
-            if (window.opener) {
-              console.log('Parent window found, sending success message');
-              window.opener.postMessage({
-                type: 'steam_auth_complete',
-                success: true,
-                steamId: '${steamUser.steamId}',
-                username: '${steamUser.username}',
-                avatar: '${steamUser.avatar}',
-                redirect: '${redirectParam || ''}'
-              }, '*');
-              console.log('Message sent, closing popup...');
-            } else {
-              console.log('No parent window found');
-            }
-            // Close the popup after a short delay to ensure message is sent
-            setTimeout(() => {
-              console.log('Closing popup now');
-              window.close();
-            }, 100);
-          </script>
-        </head>
-        <body>
-          <p>Steam verification successful! This window will close automatically...</p>
-        </body>
-        </html>
-      `, {
-        headers: { 'Content-Type': 'text/html' }
+      
+      // Set cookies in the response
+      const isSecure = process.env.NODE_ENV === 'production' || 
+                      request.headers.get('host')?.includes('.app.github.dev') ||
+                      request.headers.get('x-forwarded-proto') === 'https';
+      
+      const host = request.headers.get('host');
+      const domain = host?.includes('.app.github.dev') 
+        ? host 
+        : undefined; // Let browser set domain for localhost/production
+      
+      const response = returnHtml(true, undefined, {
+        steamId: steamUser.steamId,
+        username: steamUser.username,
+        avatar: steamUser.avatar,
+        redirect: searchParams.get('redirect') || '/dashboard',
+        userId: userData.id
       });
-
-      // Set session cookies
-      response.cookies.set('equipgg_session', encodeURIComponent(JSON.stringify(sessionData)), {
+      
+      // Clear existing cookies first
+      const clearOptions = {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/'
-      });
+        secure: isSecure,
+        sameSite: isSecure ? 'none' as const : 'lax' as const,
+        path: '/',
+        domain,
+        maxAge: 0
+      };
       
-      response.cookies.set('equipgg_session_client', encodeURIComponent(JSON.stringify(sessionData)), {
-        httpOnly: false,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 7 days
-        path: '/'
-      });
-
-      console.log('Session cookies set for Steam verification');
+      response.cookies.set('equipgg_session', '', clearOptions);
+      response.cookies.set('equipgg_session_client', '', { ...clearOptions, httpOnly: false });
+      response.cookies.set('equipgg_user_id', '', { ...clearOptions, httpOnly: false });
+      response.cookies.set('equipgg_user_email', '', { ...clearOptions, httpOnly: false });
+      
+      // Set new cookies
+      const cookieOptions = {
+        httpOnly: true,
+        secure: isSecure,
+        sameSite: isSecure ? 'none' as const : 'lax' as const,
+        path: '/',
+        domain,
+        maxAge: 60 * 60 * 24 * 7 // 7 days
+      };
+      
+      response.cookies.set(
+        'equipgg_session',
+        encodeURIComponent(JSON.stringify(sessionData)),
+        cookieOptions
+      );
+      
+      response.cookies.set(
+        'equipgg_session_client',
+        encodeURIComponent(JSON.stringify(sessionData)),
+        { ...cookieOptions, httpOnly: false }
+      );
+      
+      // Set additional client cookies
+      response.cookies.set(
+        'equipgg_user_id', 
+        userData.id,
+        { ...cookieOptions, httpOnly: false }
+      );
+      
+      response.cookies.set(
+        'equipgg_user_email',
+        userData.email,
+        { ...cookieOptions, httpOnly: false }
+      );
+      
       return response;
-      
     } catch (error) {
       console.error('Steam auth popup callback error:', error);
-      return new NextResponse(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <script>
-            if (window.opener) {
-              window.opener.postMessage({
-                type: 'steam_auth_complete',
-                success: false,
-                error: 'Internal server error'
-              }, '*');
-            }
-            window.close();
-          </script>
-        </head>
-        <body>
-          <p>Internal server error. You can close this window.</p>
-        </body>
-        </html>
-      `, {
-        headers: { 'Content-Type': 'text/html' }
-      });
+      return returnHtml(false, 'Internal server error');
     }
   }
   
-  // Initiate Steam authentication for popup
-  // Remove duplicate declarations since they're now at the top of the function
+  // Start Steam auth flow
+  const verifyUserId = searchParams.get('verify_user');
   if (!verifyUserId) {
     return NextResponse.json({ error: 'No user ID provided' }, { status: 400 });
   }
   
-  // Include verify_user parameter in the return URL, and redirect if provided
-  const returnUrl = redirectParam 
-    ? `${BASE_URL}/api/auth/steam/popup?verify_user=${verifyUserId}&redirect=${encodeURIComponent(redirectParam)}`
-    : `${BASE_URL}/api/auth/steam/popup?verify_user=${verifyUserId}`;
-  const steamAuthUrl = buildSteamAuthUrl(returnUrl);
+  const redirectParam = searchParams.get('redirect');
+  const returnUrl = redirectParam
+    ? `${baseUrl}/api/auth/steam/popup?verify_user=${verifyUserId}&redirect=${encodeURIComponent(redirectParam)}`
+    : `${baseUrl}/api/auth/steam/popup?verify_user=${verifyUserId}`;
   
-  console.log('Redirecting to Steam auth URL:', steamAuthUrl);
+  const steamAuthUrl = buildSteamAuthUrl(returnUrl, baseUrl);
   return NextResponse.redirect(steamAuthUrl);
 }

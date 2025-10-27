@@ -41,7 +41,7 @@ export async function getAuthSessionWithToken(request: NextRequest): Promise<Aut
       token = authHeader.substring(7);
     } else {
       // Try to get from cookies using Next.js cookies API
-      const equipggCookie = request.cookies.get('equipgg_session');
+      const equipggCookie = request.cookies.get('equipgg_session') || request.cookies.get('equipgg_session_client');
       
       if (equipggCookie) {
         try {

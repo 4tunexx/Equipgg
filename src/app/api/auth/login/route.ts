@@ -104,25 +104,29 @@ export async function POST(req: NextRequest) {
       expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
     });
     
-    // Set httpOnly cookie for server auth reading
-    response.cookies.set("equipgg_session", sessionData, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    });
+      // Get domain from request for cookie settings
+      const host = req.headers.get('host') || '';
+      const isDev = process.env.NODE_ENV === 'development' || host.includes('localhost') || host.includes('.app.github.dev');
+      
+      // For development in Codespaces, we need to handle cookies differently
+      const cookieOptions = {
+        httpOnly: true,
+        secure: !isDev,
+        sameSite: isDev ? "none" as const : "lax" as const,
+        maxAge: 60 * 60 * 24 * 7, // 7 days
+        path: "/",
+      };
 
-    // Set client-readable cookie for AuthProvider
-    response.cookies.set("equipgg_session_client", sessionData, {
-      httpOnly: false,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 * 7, // 7 days
-      path: "/",
-    });
+      const clientCookieOptions = {
+        ...cookieOptions,
+        httpOnly: false
+      };
 
-    console.log('Login successful for user:', formattedUser.email);
+      // Set httpOnly cookie for server auth reading
+      response.cookies.set("equipgg_session", sessionData, cookieOptions);
+
+      // Set client-readable cookie for AuthProvider
+      response.cookies.set("equipgg_session_client", sessionData, clientCookieOptions);    console.log('Login successful for user:', formattedUser.email);
     
     // Track login for missions (daily login, etc.)
     try {

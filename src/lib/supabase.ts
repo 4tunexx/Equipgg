@@ -68,7 +68,8 @@ export function createRequestSupabaseClient(token?: string) {
   const client = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       autoRefreshToken: false,
-      persistSession: false
+      persistSession: false,
+      detectSessionInUrl: true
     }
   });
 

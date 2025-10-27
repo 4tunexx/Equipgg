@@ -1,28 +1,16 @@
-No users row found for steam-76561198001993310 - attempting auto-creation from Auth metadata
-
-Checking service role key: true
-
-Attempting admin API getUserById...
-
-Admin API call failed: Error: @supabase/auth-js: Expected parameter to be UUID but is not
-    at aV (.next/server/chunks/3607.js:21:39942)
-    at aW.getUserById (.next/server/chunks/3607.js:21:46692)
-    at i (.next/server/app/api/cosmetics/purchase/route.js:1:4042)
-    at async g (.next/server/app/api/cosmetics/purchase/route.js:1:842)
-
-Admin API failed to get user, trying standard auth...
-
-Direct auth query failed: {
-  code: 'PGRST205',
-  details: null,
-  hint: null,
-  message: "Could not find the table 'public.auth' in the schema cache"
-}
-
-Auth metadata found: {
-  userId: 'steam-76561198001993310',
-  email: 'none',
-  hasAuthData: false,
-  adminApiWorked: false
-}
-
+createConsoleError@
+handleConsoleError@
+error@
+@
+runWithFiberInDEV@
+emitPendingHydrationWarnings@
+completeWork@
+runWithFiberInDEV@
+completeUnitOfWork@
+performUnitOfWork@
+workLoopConcurrentByScheduler@
+renderRootConcurrent@
+performWorkOnRoot@
+performWorkOnRootViaSchedulerTask@
+performWorkUntilDeadline@
+html@unknown:0:0

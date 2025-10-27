@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { useAuth } from "./auth-provider";
 import { Separator } from "./ui/separator";
+import SteamAuthButton from "./steam-auth-button";
 
 interface AuthModalProps {
   children: React.ReactNode;
@@ -80,19 +81,6 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
     }
   };
 
-  const handleSteamAuth = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Close modal immediately before redirect
-      setOpen(false);
-      // Redirect to Steam OAuth
-      window.location.href = '/api/auth/steam';
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Failed to authenticate with Steam');
-      setLoading(false);
-    }
-  };
 
   const resetForm = () => {
     setLoginEmail('');
@@ -128,16 +116,7 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
           <TabsContent value="login" className="space-y-4">
             <div className="space-y-4">
               {/* Steam Login Button */}
-              <Button 
-                onClick={handleSteamAuth} 
-                disabled={loading}
-                className="w-full bg-[#1b2838] hover:bg-[#2a475e] text-white"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-                Login with Steam
-              </Button>
+              <SteamAuthButton mode="login" />
               
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
@@ -187,16 +166,7 @@ export function AuthModal({ children, defaultTab = 'login' }: AuthModalProps) {
           <TabsContent value="register" className="space-y-4">
             <div className="space-y-4">
               {/* Steam Register Button */}
-              <Button 
-                onClick={handleSteamAuth} 
-                disabled={loading}
-                className="w-full bg-[#1b2838] hover:bg-[#2a475e] text-white"
-              >
-                <svg className="w-5 h-5 mr-2" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10c5.52 0 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                </svg>
-                Register with Steam
-              </Button>
+              <SteamAuthButton mode="register" />
               
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
