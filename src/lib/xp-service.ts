@@ -1,19 +1,7 @@
 // Comprehensive XP Service for Progressive Leveling System
 import 'server-only';
 import { supabase } from './supabase/client';
-import { createClient } from '@supabase/supabase-js';
-
-// Create admin client to bypass RLS for notifications
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 import { 
   getXPForLevel, 
@@ -246,9 +234,10 @@ async function handleLevelUp(
       }
     }
 
-    // Create level up notification using admin client to bypass RLS
-    console.log('📣 CREATING LEVEL UP NOTIFICATION for user:', userId, 'Level:', newLevel);
-    await supabaseAdmin.from('notifications').insert([
+  // Create level up notification using admin client to bypass RLS
+  console.log('📣 CREATING LEVEL UP NOTIFICATION for user:', userId, 'Level:', newLevel);
+  const supabaseAdmin = createServerSupabaseClient();
+  await supabaseAdmin.from('notifications').insert([
       {
         id: `levelup_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         user_id: userId,
@@ -268,6 +257,7 @@ async function handleLevelUp(
     
     // Log to activity feed using admin client
     try {
+      const supabaseAdmin = createServerSupabaseClient();
       await supabaseAdmin.from('activity_feed').insert([
         {
           id: `levelup_activity_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -333,6 +323,7 @@ async function checkLevelAchievements(userId: string, level: number): Promise<vo
             },
           ]);
           // Create achievement notification using admin client
+          const supabaseAdmin = createServerSupabaseClient();
           await supabaseAdmin.from('notifications').insert([
             {
               id: `achievement_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,

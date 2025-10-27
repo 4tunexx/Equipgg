@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createServerSupabaseClient();
     const { action } = await request.json();
 
     if (action === 'test_steam_columns') {
@@ -32,6 +28,7 @@ export async function POST(request: NextRequest) {
 
 async function testDatabaseSchema() {
   const results: string[] = [];
+  const supabase = createServerSupabaseClient();
   const requiredColumns = [
     'id', 'email', 'steam_id', 'steam_verified', 'account_status',
     'username', 'avatar', 'coins', 'xp', 'level', 'wins', 'matches_played'
@@ -118,6 +115,8 @@ async function testDatabaseSchema() {
 async function addSteamColumns() {
   const results: string[] = [];
   results.push('🚀 Starting database migration...\n');
+
+  const supabase = createServerSupabaseClient();
 
   // Since we can't run DDL directly through Supabase client easily,
   // we'll use a workaround approach or provide manual instructions
@@ -210,6 +209,7 @@ WHERE
 async function completeDatabaseSetup() {
   const results: string[] = [];
   results.push('🚀 Starting complete database setup for CS2 gambling platform...\n');
+  const supabase = createServerSupabaseClient();
   
   results.push('🎯 This will create the COMPLETE EquipGG platform with:');
   results.push('• 50+ achievements and badges');
@@ -281,6 +281,7 @@ async function completeDatabaseSetup() {
 
 async function analyzeDatabaseSchema() {
   const results: string[] = [];
+  const supabase = createServerSupabaseClient();
   results.push('🔍 COMPREHENSIVE DATABASE ANALYSIS\n');
   
   // Define all expected tables from the complete database setup

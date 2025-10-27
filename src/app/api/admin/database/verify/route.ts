@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 export async function GET(request: NextRequest) {
   try {
     console.log('Verifying database setup...');
+
+    // Create server/admin supabase client at runtime to avoid build-time env checks
+    const supabase = createServerSupabaseClient();
 
     // Get counts from each table
     const [achievementsRes, itemsRes, missionsRes, perksRes, badgesRes] = await Promise.all([

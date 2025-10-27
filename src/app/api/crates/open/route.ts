@@ -1,7 +1,6 @@
 import 'server-only';
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "../../../../lib/supabase/client";
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from "../../../../lib/supabase";
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { addXpForCrateOpened } from "../../../../lib/xp-leveling-system";
 import { trackMissionProgress, updateOwnershipMissions } from "../../../../lib/mission-integration";
@@ -9,17 +8,10 @@ import { createNotification } from "../../../../lib/notification-utils";
 import { trackCrateOpened } from "../../../../lib/activity-tracker";
 import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
-// Create Supabase admin client for secure operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// NOTE: Supabase admin client must be created at runtime inside handlers
+// using createServerSupabaseClient(). Creating it at module scope causes
+// Next.js to evaluate env-dependent code during build and can abort
+// the build when env vars are not available. See src/lib/supabase.ts.
 
 // ANTI-CHEAT: Track ongoing crate openings to prevent duplicate requests
 const ongoingOpens = new Map<string, number>();
@@ -83,8 +75,10 @@ export async function POST(request: NextRequest) {
       console.log(`⏰ ANTI-CHEAT: Auto-cleared stuck request for user ${session.user_id}`);
     }, REQUEST_TIMEOUT);
 
-    // Use the database function to open the crate (handles key check, item selection, and inventory addition)
-    console.log(`🎲 Attempting to open crate ${crateId} for user ${session.user_id}`);
+  // Use the database function to open the crate (handles key check, item selection, and inventory addition)
+  // Create the server/admin supabase client at runtime to avoid build-time env checks
+  const supabaseAdmin = createServerSupabaseClient();
+  console.log(`🎲 Attempting to open crate ${crateId} for user ${session.user_id}`);
     const { data: wonItemData, error: openError } = await supabaseAdmin
       .rpc('open_crate', {
         p_user_id: session.user_id,

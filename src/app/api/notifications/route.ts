@@ -3,24 +3,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse } from "../../../lib/auth-utils";
 import { createServerSupabaseClient } from "../../../lib/supabase";
 import { createSupabaseQueries } from "../../../lib/supabase/queries";
-import { createClient } from '@supabase/supabase-js';
-
-// Create Supabase admin client for bypassing RLS
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
 
 // GET - Fetch user notifications
 export async function GET(request: NextRequest) {
   try {
-    console.log('📡 GET /api/notifications');
+  console.log('📡 GET /api/notifications');
     const session = await getAuthSession(request);
     
     if (!session) {
@@ -31,8 +18,9 @@ export async function GET(request: NextRequest) {
     const user_id = session.user_id;
     console.log('🔍 Fetching notifications for user:', user_id);
     
-    // Direct query with admin client to bypass RLS
-    // This ensures we get notifications even if RLS policies are restrictive
+    // Create admin client at runtime and query notifications (bypass RLS)
+    const supabaseAdmin = createServerSupabaseClient();
+
     const { data: notifications, error: notificationsError } = await supabaseAdmin
       .from('notifications')
       .select('*')
@@ -141,6 +129,7 @@ export async function PUT(request: NextRequest) {
     const user_id = session.user_id;
     
     // Mark notifications as read directly with the admin client
+    const supabaseAdmin = createServerSupabaseClient();
     const { data, error } = await supabaseAdmin
       .from('notifications')
       .update({ read: true })

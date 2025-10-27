@@ -2,23 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
 import { createSupabaseQueries } from "../../../../lib/supabase/queries";
 import { supabase } from "../../../../lib/supabase/client";
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 import { createNotification } from "../../../../lib/notification-utils";
 
-// Create Supabase admin client for secure operations
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Supabase admin client will be created inside the handler when needed
 
 export async function POST(request: NextRequest) {
   try {
+    const supabaseAdmin = createServerSupabaseClient();
     const session = await getAuthSession(request);
     if (!session) {
       return createUnauthorizedResponse();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabaseClient } from '@/lib/supabase';
 
 const STEAM_OPENID_URL = 'https://steamcommunity.com/openid/login';
 const STEAM_API_KEY = process.env.STEAM_API_KEY;
@@ -8,17 +8,7 @@ const BASE_URL = process.env.NODE_ENV === 'production'
   ? (process.env.NEXTAUTH_URL || 'https://www.equipgg.net')
   : 'http://localhost:3001';
 
-// Create Supabase clients
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-const SUPABASE_ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
-const SUPABASE_SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
-
-// Use service role for user creation, anon for regular operations
-const supabaseAdmin = SUPABASE_SERVICE 
-  ? createClient(SUPABASE_URL, SUPABASE_SERVICE)
-  : createClient(SUPABASE_URL, SUPABASE_ANON);
-  
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON);
+// Supabase clients will be created inside handlers using the server helper
 
 // Steam OpenID parameters
 export function buildSteamAuthUrl(returnUrl: string) {
@@ -101,6 +91,8 @@ export async function getSteamUserInfo(steamId: string) {
 
 // Handle GET request - initiate Steam auth
 export async function GET(request: NextRequest) {
+  const supabaseAdmin = createServerSupabaseClient();
+  const supabase = createServerSupabaseClient();
   const { searchParams } = new URL(request.url);
   
   console.log('=== STEAM AUTH ENDPOINT HIT ===');
@@ -457,6 +449,7 @@ export async function GET(request: NextRequest) {
 // Handle POST request - for manual verification if needed
 export async function POST(request: NextRequest) {
   try {
+    const supabase = createServerSupabaseClient();
     const { steamId } = await request.json();
     if (!steamId) {
       return NextResponse.json({ error: 'Steam ID is required' }, { status: 400 });

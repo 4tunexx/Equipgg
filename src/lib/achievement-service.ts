@@ -1,11 +1,10 @@
 // Achievement Service - Handles unlocking achievements and tracking progress
-import { createClient } from '@supabase/supabase-js';
 import { notificationService } from './notification-service';
+import { createServerSupabaseClient } from '@/lib/supabase';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+function getSupabase() {
+  return createServerSupabaseClient();
+}
 
 export interface Achievement {
   id: number;
@@ -27,7 +26,6 @@ export interface AchievementUnlock {
 }
 
 class AchievementService {
-  private supabase = supabase;
 
   /**
    * Check and unlock achievements for a user based on an action
@@ -39,7 +37,7 @@ class AchievementService {
       const unlocked: AchievementUnlock[] = [];
       
       // Get all relevant achievements
-      const { data: achievements, error: achievementsError } = await this.supabase
+      const { data: achievements, error: achievementsError } = await getSupabase()
         .from('achievements')
         .select('*')
         .eq('is_active', true);
@@ -50,7 +48,7 @@ class AchievementService {
       }
       
       // Get user's current achievements
-      const { data: userAchievements, error: userAchievementsError } = await this.supabase
+      const { data: userAchievements, error: userAchievementsError } = await getSupabase()
         .from('user_achievements')
         .select('achievement_id')
         .eq('user_id', userId);
@@ -100,7 +98,7 @@ class AchievementService {
       
       if (achievement.name === 'Regular Bettor' && action === 'bet_placed') {
         // Check if user has placed 50 bets total
-        const { count } = await this.supabase
+        const { count } = await getSupabase()
           .from('user_bets')
           .select('id', { count: 'exact' })
           .eq('user_id', userId);
@@ -109,7 +107,7 @@ class AchievementService {
       
       if (achievement.name === 'Consistent Winner' && action === 'bet_won') {
         // Check if user has won 50 bets total
-        const { count } = await this.supabase
+        const { count } = await getSupabase()
           .from('user_bets')
           .select('id', { count: 'exact' })
           .eq('user_id', userId)
@@ -159,7 +157,7 @@ class AchievementService {
       
       if (achievement.name === 'Daily Grind' && action === 'mission_completed') {
         // Check if user has completed 10 daily missions
-        const { count } = await this.supabase
+        const { count } = await getSupabase()
           .from('user_mission_progress')
           .select('id', { count: 'exact' })
           .eq('user_id', userId)
@@ -192,7 +190,7 @@ class AchievementService {
       console.log(`🎉 Unlocking achievement "${achievement.name}" for user ${userId}`);
       
       // Insert user achievement record
-      const { error: insertError } = await this.supabase
+      const { error: insertError } = await getSupabase()
         .from('user_achievements')
         .insert({
           user_id: userId,
@@ -248,7 +246,7 @@ class AchievementService {
         if (gems > 0) updates.gems = `gems + ${gems}`;
         
         // Use raw SQL for atomic updates
-        const { error } = await this.supabase.rpc('update_user_rewards', {
+        const { error } = await getSupabase().rpc('update_user_rewards', {
           user_id: userId,
           xp_to_add: xp,
           coins_to_add: coins,
@@ -258,7 +256,7 @@ class AchievementService {
         if (error) {
           console.error('Error awarding rewards:', error);
           // Fallback to regular update
-          const { error: updateError } = await this.supabase
+          const { error: updateError } = await getSupabase()
             .from('users')
             .update({
               xp: `xp + ${xp}`,

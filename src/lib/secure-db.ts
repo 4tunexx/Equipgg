@@ -3,7 +3,16 @@ import { createServerSupabaseClient } from './supabase';
 // Secure database wrapper with input validation
 export class SecureDatabase {
   private static instance: SecureDatabase;
-  private supabase = createServerSupabaseClient();
+  // Do not create the server supabase client at module import time — create it lazily
+  // to avoid throwing during Next.js build when env vars are not yet available.
+  private supabase: any;
+
+  private getSupabase() {
+    if (!this.supabase) {
+      this.supabase = createServerSupabaseClient();
+    }
+    return this.supabase;
+  }
 
   static getInstance(): SecureDatabase {
     if (!SecureDatabase.instance) {
@@ -112,7 +121,7 @@ export class SecureDatabase {
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
     
-    const { data, error } = await this.supabase
+    const { data, error } = await this.getSupabase()
       .from(table)
       .select('*')
       .match(sanitizedWhere)
@@ -135,7 +144,7 @@ export class SecureDatabase {
       throw new Error(`Invalid table name: ${table}`);
     }
 
-    let query = this.supabase.from(table).select('*');
+  let query = this.getSupabase().from(table).select('*');
 
     if (where && Object.keys(where).length > 0) {
       const sanitizedWhere = this.sanitizeWhereClause(where);
@@ -157,7 +166,7 @@ export class SecureDatabase {
       query = query.range(options.offset, (options.offset || 0) + (options.limit || 1000) - 1);
     }
 
-    const { data, error } = await query;
+  const { data, error } = await query;
 
     if (error) {
       console.error(`Error in findMany for table ${table}:`, error);
@@ -186,7 +195,7 @@ export class SecureDatabase {
       }
     }
 
-    const { data: result, error } = await this.supabase
+    const { data: result, error } = await this.getSupabase()
       .from(table)
       .insert(sanitizedData)
       .select()
@@ -225,7 +234,7 @@ export class SecureDatabase {
       }
     }
 
-    const { data: result, error } = await this.supabase
+    const { data: result, error } = await this.getSupabase()
       .from(table)
       .update(sanitizedData)
       .match(sanitizedWhere)
@@ -250,7 +259,7 @@ export class SecureDatabase {
 
     const sanitizedWhere = this.sanitizeWhereClause(where);
     
-    const { error } = await this.supabase
+    const { error } = await this.getSupabase()
       .from(table)
       .delete()
       .match(sanitizedWhere);
@@ -273,7 +282,7 @@ export class SecureDatabase {
       throw new Error('Invalid function name for RPC.');
     }
 
-    const { data, error } = await this.supabase.rpc(functionName, { params });
+  const { data, error } = await this.getSupabase().rpc(functionName, { params });
     if (error) {
       console.error(`Error in executeSecureQuery for function ${functionName}:`, error);
       return [];
