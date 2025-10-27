@@ -1,0 +1,9 @@
+https://www.equipgg.net?_vercel_share=GKelpPvqGfDxEcG0LZMSetzwYtn9n0VJ
+
+logs
+
+No users row found for steam-76561198001993310 - attempting auto-creation from Auth metadata
+Admin API error - cannot access auth.admin.getUserById: true
+Check SUPABASE_SERVICE_ROLE_KEY is set in environment
+Auth metadata found: { userId: 'steam-76561198001993310', email: 'none' }
+FINAL: No users row exists and auto-creation failed for user: steam-76561198001993310
