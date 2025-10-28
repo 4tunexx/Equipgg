@@ -30,7 +30,7 @@ export async function DELETE(request: NextRequest) {
     // Check if item exists and belongs to user
     const { data: inventoryItem, error: findError } = await supabase
       .from('user_inventory')
-      .select('*, item:items(name)')
+      .select('*, item:items!fk_user_inventory_item_id(name)')
       .eq('id', itemId)
       .eq('user_id', session.user.id)
       .single();

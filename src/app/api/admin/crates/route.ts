@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession, createUnauthorizedResponse, createForbiddenResponse } from "../../../../lib/auth-utils";
 import { createServerSupabaseClient } from "../../../../lib/supabase";
-import { v4 as uuidv4 } from 'uuid';
 
 export async function GET(request: NextRequest) {
   try {
@@ -16,32 +15,40 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerSupabaseClient();
     
+    console.log('🔍 Fetching crates for admin...');
+    
     // Fetch crates with their items
+    // Specify exact foreign key relationships to avoid ambiguity
     const { data: crates, error } = await supabase
       .from('crates')
       .select(`
         *,
-        items:crate_items(
+        items:crate_items!fk_crate_items_crate_id(
           item_id,
           drop_chance,
-          item:items(*)
+          item:items!fk_crate_items_item_id(*)
         )
       `);
 
     if (error) {
-      console.error('Error fetching admin crates:', error);
-      return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+      console.error('❌ Error fetching admin crates:', error);
+      return NextResponse.json({ error: 'Internal server error', details: error.message }, { status: 500 });
+    }
+
+    console.log(`✅ Fetched ${crates?.length || 0} crates`);
+    if (crates && crates.length > 0) {
+      console.log('📦 Sample crate:', crates[0]);
     }
 
     return NextResponse.json({
       success: true,
-      crates
+      crates: crates || []
     });
 
   } catch (error) {
     console.error('Error fetching admin crates:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown' },
       { status: 500 }
     );
   }
@@ -65,7 +72,6 @@ export async function POST(request: NextRequest) {
     }
 
     const newCrate = {
-      id: uuidv4(),
       name,
       description,
       image_url: image || null,
@@ -76,6 +82,7 @@ export async function POST(request: NextRequest) {
       gem_reward: gem_reward || 0,
     };
 
+    const supabase = createServerSupabaseClient();
     const { data, error } = await supabase
       .from('crates')
       .insert(newCrate)
@@ -148,6 +155,7 @@ export async function PUT(request: NextRequest) {
       gem_reward: gem_reward || 0,
     };
 
+    const supabase = createServerSupabaseClient();
     const { data, error } = await supabase
       .from('crates')
       .update(updateData)
@@ -216,6 +224,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Crate ID is required' }, { status: 400 });
     }
 
+    const supabase = createServerSupabaseClient();
     const { error } = await supabase
       .from('crates')
       .delete()

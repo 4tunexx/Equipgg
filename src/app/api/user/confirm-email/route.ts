@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     const { newEmail } = body;
 
     // Check if email is already confirmed
-    const { data: userData, error: fetchError } = await supabase
+    let { data: userData, error: fetchError } = await supabase
       .from('users')
       .select('email_confirmed, email, provider, displayname, username')
       .eq('id', session.user_id)
@@ -276,11 +276,25 @@ export async function GET(request: NextRequest) {
 
     const supabase = createServerSupabaseClient();
 
-    const { data, error } = await supabase
+  const { data, error } = await supabase
       .from('users')
       .select('email_confirmed, email, provider')
       .eq('id', session.user_id)
       .single();
+
+    // Cross-check Supabase Auth in case our users table isn't updated yet
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(session.user_id);
+      if (authUser?.user?.email_confirmed_at && !data?.email_confirmed) {
+        await supabase
+          .from('users')
+          .update({ email_confirmed: true })
+          .eq('id', session.user_id);
+        if (data) (data as any).email_confirmed = true;
+      }
+    } catch (e) {
+      console.warn('Email confirmation cross-check failed:', e);
+    }
 
     if (error) {
       console.error('Error fetching user data:', error);

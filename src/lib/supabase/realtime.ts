@@ -101,7 +101,7 @@ export interface ItemAddedPayload {
 
 export interface CrateOpenedPayload {
   userId: string;
-  crateId: string;
+  crateId: number;
   crateName: string;
   items: Array<{
     id: string;

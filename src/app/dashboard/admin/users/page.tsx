@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { useToast } from "../../../../hooks/use-toast";
+import { getLevelFromXP } from "../../../../lib/xp-config";
 import { useAuth } from "../../../../hooks/use-auth";
 import { supabase } from "../../../../lib/supabase/client";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../../components/ui/table";
@@ -64,17 +65,22 @@ export default function AdminUsersPage() {
 
       if (usersError) throw usersError;
 
-      setUsers(usersData || []);
+      const fixed = (usersData || []).map((u: any) => ({
+        ...u,
+        level: getLevelFromXP(u.xp || 0)
+      }));
+      setUsers(fixed);
       
       // Fetch ranks for all users
       if (usersData) {
         const ranksMap: Record<string, string> = {};
         for (const user of usersData) {
+          const computedLevel = getLevelFromXP(user.xp || 0);
           const { data: rank } = await supabase
             .from('ranks')
             .select('name')
-            .lte('min_level', user.level || 1)
-            .gte('max_level', user.level || 1)
+            .lte('min_level', computedLevel)
+            .gte('max_level', computedLevel)
             .maybeSingle();
           ranksMap[user.id] = rank?.name || 'Silver I';
         }

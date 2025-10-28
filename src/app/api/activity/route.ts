@@ -86,6 +86,7 @@ export async function GET() {
       }
 
       // If we get here, try to fetch activities with all necessary columns and join users
+      // Try without foreign key hint first - let Supabase auto-detect
       const { data: activityData, error: activityError } = await supabase
         .from('activity_feed')
         .select(`
@@ -93,15 +94,7 @@ export async function GET() {
           action,
           description,
           metadata,
-          created_at,
-          users(
-            username,
-            displayname,
-            avatar_url,
-            role,
-            xp,
-            level
-          )
+          created_at
         `)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -112,7 +105,23 @@ export async function GET() {
         return NextResponse.json({ activities: generateSampleActivities() }, { headers });
       }
 
-      activities = activityData || [];
+      // Fetch user data for each activity separately
+      const activitiesWithUsers = await Promise.all(
+        (activityData || []).map(async (activity) => {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('username, displayname, avatar_url, role, xp, level')
+            .eq('id', activity.user_id)
+            .single();
+          
+          return {
+            ...activity,
+            users: userData
+          };
+        })
+      );
+
+      activities = activitiesWithUsers;
       console.log(`Found ${activities.length} real activities in database`);
       // Only log activity count in development to reduce production log spam
       if (process.env.NODE_ENV === 'development') {

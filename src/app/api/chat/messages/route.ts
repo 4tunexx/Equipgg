@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
       })
       .select(`
         *,
-        sender:users(id, displayname, avatar_url, role, level)
+        sender:users!fk_chat_messages_sender_id(id, displayname, avatar_url, role, level)
       `)
       .single();
 

@@ -57,10 +57,12 @@ export async function GET(request: NextRequest) {
     const { data: rank } = await supabase
       .from('ranks')
       .select('*')
-      .gte('min_level', calculatedLevel)
-      .lte('max_level', calculatedLevel)
+      .lte('min_level', calculatedLevel)
+      .or(`max_level.gte.${calculatedLevel},max_level.is.null`)
       .eq('is_active', true)
-      .single();
+      .order('min_level', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     // Get user stats - sum quantities for stacked items
     const { data: inventoryData } = await supabase

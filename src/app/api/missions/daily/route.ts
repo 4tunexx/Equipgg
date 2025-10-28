@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
 
     // Combine missions with progress
     const missionsWithProgress = missions.map(mission => {
-      const userProgress = progress?.find(p => p.mission_id === mission.id.toString()) || {
+      const userProgress = progress?.find(p => p.mission_id == mission.id) || {
         progress: 0,
         completed: false,
         completed_at: null

@@ -1,6 +1,7 @@
 // Mission tracking utility for Supabase
 import { SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { createNotification } from './notification-utils';
 
 // Helper function to check and award mission rewards
 async function checkAndAwardMissionRewards(userId: string, missionId: number, client: SupabaseClient) {
@@ -25,7 +26,7 @@ async function checkAndAwardMissionRewards(userId: string, missionId: number, cl
     if (!mission) return;
     
     // Check if mission is completed and not yet claimed
-    if (progress.current_progress >= mission.requirement_value && !progress.completed) {
+    if ((progress as any).progress >= mission.requirement_value && !progress.completed) {
       console.log(`🎉 Mission ${mission.name} completed! Awarding rewards...`);
       
       // Mark mission as completed
@@ -62,20 +63,23 @@ async function checkAndAwardMissionRewards(userId: string, missionId: number, cl
       
       console.log(`✅ Rewards awarded: +${mission.xp_reward} XP, +${mission.coin_reward} coins, +${mission.gem_reward} gems`);
       
-      // Create notification
+      // Notification + activity entry
+      try {
+        await createNotification({
+          userId,
+          type: 'mission_completed',
+          title: '✅ Mission Complete!',
+          message: `${mission.name} completed! +${mission.xp_reward || 0} XP${mission.coin_reward ? `, +${mission.coin_reward} coins` : ''}${mission.gem_reward ? `, +${mission.gem_reward} gems` : ''}`,
+          data: { missionId, xp: mission.xp_reward, coins: mission.coin_reward, gems: mission.gem_reward }
+        });
+      } catch {}
       await client
         .from('activity_feed')
         .insert({
           user_id: userId,
           action: 'mission_completed',
-          description: `Completed mission: ${mission.name}! Earned ${mission.xp_reward} XP and ${mission.coin_reward} coins`,
-          metadata: {
-            mission_id: missionId,
-            mission_name: mission.name,
-            xp_reward: mission.xp_reward,
-            coin_reward: mission.coin_reward,
-            gem_reward: mission.gem_reward
-          },
+          description: `Completed mission: ${mission.name}! Earned ${mission.xp_reward} XP${mission.coin_reward ? ` and ${mission.coin_reward} coins` : ''}`,
+          metadata: { mission_id: missionId, mission_name: mission.name, xp_reward: mission.xp_reward, coin_reward: mission.coin_reward, gem_reward: mission.gem_reward },
           created_at: new Date().toISOString()
         });
       
@@ -113,7 +117,7 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -124,8 +128,7 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: 1,
-            target_progress: mission.requirement_value,
+            progress: 1,
             completed: false
           });
       }
@@ -142,7 +145,7 @@ export async function trackShopVisit(userId: string, supabaseClient?: SupabaseCl
   }
 }
 
-export async function trackCrateOpened(userId: string, crateId: string, supabaseClient?: SupabaseClient) {
+export async function trackCrateOpened(userId: string, crateId: number, supabaseClient?: SupabaseClient) {
   try {
     const client = supabaseClient || supabase;
     
@@ -169,7 +172,7 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -180,8 +183,7 @@ export async function trackCrateOpened(userId: string, crateId: string, supabase
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: 1,
-            target_progress: mission.requirement_value,
+            progress: 1,
             completed: false
           });
       }
@@ -248,7 +250,7 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + progressIncrement, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + progressIncrement, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -259,8 +261,7 @@ export async function trackBetPlaced(userId: string, amount: number, gameType: s
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: progressIncrement,
-            target_progress: mission.requirement_value,
+            progress: progressIncrement,
             completed: false
           });
       }
@@ -315,7 +316,7 @@ export async function trackCrashGameEarnings(userId: string, earnings: number, s
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + earnings, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + earnings, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -326,8 +327,7 @@ export async function trackCrashGameEarnings(userId: string, earnings: number, s
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: earnings,
-            target_progress: mission.requirement_value,
+            progress: earnings,
             completed: false
           });
       }
@@ -370,7 +370,7 @@ export async function trackForumPost(userId: string, supabaseClient?: SupabaseCl
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -380,8 +380,7 @@ export async function trackForumPost(userId: string, supabaseClient?: SupabaseCl
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: 1,
-            target_progress: mission.requirement_value,
+            progress: 1,
             completed: false
           });
       }
@@ -420,7 +419,7 @@ export async function trackVoteCast(userId: string, supabaseClient?: SupabaseCli
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -430,8 +429,7 @@ export async function trackVoteCast(userId: string, supabaseClient?: SupabaseCli
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: 1,
-            target_progress: mission.requirement_value,
+            progress: 1,
             completed: false
           });
       }
@@ -470,7 +468,7 @@ export async function trackLeaderboardCheck(userId: string, supabaseClient?: Sup
         await client
           .from('user_mission_progress')
           .update({ 
-            current_progress: Math.min(progress.current_progress + 1, mission.requirement_value),
+            progress: Math.min(((progress as any).progress || 0) + 1, mission.requirement_value),
             updated_at: new Date().toISOString()
           })
           .eq('id', progress.id);
@@ -480,8 +478,7 @@ export async function trackLeaderboardCheck(userId: string, supabaseClient?: Sup
           .insert({
             user_id: userId,
             mission_id: mission.id,
-            current_progress: 1,
-            target_progress: mission.requirement_value,
+            progress: 1,
             completed: false
           });
       }
@@ -524,8 +521,7 @@ export async function trackLevelReached(userId: string, level: number, supabaseC
             .insert({
               user_id: userId,
               mission_id: mission.id,
-              current_progress: mission.requirement_value,
-              target_progress: mission.requirement_value,
+              progress: mission.requirement_value,
               completed: true,
               completed_at: new Date().toISOString()
             });

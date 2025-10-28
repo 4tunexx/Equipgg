@@ -19,19 +19,89 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
     // Check both users table and auth metadata
     const userRes = await supabase
       .from('users')
-      .select('email_verified, steam_verified, provider, account_status, email')
+      .select('email_verified, steam_verified, provider, account_status, email, role')
       .eq('id', userId)
       .maybeSingle(); // Use maybeSingle to avoid error when user doesn't exist
     let user = userRes.data as any;
     
-  // If user doesn't exist, return error
-  if (!user) {
+    // If user doesn't exist in users table, try to create from auth
+    if (!user) {
+      console.log('⚠️ User not in users table, attempting to fetch from auth and create...');
+      
+      // Get user from Supabase Auth
+      const { data: authUser, error: authError } = await supabase.auth.admin.getUserById(userId);
+      
+      if (authError || !authUser.user) {
+        console.error('❌ User not found in auth either:', authError);
+        return {
+          isVerified: false,
+          requiresEmailVerification: !userId.startsWith('steam-'),
+          requiresSteamVerification: userId.startsWith('steam-'),
+          canUseBalances: false,
+          message: 'User not found in database'
+        };
+      }
+      
+      // Create minimal user record
+      const isSteamUser = userId.startsWith('steam-') || authUser.user.app_metadata?.provider === 'steam';
+      const newUserData = {
+        id: userId,
+        email: authUser.user.email || `${userId}@placeholder.com`,
+        username: authUser.user.email?.split('@')[0] || authUser.user.user_metadata?.username || `user_${userId.substring(0, 8)}`,
+        displayname: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.username || `User ${userId.substring(0, 8)}`,
+        provider: isSteamUser ? 'steam' : 'email',
+        steam_verified: isSteamUser,
+        email_verified: !!authUser.user.email_confirmed_at,
+        email_confirmed: !!authUser.user.email_confirmed_at,
+        avatar_url: authUser.user.user_metadata?.avatar_url || null,
+        coins: 0,
+        gems: 0,
+        xp: 0,
+        level: 1,
+        role: 'user',
+        account_status: 'active',
+        created_at: new Date().toISOString()
+      };
+      
+      const { data: createdUser, error: createError } = await supabase
+        .from('users')
+        .insert(newUserData)
+        .select()
+        .single();
+      
+      if (createError) {
+        console.error('❌ Failed to create user record:', createError);
+        return {
+          isVerified: false,
+          requiresEmailVerification: !isSteamUser,
+          requiresSteamVerification: isSteamUser,
+          canUseBalances: false,
+          message: 'Failed to create user profile'
+        };
+      }
+      
+      console.log('✅ Created user record successfully');
+      user = createdUser;
+    }
+  
+  // ADMIN BYPASS: Admins and moderators can always use balances
+  const isAdmin = user.role === 'admin' || user.role === 'moderator';
+  
+  console.log('🔍 Checking admin access:', {
+    userId,
+    role: user.role,
+    isAdmin,
+    email: user.email
+  });
+  
+  if (isAdmin) {
+    console.log('✅ ADMIN ACCESS GRANTED - Bypassing verification');
     return {
-      isVerified: false,
-      requiresEmailVerification: !userId.startsWith('steam-'),
-      requiresSteamVerification: userId.startsWith('steam-'),
-      canUseBalances: false,
-      message: 'User not found in database'
+      isVerified: true,
+      requiresEmailVerification: false,
+      requiresSteamVerification: false,
+      canUseBalances: true,
+      message: 'Admin access granted'
     };
   }
   

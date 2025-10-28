@@ -16,16 +16,30 @@ export async function GET(
 
     const supabase = createServerSupabaseClient();
 
-    // Check if username is a Steam ID (numeric string starting with 7656) or steam- prefix
+    // Check if username is a UUID, Steam ID (numeric string starting with 7656) or steam- prefix
+    const isUuidCheck = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
     const isSteamIdNumeric = /^7656119\d{10}$/.test(username);
     const isSteamIdFormat = username.startsWith('steam-');
     
-    console.log('🔍 Username check:', { username, isSteamIdNumeric, isSteamIdFormat });
+    console.log('🔍 Username check:', { username, isUuidCheck, isSteamIdNumeric, isSteamIdFormat });
     
     let userData: any = null;
     let userError: any = null;
 
-    if (isSteamIdNumeric) {
+    if (isUuidCheck || isSteamIdFormat) {
+      // Look up by user ID (UUID or steam- prefix format)
+      console.log('🔍 Looking up by user ID:', username);
+      const { data, error } = await supabase
+        .from('users')
+        .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
+        .eq('id', username)
+        .eq('is_deleted', false)
+        .maybeSingle();
+      
+      userData = data;
+      userError = error;
+      console.log('🔍 User ID lookup result:', { found: !!data, error: error?.message });
+    } else if (isSteamIdNumeric) {
       // Look up by Steam ID (numeric format)
       console.log('🔍 Looking up by numeric Steam ID:', username);
       const { data, error } = await supabase
@@ -38,19 +52,6 @@ export async function GET(
       userData = data;
       userError = error;
       console.log('🔍 Steam ID lookup result:', { found: !!data, error: error?.message });
-    } else if (isSteamIdFormat) {
-      // Look up by user ID (steam- prefix format)
-      console.log('🔍 Looking up by user ID (steam- format):', username);
-      const { data, error } = await supabase
-        .from('users')
-        .select('id, username, displayname, avatar_url, role, level, xp, created_at, provider, steam_verified, equipped_banner, steam_id')
-        .eq('id', username)
-        .eq('is_deleted', false)
-        .maybeSingle();
-      
-      userData = data;
-      userError = error;
-      console.log('🔍 User ID lookup result:', { found: !!data, error: error?.message });
     } else {
       // Look up by username or displayname
       console.log('🔍 Looking up by username/displayname:', username);
@@ -84,7 +85,7 @@ export async function GET(
     // Fetch user's badges
     const { data: userBadges } = await supabase
       .from('user_badges')
-      .select('badge_id, earned_at, badges(name, description, icon_url, rarity)')
+      .select('badge_id, earned_at, badges!fk_user_badges_badge_id(name, description, icon_url, rarity)')
       .eq('user_id', userData.id);
 
     // Fetch user's achievements
@@ -113,6 +114,47 @@ export async function GET(
       .limit(1)
       .maybeSingle();
 
+    // If param is a UUID (Supabase user id), fetch directly by id
+    const rawParams = await params;
+    const usernameParam = rawParams?.username;
+    const isUuid = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/.test(String(usernameParam));
+    if (isUuid) {
+      const supabase = createServerSupabaseClient();
+      const { data: uuidUser } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', usernameParam)
+        .maybeSingle();
+
+      if (uuidUser) {
+        const { getLevelFromXP } = await import('../../../../../lib/xp-config');
+        const computedLevelUuid = getLevelFromXP(uuidUser.xp || 0);
+        return NextResponse.json({
+          success: true,
+          user: {
+            id: uuidUser.id,
+            username: uuidUser.username || uuidUser.displayname,
+            displayname: uuidUser.displayname,
+            avatar_url: uuidUser.avatar_url,
+            role: uuidUser.role,
+            level: computedLevelUuid || uuidUser.level || 1,
+            xp: uuidUser.xp || 0,
+            provider: uuidUser.provider,
+            steam_verified: uuidUser.steam_verified,
+            created_at: uuidUser.created_at,
+            equipped_banner: uuidUser.equipped_banner || 'banner_default'
+          },
+          stats: {},
+          badges: [],
+          isPublic: true
+        });
+      }
+    }
+
+    // Compute level from XP to keep consistency with UI mini-card
+    const { getLevelFromXP } = await import('../../../../../lib/xp-config');
+    const computedLevel = getLevelFromXP(userData.xp || 0);
+
     return NextResponse.json({
       success: true,
       user: {
@@ -121,7 +163,7 @@ export async function GET(
         displayname: userData.displayname,
         avatar_url: userData.avatar_url,
         role: userData.role,
-        level: userData.level || 1,
+        level: computedLevel || userData.level || 1,
         xp: userData.xp || 0,
         rank: rankData?.name || 'Unranked',
         rankIcon: rankData?.icon_url,

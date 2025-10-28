@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
+import { createNotification } from "@/lib/notification-utils";
+import { trackMissionCompleted } from "@/lib/activity-tracker";
 import { getAuthSession } from "@/lib/auth-utils";
 
 // Get user's mission progress
@@ -141,22 +143,44 @@ export async function PUT(request: NextRequest) {
 
     if (fetchError) throw fetchError;
 
-    // Award XP and coins to user
+    // Award XP/coins/gems and recalc level for consistency
+    const { getLevelFromXP } = await import('../../../../lib/xp-config');
+    const newXP = (currentUser.xp || 0) + (mission.xp_reward || 0);
+    const newLevel = getLevelFromXP(newXP);
+
     const { error: userError } = await supabase
       .from('users')
       .update({
-        xp: (currentUser.xp || 0) + (mission.xp_reward || 0),
-        coins: (currentUser.coins || 0) + (mission.coin_reward || 0)
+        xp: newXP,
+        level: newLevel,
+        coins: (currentUser.coins || 0) + (mission.coin_reward || 0),
+        gems: (currentUser as any).gems !== undefined ? ((currentUser as any).gems || 0) + (mission.gem_reward || 0) : undefined
       })
       .eq('id', userId);
 
     if (userError) throw userError;
 
+    // Create user notification
+    try {
+      await createNotification({
+        userId,
+        type: 'mission_completed',
+        title: '✅ Mission Complete!',
+        message: `${mission.name} completed! +${mission.xp_reward || 0} XP${mission.coin_reward ? `, +${mission.coin_reward} coins` : ''}${mission.gem_reward ? `, +${mission.gem_reward} gems` : ''}`,
+        data: { missionId, xp: mission.xp_reward, coins: mission.coin_reward, gems: mission.gem_reward }
+      });
+    } catch {}
+
+    // Log activity (non-blocking)
+    try { await trackMissionCompleted(userId, mission.name, mission.xp_reward || 0); } catch {}
+
     return NextResponse.json({ 
       success: true, 
       rewards: {
         xp: mission.xp_reward || 0,
-        coins: mission.coin_reward || 0
+        coins: mission.coin_reward || 0,
+        gems: mission.gem_reward || 0,
+        level: newLevel
       }
     });
   } catch (error) {

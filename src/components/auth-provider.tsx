@@ -71,6 +71,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Check if we're currently logging out - if so, don't process session
+      if (sessionStorage.getItem('equipgg_logging_out') === 'true') {
+        console.log('Currently logging out, ignoring session change');
+        // Clear the flag after a delay
+        setTimeout(() => {
+          sessionStorage.removeItem('equipgg_logging_out');
+        }, 1000);
+        return;
+      }
+      
       setSession(session);
       setLoading(true);
 
@@ -118,6 +128,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Initial session check
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      // Check if we're currently logging out
+      if (sessionStorage.getItem('equipgg_logging_out') === 'true') {
+        console.log('Currently logging out, skipping session check');
+        setLoading(false);
+        return;
+      }
+      
       setSession(session);
       
       // If we have a Supabase session, use it (prioritize regular auth over Steam)
@@ -531,6 +548,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('Starting logout process...');
       
+      // Set a flag to prevent auto re-login
+      sessionStorage.setItem('equipgg_logging_out', 'true');
+      
+      // Clear ALL cookies immediately
+      document.cookie = 'equipgg_session=; Max-Age=0; path=/';
+      document.cookie = 'equipgg_session_client=; Max-Age=0; path=/';
+      document.cookie = 'equipgg_steam_session=; Max-Age=0; path=/';
+      document.cookie = 'equipgg_steam_email=; Max-Age=0; path=/';
+      document.cookie = 'equipgg_user_id=; Max-Age=0; path=/';
+      document.cookie = 'equipgg_user_email=; Max-Age=0; path=/';
+      
+      // Clear local state immediately
+      setUser(null);
+      setSession(null);
+
       // Use the logout API route which clears the session cookie
       const response = await fetch('/api/auth/logout', {
         method: 'POST',
@@ -549,7 +581,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Supabase logout error:', error);
-        throw error;
+        // Don't throw, still want to redirect
       }
 
       console.log('Supabase logout successful');
@@ -559,17 +591,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: 'You have been successfully logged out.',
       });
 
-      // Clear local state
-      setUser(null);
-      setSession(null);
-
-      // Clear Steam cookies client-side as well (backup)
-      document.cookie = 'equipgg_steam_session=; Max-Age=0; path=/';
-      document.cookie = 'equipgg_steam_email=; Max-Age=0; path=/';
-
       // Force redirect to landing page
       console.log('Redirecting to home page...');
-      window.location.href = '/';
+      
+      // Wait a bit for the auth state listener to process
+      setTimeout(() => {
+        window.location.href = '/';
+      }, 100);
     } catch {
       console.error('Sign out error');
       toast({

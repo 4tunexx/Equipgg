@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
       .from('chat_channels')
       .select(`
         *,
-        last_message:chat_messages(content, created_at, sender:users(display_name))
+        last_message:chat_messages!fk_chat_messages_channel_id(content, created_at, sender:users!fk_chat_messages_sender_id(display_name))
       `)
       .eq('is_active', true)
       .order('order_index', { ascending: true });

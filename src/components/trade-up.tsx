@@ -124,7 +124,7 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
             }
 
             // For stacked items, add up to quantity but respect the 5 slot limit
-            const itemsToAdd = [];
+            const itemsToAdd: any[] = [];
             for (let i = 0; i < quantity && selectedItems.length + itemsToAdd.length < TRADEUP_SLOTS; i++) {
                 itemsToAdd.push({ ...item, id: `${item.id}_${i}` }); // Create unique IDs for stacked items
             }
@@ -205,7 +205,7 @@ export function TradeUp({ inventory, onTradeUpComplete }: TradeUpProps) {
     
     const eligibleItems = inventory.filter(item => {
         // Filter out equipped items
-        if (item.equipped) return false;
+        if ((item as any).equipped) return false;
         
         // Filter out items in trade offers (in_escrow)
         if ((item as any).in_escrow) return false;

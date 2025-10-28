@@ -496,7 +496,7 @@ export default function ShopPage() {
     }
 
     // Apply sorting
-    const sortedPerks = sortItems(filteredPerks as DBShopItem[]);
+    const sortedPerks = sortItems(filteredPerks as any[]);
     
     if (sortedPerks.length === 0) {
       return (

@@ -322,7 +322,7 @@ export async function broadcastAchievementUnlock(userId: string, achievementId: 
   await realtimeManager.broadcastGlobal('achievement_unlock', { userId, achievement });
 }
 
-export async function broadcastCrateOpened(userId: string, crateId: string, item: any) {
+export async function broadcastCrateOpened(userId: string, crateId: number, item: any) {
   await realtimeManager.broadcastToUser(userId, 'crate_opened', { crateId, item });
   await realtimeManager.broadcastGlobal('crate_opened', { userId, item });
 }

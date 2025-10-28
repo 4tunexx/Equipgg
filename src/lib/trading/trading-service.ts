@@ -617,7 +617,7 @@ export class TradingService {
     
     const { data: items } = await supabase
       .from('user_inventory')
-      .select('*, item:items(*)')
+      .select('*, item:items!fk_user_inventory_item_id(*)')
       .eq('user_id', userId)
       .in('id', itemIds)
       .eq('in_escrow', false);

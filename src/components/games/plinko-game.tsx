@@ -98,7 +98,7 @@ export function PlinkoGame() {
             return;
         }
 
-        if (amount > balance) {
+        if (balance && amount > (balance as any).coins) {
             toast.error('Insufficient balance');
             return;
         }
@@ -158,7 +158,7 @@ export function PlinkoGame() {
 
     const renderPegs = () => {
         const rows = 8;
-        const pegs = [];
+        const pegs: JSX.Element[] = [];
         
         for (let row = 0; row < rows; row++) {
             const pegsInRow = row + 1;
@@ -260,7 +260,7 @@ export function PlinkoGame() {
                     </div>
                     
                     <div className="text-sm text-muted-foreground">
-                        <p>Current Balance: {balance} coins</p>
+                        <p>Current Balance: {balance ? (balance as any).coins : 0} coins</p>
                         <p>Multipliers: 0.2x to 10x</p>
                     </div>
                 </CardContent>

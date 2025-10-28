@@ -280,10 +280,10 @@ export class SupabaseQueries {
   }
 
   async addItemToInventory(userId: string, itemId: string) {
-    const { data, error } = await this.supabase
+    const { data, error} = await this.supabase
       .from('user_inventory')
       .insert([{ user_id: userId, item_id: itemId }])
-      .select('*, item:items(*)')
+      .select('*, item:items!fk_user_inventory_item_id(*)')
       .single();
     
     if (error) throw error;
@@ -395,7 +395,7 @@ export class SupabaseQueries {
       // Handle traditional shop_items table purchase
       const { data: shopItem, error: shopError } = await this.supabase
         .from('shop_items')
-        .select('*, item:items(*)')
+        .select('*, item:items!fk_shop_items_item_id(*)')
         .eq('id', shopItemId)
         .gt('stock', 0)
         .single();
@@ -430,7 +430,7 @@ export class SupabaseQueries {
   async getCrateItems(crateId: number) {
     const { data, error } = await this.supabase
       .from('crate_items')
-      .select('*, item:items(*)')
+      .select('*, item:items!fk_crate_items_item_id(*)')
       .eq('crate_id', crateId);
     
     if (error) throw error;
@@ -564,7 +564,7 @@ export class SupabaseQueries {
   async getActivityFeed(limit: number = 50) {
     const { data, error } = await this.supabase
       .from('activity_feed')
-      .select('*, user:users(*), item:items(*)')
+      .select('*, user:users!fk_activity_feed_user_id(*), item:items!fk_activity_feed_item_id(*)')
       .order('created_at', { ascending: false })
       .limit(limit);
     

@@ -335,9 +335,11 @@ export async function GET(request: NextRequest) {
       
       // Check and reset daily missions, award daily login mission
       try {
-        await checkAndResetDailyMissions(userId);
-        await awardDailyLoginMission(userId);
-        console.log('✅ Daily missions reset and login mission awarded for Steam user:', userId);
+        if (userId) {
+          await checkAndResetDailyMissions(userId);
+          await awardDailyLoginMission(userId);
+          console.log('✅ Daily missions reset and login mission awarded for Steam user:', userId);
+        }
       } catch (missionError) {
         console.error('⚠️ Failed to track login mission for Steam user:', missionError);
       }

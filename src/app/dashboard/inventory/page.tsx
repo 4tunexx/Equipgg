@@ -263,10 +263,10 @@ export default function InventoryPage() {
                 refreshInventory().catch(err => {
                     console.warn('Inventory refresh failed:', err);
                     // Don't spam errors - only log once per minute
-                    if (!window.inventoryRefreshErrorLogged) {
-                        window.inventoryRefreshErrorLogged = Date.now();
-                    } else if (Date.now() - window.inventoryRefreshErrorLogged > 60000) {
-                        window.inventoryRefreshErrorLogged = Date.now();
+                    if (!(window as any).inventoryRefreshErrorLogged) {
+                        (window as any).inventoryRefreshErrorLogged = Date.now();
+                    } else if (Date.now() - (window as any).inventoryRefreshErrorLogged > 60000) {
+                        (window as any).inventoryRefreshErrorLogged = Date.now();
                     }
                 });
             }, 1000); // 1 second delay

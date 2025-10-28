@@ -5,19 +5,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../../components/ui/button";
 import { Badge } from "../../../components/ui/badge";
 import { UserAvatar } from "../../../components/user-avatar";
-import { MessageSquare, Trophy, Award, Target, TrendingUp, ArrowLeft, Home } from 'lucide-react';
+import { MessageSquare, Trophy, Award, Target, TrendingUp, ArrowLeft, Home, Send } from 'lucide-react';
 import { cn } from "../../../lib/utils";
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getBannerGradient } from "../../../lib/profile-banners";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import { Textarea } from "../../../components/ui/textarea";
+import { useToast } from "../../../hooks/use-toast";
 
 export default function PublicUserProfile({ params }: { params: Promise<{ username: string }> }) {
   const resolvedParams = use(params);
   const router = useRouter();
+  const { toast } = useToast();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [messageContent, setMessageContent] = useState('');
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -91,6 +98,46 @@ export default function PublicUserProfile({ params }: { params: Promise<{ userna
       window.removeEventListener('userUpdated', handleBannerUpdate as EventListener);
     };
   }, [resolvedParams.username]); // Remove currentUser and profile from deps to prevent infinite loop
+
+  const handleSendMessage = async () => {
+    if (!messageContent.trim() || !profile?.user) return;
+
+    try {
+      setSending(true);
+      const response = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          receiverId: profile.user.id,
+          content: messageContent.trim()
+        })
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Message sent!",
+          description: `Your message has been sent to ${profile.user.displayname || profile.user.username}`
+        });
+        setMessageContent('');
+        setShowMessageDialog(false);
+        
+        // Dispatch event to update message count in header
+        window.dispatchEvent(new CustomEvent('messagesUpdated'));
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to send message",
+        variant: "destructive"
+      });
+    } finally {
+      setSending(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -257,7 +304,10 @@ export default function PublicUserProfile({ params }: { params: Promise<{ userna
 
               {/* Only show Send Message button if not viewing own profile */}
               {currentUser && user && currentUser.id !== user.id && (
-                <Button className="gap-2 w-full md:w-auto">
+                <Button 
+                  className="gap-2 w-full md:w-auto"
+                  onClick={() => setShowMessageDialog(true)}
+                >
                   <MessageSquare className="h-4 w-4" />
                   Send Message
                 </Button>
@@ -410,6 +460,54 @@ export default function PublicUserProfile({ params }: { params: Promise<{ userna
           </div>
         </div>
       </div>
+
+      {/* Send Message Dialog */}
+      <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Message to {profile?.user?.displayname || profile?.user?.username}</DialogTitle>
+            <DialogDescription>
+              Send a private message. They will be notified and can reply from their messages page.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Textarea
+              placeholder="Type your message here..."
+              value={messageContent}
+              onChange={(e) => setMessageContent(e.target.value)}
+              className="min-h-[150px]"
+              maxLength={1000}
+            />
+            <p className="text-xs text-muted-foreground text-right">
+              {messageContent.length}/1000 characters
+            </p>
+          </div>
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setShowMessageDialog(false);
+                setMessageContent('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSendMessage}
+              disabled={!messageContent.trim() || sending}
+            >
+              {sending ? (
+                <>Sending...</>
+              ) : (
+                <>
+                  <Send className="h-4 w-4 mr-2" />
+                  Send Message
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

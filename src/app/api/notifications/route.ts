@@ -58,11 +58,14 @@ export async function GET(request: NextRequest) {
             navigationData = { route: '/dashboard/arcade', params: { game: data.gameType } };
             break;
           case 'achievement':
-          case 'mission_completed':
             navigationData = { route: '/dashboard/profile', params: { tab: 'achievements' } };
             break;
+          case 'mission_completed':
+            navigationData = { route: '/dashboard/missions', params: {} };
+            break;
           case 'level_up':
-            navigationData = { route: '/dashboard/profile', params: { tab: 'stats' } };
+            // Level-ups often grant keys; send users to crates to use them
+            navigationData = { route: '/dashboard/crates', params: {} };
             break;
           case 'item_received':
           case 'crate_opening':

@@ -322,7 +322,7 @@ async function getTopPlayers(supabase: any) {
 async function getRecentTransactions(supabase: any) {
   const { data: transactions } = await supabase
     .from('user_transactions')
-    .select('*, user:users(displayName)')
+    .select('*, user:users!fk_user_transactions_user_id(displayName)')
     .order('created_at', { ascending: false })
     .limit(20);
 

@@ -19,8 +19,9 @@ export async function POST(request: NextRequest) {
     // Use target user ID if provided (admin functionality), otherwise award to current user
     const userId = targetUserId && authSession.role === 'admin' ? targetUserId : authSession.user_id;
 
-    // Calculate level from XP (simple formula: level = floor(sqrt(xp / 100)))
-    const calculateLevel = (xp: number) => Math.floor(Math.sqrt(xp / 100)) + 1;
+    // Use the standard XP leveling system
+    const { getLevelFromXP } = await import('../../../../lib/xp-config');
+    const calculateLevel = (xp: number) => getLevelFromXP(xp);
 
     // Get current user stats
     const { data: currentUser, error: userError } = await supabase

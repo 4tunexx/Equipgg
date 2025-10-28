@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
       // Crate opening history
       supabase
         .from('user_crate_openings')
-        .select('*, crates(name, image)')
+        .select('*, crates!fk_user_crate_openings_crate_id(name, image)')
         .eq('user_id', session.user_id)
         .order('opened_at', { ascending: false })
         .limit(50),

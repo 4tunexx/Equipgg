@@ -102,12 +102,35 @@ export async function trackBetLost(userId: string, matchName: string, amount: nu
 }
 
 export async function trackCrateOpened(userId: string, crateName: string, itemWon: string, rarity: string) {
-  return createActivity({
-    userId,
-    activityType: 'crate_opened',
-    description: `Opened ${crateName} and won ${itemWon}`,
-    data: { crateName, itemWon, rarity }
-  });
+  try {
+    const supabase = createServerSupabaseClient();
+    
+    // Insert directly into activity_feed (the table dashboard uses)
+    const { error } = await supabase
+      .from('activity_feed')
+      .insert({
+        user_id: userId,
+        action: 'opened_crate',
+        description: `opened a crate and received ${itemWon}`,
+        metadata: {
+          crateName,
+          itemName: itemWon,
+          itemRarity: rarity
+        },
+        created_at: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.error('Failed to log crate opening activity:', error);
+      return false;
+    }
+    
+    console.log(`✅ Crate opening activity logged for user ${userId}`);
+    return true;
+  } catch (error) {
+    console.error('Crate opening activity error:', error);
+    return false;
+  }
 }
 
 export async function trackItemReceived(userId: string, itemName: string, source: string) {

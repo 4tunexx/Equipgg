@@ -87,11 +87,25 @@ export async function POST(req: NextRequest) {
       account_status: userProfile?.account_status || 'active'
     };
 
+    // Persist login metadata and email confirmation status on every successful login
+    try {
+      await supabase
+        .from('users')
+        .update({
+          last_login_at: new Date().toISOString(),
+          // If Supabase Auth has confirmed the email, mirror it into our users table
+          email_confirmed: !!(user as any)?.email_confirmed_at || (userProfile?.email_confirmed ?? false)
+        })
+        .eq('id', user.id);
+    } catch (persistErr) {
+      console.warn('Failed to persist login metadata:', persistErr);
+    }
+
     // success response -> return session & formatted user
     const response = NextResponse.json({ ok: true, user: formattedUser, session });
 
     // Create a simple session cookie with user ID instead of raw access token
-    const sessionData = JSON.stringify({
+    const rawSession = {
       user_id: user.id,
       email: user.email,
       role: formattedUser.role,
@@ -102,31 +116,39 @@ export async function POST(req: NextRequest) {
       provider: formattedUser.provider,
       steamVerified: formattedUser.steam_verified,
       expires_at: Date.now() + (60 * 60 * 24 * 7 * 1000) // 7 days from now
-    });
+    };
+    const sessionData = encodeURIComponent(JSON.stringify(rawSession));
     
-      // Get domain from request for cookie settings
+      // Compute cookie flags per environment
       const host = req.headers.get('host') || '';
-      const isDev = process.env.NODE_ENV === 'development' || host.includes('localhost') || host.includes('.app.github.dev');
-      
-      // For development in Codespaces, we need to handle cookies differently
+      const isLocalhost = host.includes('localhost');
+      const isCodespaces = host.includes('.app.github.dev');
+      const isProduction = !isLocalhost && !isCodespaces;
+
+      // Chrome blocks SameSite=None without Secure. For localhost (http), use Lax and insecure.
+      // For Codespaces/production (https), use Secure; Codespaces needs None for cross-origin iframes.
       const cookieOptions = {
-        httpOnly: true,
-        secure: !isDev,
-        sameSite: isDev ? "none" as const : "lax" as const,
-        maxAge: 60 * 60 * 24 * 7, // 7 days
+        httpOnly: true as const,
+        secure: isCodespaces || isProduction,
+        sameSite: (isCodespaces ? 'none' : 'lax') as 'none' | 'lax',
+        maxAge: 60 * 60 * 24 * 7,
         path: "/",
       };
 
       const clientCookieOptions = {
-        ...cookieOptions,
-        httpOnly: false
+        httpOnly: false as const,
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        maxAge: cookieOptions.maxAge,
+        path: cookieOptions.path,
       };
 
       // Set httpOnly cookie for server auth reading
       response.cookies.set("equipgg_session", sessionData, cookieOptions);
 
       // Set client-readable cookie for AuthProvider
-      response.cookies.set("equipgg_session_client", sessionData, clientCookieOptions);    console.log('Login successful for user:', formattedUser.email);
+      response.cookies.set("equipgg_session_client", sessionData, clientCookieOptions);
+      console.log('Login successful for user:', formattedUser.email);
     
     // Track login for missions (daily login, etc.)
     try {

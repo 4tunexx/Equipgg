@@ -11,12 +11,20 @@ export async function POST(req: NextRequest) {
     // Create response and clear ALL session cookies
     const response = NextResponse.json({ ok: true });
     
-    // Clear main session cookie
+    // Clear ALL session cookies
     response.cookies.set('equipgg_session', '', {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 0, // Expire immediately
+      maxAge: 0,
+      path: '/'
+    });
+
+    response.cookies.set('equipgg_session_client', '', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
       path: '/'
     });
 
@@ -25,7 +33,7 @@ export async function POST(req: NextRequest) {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 0, // Expire immediately
+      maxAge: 0,
       path: '/'
     });
 
@@ -33,7 +41,23 @@ export async function POST(req: NextRequest) {
       httpOnly: false,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 0, // Expire immediately
+      maxAge: 0,
+      path: '/'
+    });
+
+    response.cookies.set('equipgg_user_id', '', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
+      path: '/'
+    });
+
+    response.cookies.set('equipgg_user_email', '', {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 0,
       path: '/'
     });
 

@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     // Get item details to verify type
     const { data: inventoryItem, error: findError } = await supabase
       .from('user_inventory')
-      .select('*, item:items(*)')
+      .select('*, item:items!fk_user_inventory_item_id(*)')
       .eq('id', itemId)
       .eq('user_id', userId)
       .single();

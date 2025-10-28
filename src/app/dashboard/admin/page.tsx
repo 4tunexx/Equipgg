@@ -21,6 +21,8 @@ import { Toaster } from '@/components/ui/toaster';
 // It uses the same left-nav + panels layout but fetches live read-only admin endpoints.
 // Important: no seeding/populate or service-role usage is added.
 
+import { getLevelFromXP } from "../../../lib/xp-config";
+
 export default function AdminDashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -326,22 +328,22 @@ export default function AdminDashboardPage() {
       try {
         setLoading(true);
         const [uRes, iRes, bRes, mRes, pRes, rRes, cRes, aRes, sRes, gRes, nRes, missRes, fsRes, urRes, lpRes] = await Promise.all([
-          fetch('/api/admin/users').catch(() => null),
-          fetch('/api/admin/items').catch(() => null),
-          fetch('/api/admin/badges').catch(() => null),
-          fetch('/api/admin/matches').catch(() => null),
-          fetch('/api/admin/perks').catch(() => null),
-          fetch('/api/admin/ranks').catch(() => null),
-          fetch('/api/admin/crates').catch(() => null),
-          fetch('/api/admin/achievements').catch(() => null),
-          fetch('/api/site-settings').catch(() => null),
-          fetch('/api/admin/gem-management').catch(() => null),
-          fetch('/api/support/tickets').catch(() => null),
-          fetch('/api/notifications?limit=10').catch(() => null),
-          fetch('/api/admin/missions').catch(() => null),
-          fetch('/api/admin/flash-sales').catch(() => null),
-          fetch('/api/admin/user-rewards').catch(() => null),
-          fetch('/api/landing/panels').catch(() => null),
+          fetch('/api/admin/users', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/items', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/badges', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/matches', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/perks', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/ranks', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/crates', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/achievements', { credentials: 'include' }).catch(() => null),
+          fetch('/api/site-settings', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/gem-management', { credentials: 'include' }).catch(() => null),
+          fetch('/api/support/tickets', { credentials: 'include' }).catch(() => null),
+          fetch('/api/notifications?limit=10', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/missions', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/flash-sales', { credentials: 'include' }).catch(() => null),
+          fetch('/api/admin/user-rewards', { credentials: 'include' }).catch(() => null),
+          fetch('/api/landing/panels', { credentials: 'include' }).catch(() => null),
         ]);
 
         if (!mounted) return;
@@ -376,9 +378,21 @@ export default function AdminDashboardPage() {
           setRanks(data.ranks || data.data || []);
         }
 
-        if (cRes && cRes.ok) {
-          const data = await cRes.json();
-          setCrates(data.crates || data.data || []);
+        if (cRes) {
+          console.log('📦 Admin crates response status:', cRes.status, cRes.ok);
+          if (cRes.ok) {
+            const data = await cRes.json();
+            console.log('📦 Admin crates data:', data);
+            console.log('📦 Crates array length:', (data.crates || data.data || []).length);
+            const cratesArray = data.crates || data.data || [];
+            console.log('📦 Setting crates to:', cratesArray);
+            setCrates(cratesArray);
+          } else {
+            const errorText = await cRes.text();
+            console.error('❌ Admin crates failed:', cRes.status, errorText);
+          }
+        } else {
+          console.error('❌ Admin crates request failed completely (null response)');
         }
 
         if (aRes && aRes.ok) {
@@ -920,7 +934,7 @@ export default function AdminDashboardPage() {
                           {u.role || 'user'}
                         </span>
                       </TableCell>
-                      <TableCell>{u.level || 1}</TableCell>
+                      <TableCell>{getLevelFromXP(u.xp || 0)}</TableCell>
                       <TableCell>{u.coins?.toLocaleString() || 0}</TableCell>
                       <TableCell>{u.gems?.toLocaleString() || 0}</TableCell>
                       <TableCell>{u.xp?.toLocaleString() || 0}</TableCell>

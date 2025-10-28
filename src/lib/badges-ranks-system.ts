@@ -449,6 +449,17 @@ export async function checkAndAwardBadges(userId: string, eventType: string, eve
         xpReward: badge.reward?.xp || 0,
         timestamp: new Date().toISOString()
       });
+
+      // Create user notification for badge
+      try {
+        await (await import('./notification-utils')).createNotification({
+          userId,
+          type: 'badge_awarded',
+          title: '🎖️ Badge Earned!',
+          message: `${badge.name}: ${badge.description}`,
+          data: { badgeId: badge.id, reward: badge.reward }
+        });
+      } catch {}
       
       console.log(`🏆 Badge awarded: ${badge.name} to user ${userId}`);
     }

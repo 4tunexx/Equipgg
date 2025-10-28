@@ -6,6 +6,7 @@
  */
 
 import { createServerSupabaseClient } from './supabase';
+import { createNotification } from './notification-utils';
 
 /**
  * Award crate keys to a user
@@ -13,17 +14,44 @@ import { createServerSupabaseClient } from './supabase';
 export async function awardCrateKeys(userId: string, crateId: number, keysCount: number): Promise<void> {
   try {
     const supabaseAdmin = createServerSupabaseClient();
-    const { error } = await supabaseAdmin
-      .rpc('add_crate_keys', {
-        p_user_id: userId,
-        p_crate_id: crateId,
-        p_keys_count: keysCount
-      });
+    const { error } = await supabaseAdmin.rpc('add_crate_keys', {
+      p_user_id: userId,
+      p_crate_id: crateId,
+      p_keys_count: keysCount
+    });
 
     if (error) {
-      console.error('Error awarding crate keys:', error);
-      throw error;
+      console.warn('add_crate_keys RPC missing or failed; falling back to user_keys upsert:', error);
+      // Fallback to user_keys table
+      const { data: existing } = await supabaseAdmin
+        .from('user_keys')
+        .select('id, keys_count')
+        .eq('user_id', userId)
+        .eq('crate_id', crateId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabaseAdmin
+          .from('user_keys')
+          .update({ keys_count: (existing as any).keys_count + keysCount })
+          .eq('id', (existing as any).id);
+      } else {
+        await supabaseAdmin
+          .from('user_keys')
+          .insert({ user_id: userId, crate_id: crateId, keys_count: keysCount, acquired_at: new Date().toISOString() });
+      }
     }
+
+    // Notify user with deep-link to crates
+    try {
+      await createNotification({
+        userId,
+        type: 'reward',
+        title: '🗝️ Crate Key Awarded',
+        message: `You received ${keysCount} key${keysCount > 1 ? 's' : ''}!`,
+        data: { linkTo: '/dashboard/crates', crateId, keysCount }
+      });
+    } catch {}
 
     console.log(`✅ Awarded ${keysCount} keys for crate ${crateId} to user ${userId}`);
   } catch (error) {

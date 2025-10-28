@@ -689,74 +689,14 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-80">
-                        <DropdownMenuLabel>Messages & Updates</DropdownMenuLabel>
+                        <DropdownMenuLabel>Direct Messages</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        {messages.unreadCount > 0 ? (
+                        {messages.messages && messages.messages.length > 0 ? (
                           <div className="max-h-64 overflow-y-auto">
-                            {[
-                              {
-                                id: 'sample-1',
-                                type: 'news',
-                                from: 'EquipGG Team',
-                                fromRole: 'admin',
-                                subject: '🎉 New Features Released!',
-                                preview: 'We\'ve added new betting options, improved the arcade games, and enhanced the user experience...',
-                                timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-                                read: false
-                              },
-                              {
-                                id: 'sample-2',
-                                type: 'update',
-                                from: 'System',
-                                fromRole: 'admin',
-                                subject: '🔄 Platform Maintenance Complete',
-                                preview: 'Scheduled maintenance has been completed successfully. All services are now running optimally...',
-                                timestamp: new Date(Date.now() - 5 * 60 * 60 * 1000).toISOString(),
-                                read: false
-                              },
-                              {
-                                id: 'sample-3',
-                                type: 'admin_announcement',
-                                from: 'Admin',
-                                fromRole: 'admin',
-                                subject: '📢 Important: New Security Features',
-                                preview: 'We\'ve implemented enhanced security measures to protect your account and transactions...',
-                                timestamp: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-                                read: true
-                              },
-                              {
-                                id: 'sample-4',
-                                type: 'mod_announcement',
-                                from: 'Moderator',
-                                fromRole: 'moderator',
-                                subject: '🎮 Weekly Tournament Results',
-                                preview: 'Congratulations to all participants! Check out the leaderboard for this week\'s tournament winners...',
-                                timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-                                read: true
-                              }
-                            ].slice(0, 4).map((message) => {
-                              const getMessageIcon = (type: string) => {
-                                switch (type) {
-                                  case 'news': return '📰';
-                                  case 'update': return '🔄';
-                                  case 'admin_announcement': return '📢';
-                                  case 'mod_announcement': return '🎮';
-                                  case 'system_notification': return '⚙️';
-                                  default: return '💬';
-                                }
-                              };
-
-                              const getMessageColor = (type: string) => {
-                                switch (type) {
-                                  case 'news': return 'text-blue-600';
-                                  case 'update': return 'text-green-600';
-                                  case 'admin_announcement': return 'text-red-600';
-                                  case 'mod_announcement': return 'text-purple-600';
-                                  case 'system_notification': return 'text-gray-600';
-                                  default: return 'text-gray-600';
-                                }
-                              };
-
+                            {messages.messages.slice(0, 4).map((message: any) => {
+                              const sender = message.sender || {};
+                              const isUnread = !message.read_at;
+                              
                               const getRoleColor = (role: string) => {
                                 switch (role) {
                                   case 'admin': return 'text-red-500';
@@ -764,43 +704,43 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                                   default: return 'text-gray-500';
                                 }
                               };
+                              
+                              const getRoleIcon = (role: string) => {
+                                switch (role) {
+                                  case 'admin': return '👑';
+                                  case 'moderator': return '🛡️';
+                                  default: return '';
+                                }
+                              };
 
                               return (
                                 <DropdownMenuItem
                                   key={message.id}
-                                  className={`${!message.read ? 'bg-muted border-l-4 border-l-orange-500' : ''} cursor-pointer hover:bg-muted/50 p-3`}
+                                  className={`${isUnread ? 'bg-muted border-l-4 border-l-primary' : ''} cursor-pointer hover:bg-muted/50 p-3`}
                                   onClick={() => {
-                                    // Mark as read if unread
-                                    if (!message.read) {
-                                      setMessages(prev => ({
-                                        ...prev,
-                                        unreadCount: Math.max(0, prev.unreadCount - 1)
-                                      }));
-                                    }
+                                    router.push('/dashboard/messages');
                                   }}
                                 >
                                   <div className="flex items-start gap-3 w-full">
                                     <div className="text-lg flex-shrink-0">
-                                      {getMessageIcon(message.type)}
+                                      💬
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <div className={`font-medium ${getMessageColor(message.type)}`}>
-                                        {message.subject}
+                                      <div className="flex items-center gap-2">
+                                        <span className={`font-medium ${getRoleColor(sender.role)}`}>
+                                          {sender.displayname || sender.username || 'Unknown User'}
+                                        </span>
+                                        <span>{getRoleIcon(sender.role)}</span>
                                       </div>
                                       <div className="text-sm text-muted-foreground truncate">
-                                        {message.preview}
+                                        {message.content}
                                       </div>
-                                      <div className="flex items-center gap-2 mt-1">
-                                        <span className={`text-xs ${getRoleColor(message.fromRole)}`}>
-                                          {message.from}
-                                        </span>
-                                        <span className="text-xs text-muted-foreground">
-                                          {new Date(message.timestamp).toLocaleString()}
-                                        </span>
+                                      <div className="text-xs text-muted-foreground mt-1">
+                                        {new Date(message.created_at).toLocaleDateString()}
                                       </div>
                                     </div>
-                                    {!message.read && (
-                                      <div className="w-2 h-2 bg-orange-500 rounded-full flex-shrink-0 mt-2"></div>
+                                    {isUnread && (
+                                      <div className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-2"></div>
                                     )}
                                   </div>
                                 </DropdownMenuItem>
@@ -949,7 +889,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
                 {enabled ? (
                   user ? (
                     <div className="flex items-center gap-3">
-                      <Link href={`/user/${user.id || user.username || user.displayname || user.email?.split('@')[0]}`}>
+                      <Link href={`/user/${user.id || user.username || user.displayName || user.email?.split('@')[0]}`}>
                         <div className="cursor-pointer hover:opacity-80 transition-opacity">
                           <UserAvatar user={user} size="sm" />
                         </div>

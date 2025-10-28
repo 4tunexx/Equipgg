@@ -312,6 +312,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const gameType = searchParams.get('type');
     const limit = parseInt(searchParams.get('limit') || '10');
+    
+    const supabase = createServerSupabaseClient();
 
     // Get user's recent games from game_history table
     const { data: recentGames, error } = await supabase

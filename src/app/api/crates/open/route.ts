@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     // Get full inventory item details with joined item data
     const { data: inventoryItem } = await supabaseAdmin
       .from('user_inventory')
-      .select('*, item:items(*)')
+      .select('*, item:items!fk_user_inventory_item_id(*)')
       .eq('user_id', session.user_id)
       .eq('item_id', wonItemData.won_item_id)
       .order('created_at', { ascending: false })

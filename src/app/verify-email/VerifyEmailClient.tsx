@@ -16,7 +16,7 @@ export default function VerifyEmailClient() {
 
   useEffect(() => {
     const verifyEmail = async () => {
-      const token = searchParams.get('token');
+      const token = searchParams?.get('token');
 
       if (!token) {
         setStatus('error');

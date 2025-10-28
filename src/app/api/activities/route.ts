@@ -88,8 +88,8 @@ export async function GET(request: NextRequest) {
         multiplier: metadata.multiplier || null,
         timestamp: activity.created_at,
         user: {
-          username: user?.username || 'Player',
-          avatar: user?.avatar_url || '/default-avatar.svg',
+          username: (user as any)?.username || 'Player',
+          avatar: (user as any)?.avatar_url || '/default-avatar.svg',
           role: 'player'
         }
       };

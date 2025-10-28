@@ -185,6 +185,17 @@ CREATE TABLE IF NOT EXISTS landing_panels (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Direct messages table
+CREATE TABLE IF NOT EXISTS direct_messages (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  sender_id TEXT NOT NULL,
+  receiver_id TEXT NOT NULL,
+  content TEXT NOT NULL,
+  read_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create indexes for better performance
 CREATE INDEX IF NOT EXISTS idx_achievements_category ON achievements(category);
 CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);
@@ -200,6 +211,9 @@ CREATE INDEX IF NOT EXISTS idx_activity_feed_created_at ON activity_feed(created
 CREATE INDEX IF NOT EXISTS idx_landing_panels_type ON landing_panels(type);
 CREATE INDEX IF NOT EXISTS idx_landing_panels_active ON landing_panels(is_active);
 CREATE INDEX IF NOT EXISTS idx_landing_panels_order ON landing_panels(display_order);
+CREATE INDEX IF NOT EXISTS idx_direct_messages_sender ON direct_messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_direct_messages_receiver ON direct_messages(receiver_id);
+CREATE INDEX IF NOT EXISTS idx_direct_messages_created_at ON direct_messages(created_at);
 `;
 
 export async function POST(request: NextRequest) {

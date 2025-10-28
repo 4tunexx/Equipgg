@@ -36,46 +36,22 @@ export async function GET(request: NextRequest) {
         messages: messages || []
       });
     } else {
-      // Fetch all conversations (grouped)
+      // Fetch all messages for this user
       const { data: messages, error } = await supabase
         .from('direct_messages')
-        .select('*, sender:users!sender_id(username, displayname, avatar_url, id), receiver:users!receiver_id(username, displayname, avatar_url, id)')
+        .select('*, sender:users!sender_id(id, username, displayname, avatar_url, role)')
         .or(`sender_id.eq.${session.user_id},receiver_id.eq.${session.user_id}`)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error fetching conversations:', error);
+        console.error('Error fetching messages:', error);
         return NextResponse.json({ error: 'Database error' }, { status: 500 });
       }
 
-      // Group messages by conversation partner
-      const conversations = new Map();
-      messages?.forEach(msg => {
-        const partnerId = msg.sender_id === session.user_id ? msg.receiver_id : msg.sender_id;
-        const partner = msg.sender_id === session.user_id ? (msg as any).receiver : (msg as any).sender;
-        
-        if (!conversations.has(partnerId)) {
-          conversations.set(partnerId, {
-            partnerId,
-            partnerName: partner.displayname || partner.username,
-            partnerAvatar: partner.avatar_url,
-            lastMessage: msg.content,
-            lastMessageTime: msg.created_at,
-            unreadCount: 0
-          });
-        }
-
-        // Count unread messages
-        if (msg.receiver_id === session.user_id && !msg.read_at) {
-          const conv = conversations.get(partnerId);
-          conv.unreadCount++;
-        }
+      return NextResponse.json({
+        success: true,
+        messages: messages || []
       });
-
-    return NextResponse.json({
-      success: true,
-        conversations: Array.from(conversations.values())
-    });
     }
 
   } catch (error) {
@@ -148,15 +124,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get sender info for notification
+    const { data: senderData } = await supabase
+      .from('users')
+      .select('username, displayname')
+      .eq('id', session.user_id)
+      .single();
+
     // Create notification for receiver
     await createNotification({
       userId: receiverId,
       type: 'new_message',
       title: '💬 New Message',
-      message: `You have a new message from a user`,
+      message: `You have a new message from ${senderData?.displayname || senderData?.username || 'a user'}`,
       data: {
         senderId: session.user_id,
-        messageId: message.id
+        messageId: message.id,
+        navigationPath: '/dashboard/messages'
       }
     });
 

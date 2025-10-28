@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { checkAndResetDailyMissions } from '@/lib/mission-integration';
 import { getUserIdFromCookie } from '@/lib/session-utils';
 
 export async function GET(request: NextRequest) {
@@ -15,6 +16,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
+    // Ensure daily missions are reset if a new day (safety net in case login hook misses)
+    try {
+      await checkAndResetDailyMissions(userId);
+    } catch (e) {
+      console.warn('Daily reset check failed in summary endpoint:', e);
+    }
+
     // Get all missions
     console.log('📝 Fetching missions from database...');
     const { data: missions, error: missionsError } = await supabase

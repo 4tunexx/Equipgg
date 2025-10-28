@@ -163,10 +163,10 @@ export function PrestigeActivityFeed() {
           .catch(err => {
             console.error('❌ PRESTIGE FEED: Error refreshing:', err);
             // Don't spam errors - only log once per minute
-            if (!window.prestigeFeedErrorLogged) {
-              window.prestigeFeedErrorLogged = Date.now();
-            } else if (Date.now() - window.prestigeFeedErrorLogged > 60000) {
-              window.prestigeFeedErrorLogged = Date.now();
+            if (!(window as any).prestigeFeedErrorLogged) {
+              (window as any).prestigeFeedErrorLogged = Date.now();
+            } else if (Date.now() - (window as any).prestigeFeedErrorLogged > 60000) {
+              (window as any).prestigeFeedErrorLogged = Date.now();
             }
           });
       }, 1000); // 1 second delay

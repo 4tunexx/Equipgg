@@ -54,7 +54,7 @@ export async function updateOwnershipMissions(userId: string) {
   const supabase = createServerSupabaseClient();
   const { data: inventory } = await supabase
     .from('user_inventory')
-    .select('quantity, item:items(rarity)')
+    .select('quantity, item:items!fk_user_inventory_item_id(rarity)')
     .eq('user_id', userId);
 
   if (!inventory) return;
@@ -299,6 +299,12 @@ async function completeMission(userId: string, mission: Mission) {
   } catch (e) {
     console.warn('Failed to check daily completion:', e);
   }
+
+  // Also check achievements that depend on mission completion
+  try {
+    const { achievementService } = await import('./achievement-service');
+    await achievementService.checkAchievements(userId, 'mission_completed', undefined);
+  } catch {}
 }
 
 /**
@@ -371,17 +377,15 @@ export async function resetDailyMissions(userId: string) {
   const dailyMissions = await getMissionsByType('daily');
   
   for (const mission of dailyMissions) {
-    if (mission.repeatable) {
-      await supabase
-        .from('user_mission_progress')
-        .update({
-          progress: 0,
-          completed: false,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId)
-        .eq('mission_id', mission.id);
-    }
+    await supabase
+      .from('user_mission_progress')
+      .update({
+        progress: 0,
+        completed: false,
+        updated_at: new Date().toISOString()
+      })
+      .eq('user_id', userId)
+      .eq('mission_id', mission.id);
   }
   
   console.log(`🔄 Reset daily missions for user ${userId}`);

@@ -217,7 +217,7 @@ export async function getCrateStatistics(userId: string): Promise<{
     const supabaseAdmin = createServerSupabaseClient();
     const { data: history } = await supabaseAdmin
       .from('crate_opening_history')
-      .select('crate_id, item:items(rarity), crate:crates(name)')
+      .select('crate_id, item:items!fk_crate_openings_item_id(rarity), crate:crates!fk_crate_openings_crate_id(name)')
       .eq('user_id', userId);
 
     const stats = {
