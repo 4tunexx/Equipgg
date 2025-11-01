@@ -695,7 +695,9 @@ export default function TradingPage() {
                                   <div key={item.id} className="flex items-center gap-3 mb-2">
                                     <div className="w-20 h-16 bg-muted/50 rounded flex items-center justify-center overflow-hidden">
                                       <img 
-                                        src={item.image_url || item.image || `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(item.item_name || item.name || 'CS:GO')}`}
+                                        src={(item.image_url || item.image) && (item.image_url || item.image).trim() !== '' && !(item.image_url || item.image).includes('placeholder') 
+                                          ? (item.image_url || item.image)
+                                          : `https://community.cloudflare.steamstatic.com/economy/image/${encodeURIComponent(item.item_name || item.name || 'CS:GO')}`}
                                         alt={item.item_name || item.name || 'Item'} 
                                         className="w-full h-full object-contain" 
                                         loading="lazy"

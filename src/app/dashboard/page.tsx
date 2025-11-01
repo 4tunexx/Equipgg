@@ -30,6 +30,7 @@ import { useState, useEffect, useRef } from 'react';
 import { createSupabaseQueries } from "../../lib/supabase/queries";
 import { supabase } from "../../lib/supabase/client";
 import type { DBUser, DBMission } from "../../lib/supabase/queries";
+import { getRarityColor } from "@/lib/rarity-utils";
 // Fetch rank from database (will be populated in useEffect)
 let cachedRanks: any[] = [];
 
@@ -62,6 +63,8 @@ interface Activity {
   status?: string;
   itemRarity?: string;
   itemName?: string;
+  metadata?: any;
+  item_id?: string | number;
 }
 
 export default function DashboardPage() {
@@ -188,6 +191,9 @@ export default function DashboardPage() {
         console.log('🔍 ACTIVITY FEED: Fetching for user:', user.id);
         
         // FIXED: Single query to get ALL activities, then sort in JavaScript
+        // Note: activity_feed.user_id is now TEXT (supports both UUID and Steam IDs)
+        console.log('🔍 Activity feed query - user.id:', user.id);
+        
         const { data: allActivities, error: activityError } = await supabase
           .from('activity_feed')
           .select('*')
@@ -196,7 +202,15 @@ export default function DashboardPage() {
           .limit(50);
         
         if (activityError) {
-          console.error('❌ Query Error:', activityError);
+          console.error('❌ Activity Feed Query Error - Full Details:', {
+            code: activityError.code,
+            message: activityError.message,
+            details: activityError.details,
+            hint: activityError.hint,
+            fullError: activityError
+          });
+          console.error('❌ User ID:', user.id);
+          console.error('❌ User ID type:', typeof user.id);
           setActivityLoading(false);
           return;
         }
@@ -264,15 +278,41 @@ export default function DashboardPage() {
           if (activity.action === 'leveled_up') type = 'mission';
           if (activity.action === 'unlocked_achievement') type = 'mission';
           
-          // Extract metadata
-          const metadata = activity.metadata || {};
-          let description = activity.description || 'Activity';
+          // Extract metadata (handle JSONB parsing) - metadata might not exist in table
+          let metadata: any = {};
+          if ((activity as any).metadata) {
+            try {
+              const rawMetadata = (activity as any).metadata;
+              // If metadata is a string (JSONB), parse it
+              if (typeof rawMetadata === 'string') {
+                metadata = JSON.parse(rawMetadata);
+              } else {
+                metadata = rawMetadata;
+              }
+            } catch (e) {
+              // If parsing fails, use empty object
+              metadata = {};
+            }
+          }
+          
+          // Description might not exist, so build it from action and metadata
+          let description = (activity as any).description || 'Activity';
           
           // CRITICAL FIX: Special handling for crate openings to ensure consistent display
-          if (type === 'crate' && metadata.itemName) {
-            const itemRarity = metadata.itemRarity || 'Common';
-            const itemName = metadata.itemName;
-            description = `Opened a crate and received ${itemName} (${itemRarity})`;
+          if (type === 'crate') {
+            if (metadata.itemName) {
+              const itemRarity = metadata.itemRarity || 'Common';
+              const itemName = metadata.itemName;
+              description = `Opened a crate and received ${itemName} (${itemRarity})`;
+            } else {
+              description = 'Opened a crate';
+            }
+          } else if (type === 'bet') {
+            if (activity.action === 'won_game') {
+              description = `Won ${metadata.amount || metadata.coins || 'coins'}`;
+            } else if (activity.action === 'lost_game') {
+              description = 'Lost a game';
+            }
           }
           
           // Ensure all fields have stable values (no undefined/null that can cause React re-renders)
@@ -285,7 +325,10 @@ export default function DashboardPage() {
             status: activity.action === 'won_game' ? 'won' : 
                     activity.action === 'lost_game' ? 'lost' : undefined,
             itemRarity: metadata.itemRarity || undefined,
-            itemName: metadata.itemName || undefined
+            itemName: metadata.itemName || undefined,
+            // Note: item_id column doesn't exist in activity_feed, use metadata.itemId if needed
+            item_id: metadata.itemId || metadata.item_id || undefined,
+            metadata: metadata // Preserve full metadata for crate info
           };
         });
         
@@ -309,44 +352,239 @@ export default function DashboardPage() {
     return () => {};
   }, [user?.id]);
 
-  // Fetch last crate opening
+  // Process last crate from the already-fetched activity feed data
   useEffect(() => {
-    const fetchLastCrate = async () => {
-      if (!user?.id) return;
+    const processLastCrate = async () => {
+      if (!activities || activities.length === 0) {
+        console.log('📦 No activities available yet to find crate opening');
+        return;
+      }
       
       try {
-        const { data, error } = await supabase
-          .from('crate_openings')
-          .select('crate_id, item_received_id, opened_at')
-          .eq('user_id', user.id)
-          .order('opened_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        console.log('🔍 Processing activities for last crate opening...');
         
-        if (error || !data) {
+        // Filter for crate openings from the already-fetched activities
+        const crateActivities = activities.filter(
+          (activity: any) => activity.type === 'crate' || activity.description?.includes('opened')
+        );
+        
+        if (!crateActivities || crateActivities.length === 0) {
+          console.log('📦 No crate openings found in recent activities');
           return;
         }
         
-        // Fetch related crate and item separately to avoid join issues
-        const [crateData, itemData] = await Promise.all([
-          supabase.from('crates').select('name, image_url').eq('id', data.crate_id).maybeSingle(),
-          supabase.from('items').select('name, rarity, image_url').eq('id', data.item_received_id).maybeSingle()
-        ]);
+        // Get the most recent crate opening
+        const lastCrateActivity = crateActivities[0];
+        console.log('✅ Found last crate activity:', lastCrateActivity);
+        console.log('📦 Activity metadata (raw):', lastCrateActivity.metadata);
+        console.log('📦 Activity metadata type:', typeof lastCrateActivity.metadata);
+        console.log('📦 Activity full object:', JSON.stringify(lastCrateActivity, null, 2));
         
-        if (crateData.data && itemData.data) {
-          setLastCrate({
-            ...data,
-            crate: crateData.data,
-            item: itemData.data
-          });
+        // Extract item info from the activity
+        let itemName = 'Unknown Item';
+        let itemRarity: ExtendedRarity = 'Common';
+        let itemImage: string | undefined;
+        
+        // Try to extract from activity metadata (handle JSONB string parsing)
+        let metadata: any = null;
+        if (lastCrateActivity.metadata) {
+          try {
+            // If metadata is a string (JSONB), parse it
+            if (typeof lastCrateActivity.metadata === 'string') {
+              metadata = JSON.parse(lastCrateActivity.metadata);
+            } else if (typeof lastCrateActivity.metadata === 'object') {
+              metadata = lastCrateActivity.metadata;
+            } else {
+              metadata = {};
+            }
+          } catch (e) {
+            console.error('❌ Error parsing metadata:', e, lastCrateActivity.metadata);
+            metadata = {};
+          }
+        } else {
+          console.log('⚠️ No metadata found in activity');
         }
+        
+        console.log('📦 Parsed metadata:', metadata);
+        console.log('📦 Metadata keys:', metadata ? Object.keys(metadata) : []);
+        
+        if (metadata?.itemName) {
+          itemName = metadata.itemName;
+        } else if (lastCrateActivity.itemName) {
+          itemName = lastCrateActivity.itemName;
+        } else if (lastCrateActivity.description) {
+          // Try to parse from description
+          const match = lastCrateActivity.description.match(/received (.+?)(?:\s*\(|$)/i);
+          if (match) {
+            itemName = match[1].trim();
+          }
+        }
+        
+        if (metadata?.itemRarity) {
+          itemRarity = (metadata.itemRarity as string).toLowerCase() as ExtendedRarity;
+        } else if (lastCrateActivity.itemRarity) {
+          itemRarity = lastCrateActivity.itemRarity.toLowerCase() as ExtendedRarity;
+        }
+        
+        // Fetch actual crate data if we have crateId in metadata
+        let crateInfo = { name: 'Unknown Crate', image_url: null as string | null };
+        
+        // The metadata structure is nested: metadata.activityData.crateId
+        const activityData = metadata?.activityData || metadata?.activity_data || null;
+        
+        // Try multiple ways to get crateId - check nested activityData first
+        const crateId = activityData?.crateId || activityData?.crate_id || metadata?.crateId || metadata?.crate_id || null;
+        const crateNameFromMeta = activityData?.crateName || activityData?.crate_name || metadata?.crateName || metadata?.crate_name || null;
+        const crateTypeFromMeta = activityData?.crateType || activityData?.crate_type || metadata?.crateType || metadata?.crate_type || null;
+        
+        console.log('🔍 Crate lookup:', { 
+          crateId, 
+          crateNameFromMeta, 
+          crateTypeFromMeta,
+          hasActivityData: !!activityData,
+          activityDataKeys: activityData ? Object.keys(activityData) : [],
+          metadataKeys: metadata ? Object.keys(metadata) : [],
+          fullMetadata: metadata
+        });
+        
+        // First try to get crate by ID if we have it
+        if (crateId) {
+          try {
+            console.log('🔍 Fetching crate with ID:', crateId, 'type:', typeof crateId);
+            const { data: crateData, error: crateError } = await supabase
+              .from('crates')
+              .select('id, name, image_url, type')
+              .eq('id', parseInt(crateId)) // Ensure it's a number
+              .single();
+            
+            if (crateError) {
+              console.error('❌ Error fetching crate by ID:', crateError);
+              // Try as string if numeric failed
+              try {
+                const { data: crateData2, error: crateError2 } = await supabase
+                  .from('crates')
+                  .select('id, name, image_url, type')
+                  .eq('id', crateId.toString())
+                  .single();
+                if (!crateError2 && crateData2) {
+                  crateInfo = {
+                    name: crateData2.name || 'Unknown Crate',
+                    image_url: crateData2.image_url || null
+                  };
+                  console.log('✅ Found crate data from database (string ID):', crateInfo);
+                }
+              } catch (e2) {
+                console.error('❌ Error fetching crate with string ID:', e2);
+              }
+            } else if (crateData) {
+              crateInfo = {
+                name: crateData.name || 'Unknown Crate',
+                image_url: crateData.image_url || null
+              };
+              console.log('✅ Found crate data from database:', crateInfo);
+            } else {
+              console.log('⚠️ No crate data found for ID:', crateId);
+              // Fallback to metadata crate name
+              if (crateNameFromMeta) {
+                crateInfo.name = crateNameFromMeta;
+                console.log('✅ Using crate name from metadata:', crateInfo.name);
+              }
+            }
+          } catch (crateError) {
+            console.error('❌ Exception fetching crate data:', crateError);
+            // Fallback to metadata crate name
+            if (crateNameFromMeta) {
+              crateInfo.name = crateNameFromMeta;
+              console.log('✅ Using crate name from metadata (fallback):', crateInfo.name);
+            }
+          }
+        }
+        
+        // If we still don't have crate info, try by name
+        if (crateInfo.name === 'Unknown Crate' && crateNameFromMeta) {
+          crateInfo.name = crateNameFromMeta;
+          console.log('✅ Using crate name from metadata (no ID):', crateInfo.name);
+          
+          // Try to find crate by name to get the image
+          try {
+            const { data: crateByName, error: nameError } = await supabase
+              .from('crates')
+              .select('id, name, image_url, type')
+              .ilike('name', crateNameFromMeta) // Use ilike for case-insensitive match
+              .single();
+            
+            if (nameError) {
+              console.error('❌ Error fetching crate by name:', nameError);
+            } else if (crateByName) {
+              crateInfo = {
+                name: crateByName.name || crateNameFromMeta,
+                image_url: crateByName.image_url || null
+              };
+              console.log('✅ Found crate by name:', crateInfo);
+            }
+          } catch (e) {
+            console.error('❌ Exception fetching crate by name:', e);
+          }
+        }
+        
+        // NO FALLBACK - Don't show a random crate if we don't have the actual data
+        // If we don't have crate info, leave it as "Unknown Crate" 
+        // The user will see the item info but not a fake crate image
+        if (crateInfo.name === 'Unknown Crate' && !crateInfo.image_url) {
+          console.log('⚠️ No crate metadata found - not using fallback crate');
+          console.log('📦 Available metadata:', metadata);
+          console.log('📦 Full activity data:', lastCrateActivity);
+        }
+        
+        console.log('🎯 Final crate info:', crateInfo);
+        console.log('📊 Summary:', {
+          hasMetadata: !!metadata,
+          hasCrateId: !!crateId,
+          hasCrateName: !!crateNameFromMeta,
+          finalCrateName: crateInfo.name,
+          finalCrateImage: crateInfo.image_url
+        });
+        
+        // Try to get item image from item_id if available
+        if (lastCrateActivity.item_id) {
+          try {
+            const { data: itemData } = await supabase
+              .from('items')
+              .select('image_url')
+              .eq('id', lastCrateActivity.item_id)
+              .single();
+            
+            if (itemData?.image_url) {
+              itemImage = itemData.image_url;
+            }
+          } catch (itemError) {
+            console.error('❌ Error fetching item image:', itemError);
+          }
+        }
+        
+        console.log('✅ Last crate assembled:', {
+          crate: crateInfo.name,
+          item: itemName,
+          rarity: itemRarity
+        });
+        
+        setLastCrate({
+          crate: crateInfo,
+          item: {
+            name: itemName,
+            rarity: itemRarity,
+            image_url: itemImage
+          },
+          opened_at: lastCrateActivity.timestamp
+        });
       } catch (error) {
+        console.error('❌ Error processing last crate:', error);
         // Silently fail - user just hasn't opened crates yet
       }
     };
     
-    fetchLastCrate();
-  }, [user?.id]); // Add user as dependency
+    processLastCrate();
+  }, [activities]);
 
   return (
     <div className="flex flex-col h-full w-full overflow-x-hidden">
@@ -516,7 +754,35 @@ export default function DashboardPage() {
                           <span className="text-lg">{getActivityIcon(activity.type)}</span>
                         )}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{activity.description}</p>
+                          <p className="text-sm font-medium truncate">
+                            {(() => {
+                              // Parse item name and rarity from description if available
+                              if (activity.type === 'crate' && activity.itemName) {
+                                const rarityColor = getRarityColor(activity.itemRarity);
+                                // Replace item name with colored version
+                                const desc = activity.description || '';
+                                const itemName = activity.itemName;
+                                const rarity = activity.itemRarity || 'Common';
+                                // Find item name in description and wrap with color
+                                const parts = desc.split(new RegExp(`(${itemName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'));
+                                return (
+                                  <>
+                                    {parts.map((part, i) => {
+                                      if (part.toLowerCase() === itemName.toLowerCase()) {
+                                        return (
+                                          <span key={i} className={`${rarityColor} font-bold`}>
+                                            {part}
+                                          </span>
+                                        );
+                                      }
+                                      return <span key={i}>{part}</span>;
+                                    })}
+                                  </>
+                                );
+                              }
+                              return activity.description;
+                            })()}
+                          </p>
                           <p className="text-xs text-muted-foreground">{timeAgo}</p>
                         </div>
                         {activity.amount && (
@@ -585,7 +851,14 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-center font-semibold text-lg mt-4">{lastCrate.crate?.name || 'Level Up Crate'}</p>
                   <p className="text-sm text-muted-foreground text-center mt-2">
-                    You received a <span className="font-bold text-primary">{lastCrate.item?.rarity || 'Common'}</span> item: <span className="font-semibold">{lastCrate.item?.name || 'Unknown Item'}</span>!
+                    You received a{' '}
+                    <span className={`font-bold ${getRarityColor(lastCrate.item?.rarity || 'Common')}`}>
+                      {lastCrate.item?.rarity || 'Common'}
+                    </span>{' '}
+                    item:{' '}
+                    <span className={`font-semibold ${getRarityColor(lastCrate.item?.rarity || 'Common')}`}>
+                      {lastCrate.item?.name || 'Unknown Item'}
+                    </span>!
                   </p>
                 </div>
               ) : (

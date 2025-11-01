@@ -205,26 +205,24 @@ export async function updateMissionProgress(
   const existing = await getUserMissionProgress(userId, missionId);
   
   if (existing) {
-    // Update progress
+    // Update progress (note: user_mission_progress table doesn't have updated_at column)
     await supabase
       .from('user_mission_progress')
       .update({
         progress,
-        completed: progress >= mission.requirement_value,
-        updated_at: new Date().toISOString()
+        completed: progress >= mission.requirement_value
       })
       .eq('user_id', userId)
       .eq('mission_id', missionId);
   } else {
-    // Create new progress entry
+    // Create new progress entry (note: started_at and created_at don't exist)
     await supabase
       .from('user_mission_progress')
       .insert({
         user_id: userId,
         mission_id: missionId,
         progress,
-        completed: progress >= mission.requirement_value,
-        created_at: new Date().toISOString()
+        completed: progress >= mission.requirement_value
       });
   }
   
@@ -370,54 +368,190 @@ export async function trackMissionProgress(
 
 /**
  * Reset daily missions for a user
+ * This sets progress to 0 and marks as incomplete, and sets started_at to now
  */
 export async function resetDailyMissions(userId: string) {
   const supabase = createServerSupabaseClient();
   
   const dailyMissions = await getMissionsByType('daily');
+  const now = new Date().toISOString();
   
   for (const mission of dailyMissions) {
-    await supabase
+    // Check if progress entry exists (use maybeSingle to avoid error if not found)
+    // Note: Only select columns that exist in the actual table
+    const { data: existing, error: existingError } = await supabase
       .from('user_mission_progress')
-      .update({
-        progress: 0,
-        completed: false,
-        updated_at: new Date().toISOString()
-      })
+      .select('user_id, mission_id, progress, completed, completed_at')
       .eq('user_id', userId)
-      .eq('mission_id', mission.id);
+      .eq('mission_id', mission.id)
+      .maybeSingle();
+    
+    if (existingError && existingError.code !== 'PGRST116') {
+      console.error(`❌ Error checking mission ${mission.id} progress:`, existingError);
+      continue; // Skip this mission if there's an error
+    }
+    
+    if (existing) {
+      // CRITICAL: Force reset progress and completed flag - even if already reset
+      // This ensures no stale completed flags remain
+      const { data: updated, error: updateError } = await supabase
+        .from('user_mission_progress')
+        .update({
+          progress: 0,
+          completed: false, // FORCE false - clear any stale completed flags
+          completed_at: null // Clear completion timestamp
+          // Note: started_at column doesn't exist in actual database
+        })
+        .eq('user_id', userId)
+        .eq('mission_id', mission.id)
+        .select('progress, completed, completed_at')
+        .single();
+      
+      if (updateError) {
+        console.error(`❌ Failed to reset mission ${mission.id}:`, updateError);
+      } else {
+        // Verify the reset worked - log warning if completed is still true
+        if (updated?.completed === true) {
+          console.warn(`⚠️ WARNING: Mission ${mission.id} reset but completed flag is still true!`);
+        }
+        
+        if (!updated) {
+          console.warn(`⚠️ WARNING: Mission ${mission.id} reset but no updated data returned!`);
+        }
+        console.log(`✅ Reset mission ${mission.id} (${mission.name}):`, {
+          progress: updated?.progress,
+          completed: updated?.completed,
+          completed_at: updated?.completed_at
+        });
+      }
+    } else {
+      // Create new progress entry (doesn't exist yet)
+        const { error: insertError } = await supabase
+          .from('user_mission_progress')
+          .insert({
+            user_id: userId,
+            mission_id: mission.id,
+            progress: 0,
+            completed: false
+            // Note: started_at and created_at columns don't exist in actual database
+          });
+      
+      if (insertError) {
+        console.error(`❌ Failed to create progress entry for mission ${mission.id}:`, insertError);
+      } else {
+        console.log(`✅ Created progress entry for mission ${mission.id} (${mission.name})`);
+      }
+    }
   }
   
-  console.log(`🔄 Reset daily missions for user ${userId}`);
+  console.log(`🔄 Reset ${dailyMissions.length} daily missions for user ${userId}`);
 }
 
 /**
- * Check if daily missions should be reset (called on login)
- * This checks if it's a new day and resets repeatable daily missions
+ * Check if daily missions should be reset (called on login, mission check, etc.)
+ * This checks if it's been 24 hours since last reset and resets daily missions
  */
 export async function checkAndResetDailyMissions(userId: string) {
   const supabase = createServerSupabaseClient();
   
   try {
-    // Check user's last login date
-    const { data: userData } = await supabase
-      .from('users')
-      .select('last_login_at')
-      .eq('id', userId)
-      .single();
+    // Get all daily missions
+    const dailyMissions = await getMissionsByType('daily');
+    
+    if (!dailyMissions || dailyMissions.length === 0) {
+      console.log(`⚠️ No daily missions found for user ${userId}`);
+      return;
+    }
 
-    if (!userData) return;
+    // Get user's mission progress for all daily missions
+    // Note: Only select columns that actually exist in the database
+    const missionIds = dailyMissions.map(m => m.id);
+    const { data: existingProgress } = await supabase
+      .from('user_mission_progress')
+      .select('mission_id, progress, completed, completed_at')
+      .eq('user_id', userId)
+      .in('mission_id', missionIds);
 
-    const today = new Date().toDateString();
-    const lastLoginDate = userData.last_login_at ? new Date(userData.last_login_at).toDateString() : null;
+    const now = new Date();
+    let shouldReset = false;
+    let resetReason = '';
 
-    // If it's a new day, reset daily missions
-    if (lastLoginDate !== today) {
+    // Check if user has no progress at all (first time user)
+    if (!existingProgress || existingProgress.length === 0) {
+      shouldReset = true;
+      resetReason = 'First time user - no mission progress';
+    } else {
+      // Note: started_at, updated_at, and created_at don't exist
+      // Use completed_at as fallback, or check for stale data
+      const todayDate = now.toDateString();
+      
+      for (const progress of existingProgress) {
+        // Check for stale completed flags
+        if (progress.completed === true && progress.progress === 0) {
+          shouldReset = true;
+          resetReason = 'Stale completed flag (completed=true but progress=0)';
+          break;
+        }
+        
+        // Use completed_at if available for date checking
+        if (progress.completed_at) {
+          const completedDate = new Date(progress.completed_at);
+          const completedDateString = completedDate.toDateString();
+          
+          // If completed on a different day, reset
+          if (completedDateString !== todayDate) {
+            shouldReset = true;
+            resetReason = `Different calendar day (last completed: ${completedDateString}, today: ${todayDate})`;
+            break;
+          }
+        } else {
+          // If no completed_at and not completed, assume needs reset (fresh daily mission)
+          // But if progress > 0 and not completed, it's in progress - don't reset
+          if (progress.progress === 0 && progress.completed === false) {
+            // Already reset or fresh - check if we should reset based on other missions
+            // If all missions are in this state, it's likely a fresh state - still reset to ensure consistency
+            shouldReset = true;
+            resetReason = 'No completion timestamp - reset to ensure consistency';
+            break;
+          }
+        }
+      }
+    }
+
+    if (shouldReset) {
+      console.log(`🔄 RESETTING daily missions for user ${userId}...`);
       await resetDailyMissions(userId);
-      console.log(`✅ Daily missions reset for user ${userId}`);
+      
+      // Verify the reset worked by checking progress after reset
+      // Note: Only select columns that exist
+      const { data: afterReset } = await supabase
+        .from('user_mission_progress')
+        .select('mission_id, progress, completed, completed_at')
+        .eq('user_id', userId)
+        .in('mission_id', missionIds)
+        .limit(5);
+      
+      console.log(`✅ Daily missions reset for user ${userId}`, {
+        reason: resetReason,
+        missionsCount: dailyMissions.length,
+        existingProgressCount: existingProgress?.length || 0,
+        now: now.toISOString(),
+        afterResetSample: afterReset?.slice(0, 3).map(p => ({
+          mission_id: p.mission_id,
+          progress: p.progress,
+          completed: p.completed,
+          completed_at: p.completed_at
+        }))
+      });
+    } else {
+      console.log(`ℹ️ Daily missions NOT reset for user ${userId}`, {
+        existingProgressCount: existingProgress?.length || 0,
+        now: now.toISOString(),
+        reason: 'No reset needed'
+      });
     }
   } catch (error) {
-    console.error('Error checking daily mission reset:', error);
+    console.error('❌ Error checking daily mission reset:', error);
   }
 }
 
@@ -426,10 +560,28 @@ export async function checkAndResetDailyMissions(userId: string) {
  */
 export async function awardDailyLoginMission(userId: string) {
   try {
+    const supabase = createServerSupabaseClient();
+    
+    // First, check if daily_login mission exists
+    const { data: dailyLoginMissions } = await supabase
+      .from('missions')
+      .select('id, name, requirement_type')
+      .eq('requirement_type', 'daily_login')
+      .eq('is_active', true);
+    
+    if (!dailyLoginMissions || dailyLoginMissions.length === 0) {
+      console.warn(`⚠️ No daily_login missions found in database for user ${userId}`);
+      return;
+    }
+    
+    console.log(`📋 Found ${dailyLoginMissions.length} daily_login mission(s)`, dailyLoginMissions.map(m => ({ id: m.id, name: m.name })));
+    
+    // Track progress for daily login
     await trackMissionProgress(userId, 'daily_login', 1);
     console.log(`✅ Daily login mission progress awarded to user ${userId}`);
   } catch (error) {
-    console.error('Error awarding daily login mission:', error);
+    console.error('❌ Error awarding daily login mission:', error);
+    // Don't throw - we want login to succeed even if mission tracking fails
   }
 }
 

@@ -165,13 +165,30 @@ export async function GET() {
       // Also check for common username patterns
       description = description.replace(/^[a-zA-Z0-9_-]+\s+/, '');
       
+      // Extract metadata properly
+      const metadata = activity.metadata || {};
+      const itemName = metadata.itemName || null;
+      const itemRarity = metadata.itemRarity || null;
+      
+      // If description contains item name, update message to include rarity
+      if (itemName && activity.action === 'opened_crate') {
+        if (itemRarity) {
+          description = description.replace(
+            new RegExp(itemName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'),
+            `${itemName} (${itemRarity})`
+          );
+        }
+      }
+      
       return {
         id: `activity_${index}_${Date.now()}`,
         type: activity.action,
         message: description,
-        amount: activity.metadata?.xp || 0,
-        gameType: activity.metadata?.gameType || 'general',
-        multiplier: activity.metadata?.multiplier || 1,
+        amount: metadata.amount || metadata.coins || metadata.xp || 0,
+        item: itemName || null,
+        rarity: itemRarity || null,
+        gameType: metadata.gameType || 'general',
+        multiplier: metadata.multiplier || 1,
         timestamp: activity.created_at,
         user: userData ? {
           username: username,

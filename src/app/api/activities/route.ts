@@ -60,15 +60,24 @@ export async function GET(request: NextRequest) {
       else if (activity.action === 'leveled_up') type = 'achievement';
       else if (activity.action === 'unlocked_achievement') type = 'achievement';
       
-      // Create a nice message
+      // Create a nice message with item name and rarity if available
       let message = activity.description;
+      let itemName = metadata.itemName || null;
+      let itemRarity = metadata.itemRarity || null;
+      
       if (activity.action === 'won_game') {
         const gameType = metadata.gameType || 'game';
         const amount = metadata.amount || metadata.coins || 0;
         message = `won ${amount} coins on ${gameType}`;
       } else if (activity.action === 'opened_crate') {
-        const itemName = metadata.itemName || 'an item';
-        message = `opened a crate and got ${itemName}`;
+        if (itemName) {
+          // Include rarity in message if available for better parsing
+          message = itemRarity 
+            ? `opened a crate and got ${itemName} (${itemRarity})`
+            : `opened a crate and got ${itemName}`;
+        } else {
+          message = `opened a crate and got an item`;
+        }
       } else if (activity.action === 'leveled_up') {
         const level = metadata.newLevel || metadata.level || '?';
         message = `reached level ${level}`;

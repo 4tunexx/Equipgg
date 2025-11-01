@@ -139,11 +139,27 @@ export default function ShopPage() {
         // Refresh balance
         window.dispatchEvent(new Event('balanceUpdated'));
       } else {
-        toast({
-          title: "Purchase failed",
-          description: data.error || "Failed to purchase cosmetic.",
-          variant: "destructive"
-        });
+        // Handle verification errors specifically
+        if (response.status === 403 && data.requiresVerification) {
+          const verificationMessage = data.details?.requiresEmailVerification 
+            ? "Please verify your email address to purchase items. Check your email for a verification link or visit your profile settings to verify."
+            : "Please verify your Steam account to purchase items. Connect your Steam account in your profile settings.";
+          
+          toast({
+            title: "🔒 Account Verification Required",
+            description: verificationMessage + " A notification has been added to your account.",
+            variant: "destructive"
+          });
+          
+          // Dispatch event to refresh notifications (verification notification was created)
+          window.dispatchEvent(new Event('notificationsUpdated'));
+        } else {
+          toast({
+            title: "Purchase failed",
+            description: data.error || "Failed to purchase cosmetic.",
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error('Purchase error:', error);
@@ -377,7 +393,9 @@ export default function ShopPage() {
             
             // Access actual item from database - EXACT same as admin (cast as any)
             const dbItem = shopItem.item as any;
-            const imageUrl = dbItem?.image_url || dbItem?.image || getItemImageUrl(dbItem?.name || shopItem.name, dbItem?.type || dbItem?.category || 'Weapon');
+            // PRIORITIZE database image - only use generated URL if database image is empty/null/undefined
+            const dbImage = dbItem?.image_url || dbItem?.image;
+            const imageUrl = dbImage && dbImage.trim() !== '' ? dbImage : getItemImageUrl(dbItem?.name || shopItem.name, dbItem?.type || dbItem?.category || 'Weapon');
             
             return <ShopItemCard key={shopItem.id} item={{
               ...shopItem,

@@ -16,11 +16,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     
-    // Ensure daily missions are reset if a new day (safety net in case login hook misses)
+    // CRITICAL: Check and reset daily missions BEFORE fetching progress
+    // This ensures missions are reset every 24 hours
     try {
+      console.log(`🔄 Missions summary endpoint - checking reset for user ${userId}`);
       await checkAndResetDailyMissions(userId);
+      console.log(`✅ Daily missions reset check completed in summary endpoint`);
     } catch (e) {
-      console.warn('Daily reset check failed in summary endpoint:', e);
+      console.error('❌ Daily reset check failed in summary endpoint:', e);
+      // Continue anyway - don't block summary
     }
 
     // Get all missions
@@ -47,17 +51,21 @@ export async function GET(request: NextRequest) {
       console.warn('⚠️ No active missions found in database!');
     }
 
-    // Get user mission progress
+    // Get user mission progress AFTER reset check
     console.log('📈 Fetching user progress...');
-    const { data: userProgress, error: progressError } = await supabase
+    const { data: userProgressData, error: progressError } = await supabase
       .from('user_mission_progress')
-      .select('*')
-      .eq('user_id', userId)
+      .select('mission_id, progress, completed, completed_at')
+      .eq('user_id', userId);
 
+    let userProgress: any[] = [];
     if (progressError) {
       console.error('❌ Error fetching user progress:', progressError);
       console.error('Progress error details:', JSON.stringify(progressError, null, 2));
-      // If no progress table, assume no missions completed
+      // If no progress table, assume no missions completed - use empty array
+      userProgress = [];
+    } else {
+      userProgress = userProgressData || [];
     }
     
     console.log(`📊 Found ${userProgress?.length || 0} progress records`);
@@ -82,7 +90,12 @@ export async function GET(request: NextRequest) {
       userProgress.filter(p => {
         // Try both string and number comparison for compatibility
         const mission = missions.find(m => m.id == p.mission_id || m.id === parseInt(p.mission_id));
-        const isComplete = mission && mission.mission_type === 'daily' && (p.completed || p.progress >= (mission.requirement_value || 1));
+        // Only count as complete if BOTH completed flag is true AND progress >= requirement
+        // This prevents stale completed flags from counting after reset
+        const isComplete = mission && 
+          mission.mission_type === 'daily' && 
+          p.completed === true && 
+          p.progress >= (mission.requirement_value || 1);
         if (isComplete) {
           console.log(`✅ Daily mission completed: ${mission.name} (${p.progress}/${mission.requirement_value})`);
         }
@@ -92,10 +105,18 @@ export async function GET(request: NextRequest) {
     const completedMain = userProgress ? 
       userProgress.filter(p => {
         // Try both string and number comparison for compatibility
-        const mission = missions.find(m => m.id == p.mission_id || m.id === parseInt(p.mission_id));
-        const isComplete = mission && mission.mission_type === 'main' && (p.completed || p.progress >= (mission.requirement_value || 1));
+        const mission = missions.find(m => m.id == p.mission_id || m.id === parseInt(p.mission_id) || m.id === Number(p.mission_id));
+        if (!mission || mission.mission_type !== 'main') {
+          return false;
+        }
+        // Main missions are complete if BOTH:
+        // 1. completed flag is true, AND
+        // 2. progress >= requirement (to prevent stale flags)
+        const isComplete = p.completed === true && p.progress >= (mission.requirement_value || 1);
         if (isComplete) {
-          console.log(`✅ Main mission completed: ${mission.name} (${p.progress}/${mission.requirement_value})`);
+          console.log(`✅ Main mission completed: ${mission.name} (ID: ${mission.id}, progress: ${p.progress}/${mission.requirement_value}, completed: ${p.completed})`);
+        } else {
+          console.log(`⚠️ Main mission NOT complete: ${mission.name} (ID: ${mission.id}, progress: ${p.progress}/${mission.requirement_value}, completed: ${p.completed})`);
         }
         return isComplete;
       }).length : 0;

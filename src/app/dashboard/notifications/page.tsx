@@ -132,14 +132,31 @@ export default function NotificationsPage() {
       });
 
       if (response.ok) {
+        // Clear local state immediately
         setNotifications([]);
+        // Refresh from API to ensure we have the latest data
+        await fetchNotifications();
+        // Trigger a custom event to refresh notifications in layout dropdown
+        window.dispatchEvent(new CustomEvent('notifications-cleared'));
         toast({
           title: "All notifications cleared",
           description: "All notifications have been removed."
         });
+      } else {
+        const data = await response.json().catch(() => ({}));
+        toast({
+          title: "Error",
+          description: data.error || "Failed to clear notifications",
+          variant: "destructive"
+        });
       }
     } catch (error) {
       console.error('Failed to clear notifications:', error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to clear notifications",
+        variant: "destructive"
+      });
     }
   };
 

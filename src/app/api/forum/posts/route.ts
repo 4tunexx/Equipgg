@@ -3,6 +3,7 @@ import { supabase } from "../../../../lib/supabase";
 import { getAuthSession } from "../../../../lib/auth-utils";
 import { v4 as uuidv4 } from 'uuid';
 import { trackMissionProgress } from "../../../../lib/mission-integration";
+import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
 export async function GET(request: NextRequest) {
   try {
@@ -114,6 +115,29 @@ export async function POST(request: NextRequest) {
     const session = await getAuthSession(request);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check verification status - users must verify email or Steam to post
+    const verificationStatus = await checkBalanceAccess(session.user_id);
+    if (!verificationStatus.canUseBalances) {
+      console.error('❌ Forum post blocked - Verification failed:', {
+        userId: session.user_id,
+        verificationStatus
+      });
+      
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(session.user_id, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required to post',
+        requiresVerification: true,
+        notificationCreated: true,
+        details: {
+          requiresEmailVerification: verificationStatus.requiresEmailVerification,
+          requiresSteamVerification: verificationStatus.requiresSteamVerification
+        }
+      }, { status: 403 });
     }
 
     const { topicId, content } = await request.json();

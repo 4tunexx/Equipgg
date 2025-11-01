@@ -16,10 +16,39 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
   try {
     const supabase = createServerSupabaseClient();
     
-    // Check both users table and auth metadata
+    // FIRST: Check if user is admin/moderator from auth metadata BEFORE checking users table
+    // This allows admins to bypass even if their record doesn't exist
+    let authUserRole: string | null = null;
+    let emailConfirmedFromAuth = false;
+    try {
+      const { data: authUserData } = await supabase.auth.admin.getUserById(userId);
+      if (authUserData?.user) {
+        authUserRole = authUserData.user.user_metadata?.role || authUserData.user.app_metadata?.role || null;
+        emailConfirmedFromAuth = !!authUserData.user.email_confirmed_at;
+        
+        // ADMIN BYPASS: If user is admin/moderator in auth metadata, grant access immediately
+        if (authUserRole === 'admin' || authUserRole === 'moderator') {
+          console.log('✅ ADMIN ACCESS GRANTED (from auth metadata) - Bypassing verification', {
+            userId,
+            role: authUserRole
+          });
+          return {
+            isVerified: true,
+            requiresEmailVerification: false,
+            requiresSteamVerification: false,
+            canUseBalances: true,
+            message: 'Admin access granted'
+          };
+        }
+      }
+    } catch (authError) {
+      console.log('⚠️ Could not fetch auth metadata:', authError);
+    }
+    
+    // Check users table (DO NOT SELECT email_verified - it doesn't exist)
     const userRes = await supabase
       .from('users')
-      .select('email_verified, steam_verified, provider, account_status, email, role')
+      .select('steam_verified, provider, account_status, email, role')
       .eq('id', userId)
       .maybeSingle(); // Use maybeSingle to avoid error when user doesn't exist
     let user = userRes.data as any;
@@ -42,7 +71,7 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
         };
       }
       
-      // Create minimal user record
+      // Create minimal user record (ONLY use columns that exist in users table)
       const isSteamUser = userId.startsWith('steam-') || authUser.user.app_metadata?.provider === 'steam';
       const newUserData = {
         id: userId,
@@ -51,14 +80,12 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
         displayname: authUser.user.user_metadata?.full_name || authUser.user.user_metadata?.username || `User ${userId.substring(0, 8)}`,
         provider: isSteamUser ? 'steam' : 'email',
         steam_verified: isSteamUser,
-        email_verified: !!authUser.user.email_confirmed_at,
-        email_confirmed: !!authUser.user.email_confirmed_at,
         avatar_url: authUser.user.user_metadata?.avatar_url || null,
         coins: 0,
         gems: 0,
         xp: 0,
         level: 1,
-        role: 'user',
+        role: authUserRole || 'user',
         account_status: 'active',
         created_at: new Date().toISOString()
       };
@@ -87,11 +114,14 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
   // ADMIN BYPASS: Admins and moderators can always use balances
   const isAdmin = user.role === 'admin' || user.role === 'moderator';
   
-  console.log('🔍 Checking admin access:', {
+  console.log('🔍 Verification check:', {
     userId,
     role: user.role,
     isAdmin,
-    email: user.email
+    email: user.email,
+    steam_verified: user.steam_verified,
+    provider: user.provider,
+    emailConfirmedFromAuth
   });
   
   if (isAdmin) {
@@ -105,13 +135,10 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
     };
   }
   
-  // Skip email auth check for performance
-  const emailConfirmedFromAuth = false;
-  
   // User is verified if:
-  // 1. email_verified is true in users table, OR
-  // 2. email_confirmed_at exists in auth metadata (for Supabase Auth users)
-  const emailVerified = user.email_verified || emailConfirmedFromAuth || false;
+  // 1. email_confirmed_at exists in auth metadata (for Supabase Auth users), OR
+  // 2. Steam is verified (for Steam users)
+  const emailVerified = emailConfirmedFromAuth || false;
   
   // Check if user is Steam user by ID pattern or provider field
   const isSteamUserById = userId.startsWith('steam-');
@@ -126,11 +153,19 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
   let message = '';
   if (!canUseBalances) {
     if (isSteamProvider) {
-      message = 'Please verify your Steam account to use balances';
+      message = 'Please verify your Steam account to use balances. Steam users are automatically verified.';
     } else {
-      message = 'Please verify your email to use balances';
+      message = 'Please verify your email to use balances. Check your email for a verification link.';
     }
   }
+  
+  console.log('🔍 Verification result:', {
+    canUseBalances,
+    emailVerified,
+    steamVerified,
+    isSteamProvider,
+    message
+  });
   
   return {
     isVerified: canUseBalances,
@@ -140,7 +175,7 @@ export async function checkBalanceAccess(userId: string): Promise<VerificationSt
     message
   };
   } catch (error) {
-    // Silently return verification error to avoid console spam
+    console.error('❌ Verification check error:', error);
     return {
       isVerified: false,
       requiresEmailVerification: true,

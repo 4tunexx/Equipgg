@@ -165,6 +165,16 @@ export async function GET(request: NextRequest) {
       if (existingSteamUsers && existingSteamUsers.length > 0) {
         // Steam ID already linked to an account
         userId = existingSteamUsers[0].id;
+        
+        // Check and reset daily missions BEFORE updating last_login_at
+        try {
+          await checkAndResetDailyMissions(userId);
+          await awardDailyLoginMission(userId);
+          console.log('✅ Daily missions processed for existing Steam user:', userId);
+        } catch (missionError) {
+          console.error('⚠️ Failed to track login mission for existing Steam user:', missionError);
+        }
+        
         await supabase.from('users').update({
           username: steamUser.username,
           avatar_url: steamUser.avatar,
@@ -187,6 +197,15 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${baseUrl}/dashboard?error=steam_already_linked`);
           }
           
+          // Check and reset daily missions BEFORE updating (if this is also a login)
+          try {
+            await checkAndResetDailyMissions(verifyUserId);
+            await awardDailyLoginMission(verifyUserId);
+            console.log('✅ Daily missions processed for Steam verification:', verifyUserId);
+          } catch (missionError) {
+            console.error('⚠️ Failed to track login mission during Steam verification:', missionError);
+          }
+          
           const { error: verifyError } = await supabase
             .from('users')
             .update({
@@ -194,7 +213,8 @@ export async function GET(request: NextRequest) {
               steam_verified: true,
               account_status: 'active',
               username: steamUser.username,
-              avatar_url: steamUser.avatar
+              avatar_url: steamUser.avatar,
+              last_login_at: new Date().toISOString()
             })
             .eq('id', verifyUserId);
           
@@ -219,6 +239,16 @@ export async function GET(request: NextRequest) {
           if (existingUser) {
             // Update existing user
             userId = steamUuid;
+            
+            // Check and reset daily missions BEFORE updating last_login_at
+            try {
+              await checkAndResetDailyMissions(userId);
+              await awardDailyLoginMission(userId);
+              console.log('✅ Daily missions processed for existing Steam user:', userId);
+            } catch (missionError) {
+              console.error('⚠️ Failed to track login mission for existing Steam user:', missionError);
+            }
+            
             await supabase.from('users').update({
               email,
               username: steamUser.username,
@@ -256,6 +286,15 @@ export async function GET(request: NextRequest) {
             }
             
             userId = newUser.id;
+            
+            // For NEW users, always reset missions and award login mission
+            try {
+              await resetDailyMissions(userId);
+              await awardDailyLoginMission(userId);
+              console.log('✅ Daily missions reset and login mission awarded for NEW Steam user:', userId);
+            } catch (missionError) {
+              console.error('⚠️ Failed to track login mission for NEW Steam user:', missionError);
+            }
           }
         }
       }
@@ -333,16 +372,8 @@ export async function GET(request: NextRequest) {
       response.cookies.set('equipgg_user_id', userData.id, clientCookieOptions);
       response.cookies.set('equipgg_user_email', userData.email, clientCookieOptions);
       
-      // Check and reset daily missions, award daily login mission
-      try {
-        if (userId) {
-          await checkAndResetDailyMissions(userId);
-          await awardDailyLoginMission(userId);
-          console.log('✅ Daily missions reset and login mission awarded for Steam user:', userId);
-        }
-      } catch (missionError) {
-        console.error('⚠️ Failed to track login mission for Steam user:', missionError);
-      }
+      // Missions are already processed above (before last_login_at update)
+      // This ensures proper timing for mission reset checks
       
       return response;
     } catch (error) {

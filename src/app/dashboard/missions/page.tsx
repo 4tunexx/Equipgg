@@ -77,23 +77,30 @@ export default function MissionsPage() {
           console.error('❌ Summary API failed:', summaryResponse.status);
         }
 
-        // Handle progress data
+        // Handle progress data - continue even if it fails
         if (progressResponse.ok) {
           const progressData = await progressResponse.json();
           console.log('📈 Progress API Response:', progressData);
           console.log('👀 Progress items count:', progressData.progress?.length || 0);
           if (progressData.success && progressData.progress) {
             // Convert progress array to progress object with percentage calculation
+            // CRITICAL: Only use item.progress (current_progress doesn't exist in database)
+            // Also ensure completed flag is false if progress is 0
             const progressMap: Record<string, number> = {};
             progressData.progress.forEach((item: any) => {
               // Find the mission to get requirement_value
-              const mission = fetchedMissions.find((m: any) => m.id === item.mission_id);
+              const mission = fetchedMissions.find((m: any) => m.id == item.mission_id || m.id === parseInt(item.mission_id) || item.mission_id === m.id.toString());
               if (mission) {
-                const currentProgress = item.current_progress || item.progress || 0;
+                // Use item.progress directly (current_progress column doesn't exist)
+                const currentProgress = item.progress || 0;
                 const requirement = mission.requirement_value || 1;
-                const percentage = Math.min(100, Math.round((currentProgress / requirement) * 100));
+                // If completed flag is true but progress is 0, treat as incomplete (reset issue)
+                const actualProgress = (item.completed === true && currentProgress === 0) ? 0 : currentProgress;
+                const percentage = Math.min(100, Math.round((actualProgress / requirement) * 100));
                 progressMap[item.mission_id] = percentage;
+                console.log(`📊 Mission ${mission.name} (ID: ${item.mission_id}): progress=${currentProgress}, completed=${item.completed}, percentage=${percentage}%`);
               } else {
+                // No mission found - use progress as-is (shouldn't happen)
                 progressMap[item.mission_id] = item.progress || 0;
               }
             });
@@ -101,7 +108,9 @@ export default function MissionsPage() {
             console.log('📈 Set mission progress:', progressMap);
           }
         } else {
-          console.error('❌ Progress API failed:', progressResponse.status);
+          // Progress API failed - continue with empty progress (missions still show)
+          console.warn('⚠️ Progress API failed:', progressResponse.status, 'Continuing with empty progress...');
+          setMissionProgress({});
         }
       } catch (error) {
         console.error('💥 Failed to fetch mission data:', error);
@@ -139,8 +148,7 @@ export default function MissionsPage() {
       <div className="p-4 sm:p-6 lg:p-8">
         <Card>
           <CardContent className="p-6">
-            <p className="text-center text-muted-foreground">Loading missions from Supabase...</p>
-            <p className="text-center text-xs text-muted-foreground mt-2">Check console for details</p>
+            <p className="text-center text-muted-foreground">Loading Missions...</p>
           </CardContent>
         </Card>
       </div>

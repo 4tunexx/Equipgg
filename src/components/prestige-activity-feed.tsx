@@ -2,8 +2,9 @@
 'use client';
 
 import { UserProfileLink } from "./user-profile-link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { Gem, Trophy as TrophyIcon, Award as AwardIcon, Crown as CrownIcon, Zap as ZapIcon } from 'lucide-react';
+import { getRarityColor, parseItemFromText } from '@/lib/rarity-utils';
 
 interface Activity {
   id: string;
@@ -11,6 +12,9 @@ interface Activity {
   message: string;
   amount?: number;
   item?: string;
+  rarity?: string;
+  gameType?: string;
+  multiplier?: number;
   timestamp: string;
   user: {
     username: string;
@@ -27,6 +31,9 @@ interface Activity {
 export function PrestigeActivityFeed() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
+  const activitiesRef = useRef<Activity[]>([]);
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const carouselTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
 
 
@@ -98,21 +105,19 @@ export function PrestigeActivityFeed() {
           if (data.activities && data.activities.length > 0) {
             console.log('✅ PRESTIGE FEED: Loaded', data.activities.length, 'REAL activities');
             console.log('👀 First 3 activities:', data.activities.slice(0, 3));
+            
+            // Clear any existing intervals
+            if (carouselTimeoutRef.current) {
+              clearInterval(carouselTimeoutRef.current);
+            }
+            
+            // Update ref and state
+            activitiesRef.current = data.activities;
             setActivities(data.activities);
             setLoading(false);
             
-            // Set up carousel rotation with real data
-            const carouselTimeout = setInterval(() => {
-              setActivities(prevActivities => {
-                if (prevActivities.length > 0) {
-                  const rotated = [...prevActivities.slice(1), prevActivities[0]];
-                  return rotated;
-                }
-                return prevActivities;
-              });
-            }, 4000);
-            
-            return () => clearInterval(carouselTimeout);
+            // Set up carousel rotation with real data - REMOVED to prevent flickering
+            // The marquee animation handles the scrolling, no need for manual rotation
           } else {
             // No real activities, use fallback
             console.warn('⚠️ PRESTIGE FEED: No activities in response, using fallback');
@@ -139,43 +144,215 @@ export function PrestigeActivityFeed() {
     fetchActivities();
 
     // Refresh activities every 30 seconds to get new data
-    const refreshInterval = setInterval(() => {
-      // Add a small delay to avoid race conditions
-      setTimeout(() => {
-        fetch('/api/activity')
-          .then(res => {
-            if (!res.ok) {
-              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-            }
-            return res.json();
-          })
-          .then(data => {
-            // Check both possible response formats: { activities: [...] } or just [...]
-            const activitiesArray = data.activities || data || [];
-            if (activitiesArray.length > 0) {
+    // Use a longer interval to reduce flickering
+    refreshTimeoutRef.current = setInterval(() => {
+      fetch('/api/activity')
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+          }
+          return res.json();
+        })
+        .then(data => {
+          // Check both possible response formats: { activities: [...] } or just [...]
+          const activitiesArray = data.activities || data || [];
+          if (activitiesArray.length > 0) {
+            // Only update if activities actually changed
+            const currentIds = activitiesRef.current.map(a => a.id).join(',');
+            const newIds = activitiesArray.map((a: Activity) => a.id).join(',');
+            
+            if (currentIds !== newIds) {
               console.log('🔄 PRESTIGE FEED: Refreshed with', activitiesArray.length, 'activities');
+              activitiesRef.current = activitiesArray;
               setActivities(activitiesArray);
-            } else {
-              // Don't log warning for empty activities, it's normal
-              // console.warn('⚠️ PRESTIGE FEED: Refresh returned no activities');
             }
-          })
-          .catch(err => {
-            console.error('❌ PRESTIGE FEED: Error refreshing:', err);
-            // Don't spam errors - only log once per minute
-            if (!(window as any).prestigeFeedErrorLogged) {
-              (window as any).prestigeFeedErrorLogged = Date.now();
-            } else if (Date.now() - (window as any).prestigeFeedErrorLogged > 60000) {
-              (window as any).prestigeFeedErrorLogged = Date.now();
-            }
-          });
-      }, 1000); // 1 second delay
-    }, 30000); // 30 seconds
+          }
+        })
+        .catch(err => {
+          console.error('❌ PRESTIGE FEED: Error refreshing:', err);
+        });
+    }, 60000); // 60 seconds - longer to reduce flickering
 
-    return () => clearInterval(refreshInterval);
+    return () => {
+      if (refreshTimeoutRef.current) {
+        clearInterval(refreshTimeoutRef.current);
+      }
+      if (carouselTimeoutRef.current) {
+        clearInterval(carouselTimeoutRef.current);
+      }
+    };
   }, []);
 
-  // Show loading state
+  // Memoize duplicated activities to prevent unnecessary re-renders
+  // MUST be called before any conditional returns to follow Rules of Hooks
+  const duplicatedActivities = useMemo(() => {
+    if (activities.length === 0) return [];
+    // Duplicate 3 times for smoother infinite scroll
+    return [...activities, ...activities, ...activities];
+  }, [activities]);
+
+  // Memoize message rendering logic
+  // MUST be called before any conditional returns to follow Rules of Hooks
+  const renderActivityMessage = useCallback((activity: Activity) => {
+    // Use item and rarity from activity object if available, otherwise parse from message
+    const itemName = activity.item || parseItemFromText(activity.message).itemName;
+    const rarity = activity.rarity || parseItemFromText(activity.message).rarity;
+    const rarityColor = rarity ? getRarityColor(rarity) : null;
+    
+    // Better approach: replace item name in message with colored version
+    const message = activity.message;
+    
+    // Create a renderer that colors different parts
+    const parts: Array<{ text: string; className: string; key: string }> = [];
+    
+    // Find item name in message and color it
+    if (itemName && rarityColor) {
+      const itemRegex = new RegExp(`(${itemName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+      const segments = message.split(itemRegex);
+      
+      segments.forEach((segment, i) => {
+        const key = `seg-${i}`;
+        if (segment.toLowerCase() === itemName.toLowerCase()) {
+          parts.push({ text: segment, className: `${rarityColor} font-bold`, key });
+        } else {
+          // Check for other colored elements in this segment
+          const segmentWords = segment.split(/(\s+)/);
+          segmentWords.forEach((word, wordIndex) => {
+            const wordKey = `${key}-word-${wordIndex}`;
+            if (!word.trim()) {
+              parts.push({ text: word, className: '', key: wordKey });
+              return;
+            }
+            
+            // Check for rarity in parentheses
+            const isRarityWord = word.match(/\(([^)]+)\)/) && word.toLowerCase().includes(rarity?.toLowerCase() || '');
+            if (isRarityWord && rarityColor) {
+              parts.push({ text: word, className: `${rarityColor} font-semibold`, key: wordKey });
+            }
+            // Check for coins (green) - match "100 coins" or "100 coin"
+            else if (/\d+\s*(coins|coin)/i.test(word)) {
+              parts.push({ text: word, className: 'text-green-400 font-semibold', key: wordKey });
+            }
+            // Check for standalone numbers that might be followed by "coins"
+            else if (/^\d+$/.test(word.trim())) {
+              // Check if next word is "coins" or "coin"
+              const nextWord = segmentWords[wordIndex + 1] || '';
+              if (/coins?/i.test(nextWord)) {
+                parts.push({ text: word, className: 'text-green-400 font-semibold', key: wordKey });
+              } else if (/gems?/i.test(nextWord)) {
+                parts.push({ text: word, className: 'text-blue-400 font-semibold', key: wordKey });
+              } else if (/xp/i.test(nextWord)) {
+                parts.push({ text: word, className: 'text-orange-400 font-semibold', key: wordKey });
+              } else {
+                parts.push({ text: word, className: '', key: wordKey });
+              }
+            }
+            // Check for gems (blue/purple)
+            else if (/\d+\s*(gems|gem)/i.test(word)) {
+              parts.push({ text: word, className: 'text-blue-400 font-semibold', key: wordKey });
+            }
+            // Check for XP (orange)
+            else if (/\d+\s*(XP|xp)/i.test(word)) {
+              parts.push({ text: word, className: 'text-orange-400 font-semibold', key: wordKey });
+            }
+            // Check for "coins", "coin", "gems", "gem" words (to color them)
+            else if (/^(coins?|gems?)$/i.test(word.trim())) {
+              // Check if previous word was a number
+              const prevWord = segmentWords[wordIndex - 2] || '';
+              if (/^\d+$/.test(prevWord)) {
+                parts.push({ 
+                  text: word, 
+                  className: /coins?/i.test(word) ? 'text-green-400 font-semibold' : 'text-blue-400 font-semibold',
+                  key: wordKey
+                });
+              } else {
+                parts.push({ text: word, className: '', key: wordKey });
+              }
+            }
+            // Check for multiplier
+            else if (/^\d+\.?\d*x$/i.test(word)) {
+              parts.push({ text: word, className: 'text-blue-400 font-semibold', key: wordKey });
+            }
+            // Check for achievement
+            else if (/achievement/i.test(word)) {
+              parts.push({ text: word, className: 'text-purple-400 font-semibold', key: wordKey });
+            }
+            // Regular text
+            else {
+              parts.push({ text: word, className: '', key: wordKey });
+            }
+          });
+        }
+      });
+    } else {
+      // Fallback: word-by-word parsing if item name not found
+      const words = message.split(/(\s+)/);
+      words.forEach((word, wordIndex) => {
+        const key = `word-${wordIndex}`;
+        if (!word.trim()) {
+          parts.push({ text: word, className: '', key });
+          return;
+        }
+        
+        // Check for standalone numbers
+        if (/^\d+$/.test(word.trim())) {
+          // Check if next word is "coins", "gems", or "XP"
+          const nextWord = words[wordIndex + 1] || '';
+          if (/coins?/i.test(nextWord)) {
+            parts.push({ text: word, className: 'text-green-400 font-semibold', key });
+          } else if (/gems?/i.test(nextWord)) {
+            parts.push({ text: word, className: 'text-blue-400 font-semibold', key });
+          } else if (/xp/i.test(nextWord)) {
+            parts.push({ text: word, className: 'text-orange-400 font-semibold', key });
+          } else {
+            parts.push({ text: word, className: '', key });
+          }
+        }
+        // Check for coins (green) - match "100 coins" or "100 coin"
+        else if (/\d+\s*(coins|coin)/i.test(word)) {
+          parts.push({ text: word, className: 'text-green-400 font-semibold', key });
+        }
+        // Check for gems (purple/blue)
+        else if (/\d+\s*(gems|gem)/i.test(word)) {
+          parts.push({ text: word, className: 'text-blue-400 font-semibold', key });
+        }
+        // Check for XP (orange)
+        else if (/\d+\s*(XP|xp)/i.test(word)) {
+          parts.push({ text: word, className: 'text-orange-400 font-semibold', key });
+        }
+        // Check for "coins", "coin", "gems", "gem" words
+        else if (/^(coins?|gems?)$/i.test(word.trim())) {
+          // Check if previous word was a number
+          const prevWord = words[wordIndex - 2] || '';
+          if (/^\d+$/.test(prevWord)) {
+            parts.push({ 
+              text: word, 
+              className: /coins?/i.test(word) ? 'text-green-400 font-semibold' : 'text-blue-400 font-semibold',
+              key
+            });
+          } else {
+            parts.push({ text: word, className: '', key });
+          }
+        }
+        // Check for multiplier
+        else if (/^\d+\.?\d*x$/i.test(word)) {
+          parts.push({ text: word, className: 'text-blue-400 font-semibold', key });
+        }
+        // Check for achievement
+        else if (/achievement/i.test(word)) {
+          parts.push({ text: word, className: 'text-purple-400 font-semibold', key });
+        }
+        // Regular text
+        else {
+          parts.push({ text: word, className: '', key });
+        }
+      });
+    }
+    
+    return parts;
+  }, []);
+
+  // Show loading state (AFTER all hooks)
   if (loading) {
     return (
       <div className="bg-background/80 backdrop-blur-sm z-40 border-b border-border/40 text-sm overflow-hidden group w-full relative">
@@ -186,7 +363,7 @@ export function PrestigeActivityFeed() {
     );
   }
 
-  // Show message when no activities available
+  // Show message when no activities available (AFTER all hooks)
   if (!activities || activities.length === 0) {
     return (
       <div className="bg-background/80 backdrop-blur-sm z-40 border-b border-border/40 text-sm overflow-hidden group w-full relative">
@@ -197,14 +374,16 @@ export function PrestigeActivityFeed() {
     );
   }
 
-  // Duplicate to create a seamless loop
-  const duplicatedActivities = [...activities, ...activities];
-
   return (
     <div className="bg-background/80 backdrop-blur-sm z-40 border-b border-border/40 text-sm overflow-hidden group w-full relative">
-      <div className="flex animate-marquee-faster group-hover:[animation-play-state:paused] whitespace-nowrap">
-        {duplicatedActivities.map((activity: Activity, index) => (
-          <div key={`${activity.id}-${index}`} className="flex items-center flex-shrink-0 mx-4 py-2.5">
+      <div className="flex animate-marquee-faster group-hover:[animation-play-state:paused] whitespace-nowrap will-change-transform">
+        {duplicatedActivities.map((activity: Activity, index) => {
+          // Use stable key based on activity id and position in duplication
+          const stableKey = `${activity.id}-dup-${Math.floor(index / activities.length)}`;
+          const messageParts = renderActivityMessage(activity);
+          
+          return (
+          <div key={stableKey} className="flex items-center flex-shrink-0 mx-4 py-2.5">
             {(() => {
               const Icon = iconFromName(activity.type) as React.ComponentType<{ className?: string }>;
               const isRewardActivity = activity.type === 'crate' || activity.type === 'win' || activity.type === 'achievement';
@@ -222,47 +401,16 @@ export function PrestigeActivityFeed() {
               dataAiHint: "user avatar"
             }} />
             <span className="text-muted-foreground mx-1.5 text-xs">
-              {activity.message.split(' ').map((word, wordIndex) => {
-                // Highlight items and rewards with brighter colors
-                const isItem = word.includes('|') || word.includes('★') || word.includes('Karambit') || word.includes('Bayonet') || word.includes('Dragon') || word.includes('Lore') || word.includes('Fade') || word.includes('Crimson') || word.includes('Web') || word.includes('AK-47') || word.includes('Redline') || word.includes('AWP');
-                const isRarity = word.includes('(Covert)') || word.includes('(Classified)') || word.includes('(Legendary)') || word.includes('(Epic)');
-                const isAmount = /^\d+/.test(word) && (word.includes('coins') || word.includes('XP'));
-                const isMultiplier = word.includes('x') && /^\d+\.?\d*x$/.test(word);
-                const isAchievement = word.includes('achievement:') || word.includes('High') || word.includes('Roller');
-                const isWinAmount = word.includes('coins') && activity.type === 'win';
-                
-                if (isItem || isRarity) {
-                  return (
-                    <span key={wordIndex} className="text-yellow-300 font-bold animate-pulse">
-                      {word}{' '}
-                    </span>
-                  );
-                } else if (isAmount || isWinAmount) {
-                  return (
-                    <span key={wordIndex} className="text-green-400 font-semibold">
-                      {word}{' '}
-                    </span>
-                  );
-                } else if (isMultiplier) {
-                  return (
-                    <span key={wordIndex} className="text-blue-400 font-semibold">
-                      {word}{' '}
-                    </span>
-                  );
-                } else if (isAchievement) {
-                  return (
-                    <span key={wordIndex} className="text-purple-400 font-semibold">
-                      {word}{' '}
-                    </span>
-                  );
-                } else {
-                  return <span key={wordIndex}>{word + ' '}</span>;
-                }
-              })}
+              {messageParts.map((part) => (
+                <span key={part.key} className={part.className || ''}>
+                  {part.text}
+                </span>
+              ))}
             </span>
             <span className="text-primary/50 mx-4">•</span>
           </div>
-        ))}
+        );
+        })}
       </div>
     </div>
   );

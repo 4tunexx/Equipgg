@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthSession } from '@/lib/auth-utils';
 import { createServerSupabaseClient } from '@/lib/supabase';
+import { checkBalanceAccess, createVerificationNotification } from '@/lib/verification-check';
 
 // Simple chat API that works with existing database
 export async function GET(request: NextRequest) {
@@ -72,6 +73,29 @@ export async function POST(request: NextRequest) {
     const session = await getAuthSession(request);
     if (!session) {
       return NextResponse.json({ error: 'Please log in to chat' }, { status: 401 });
+    }
+
+    // Check verification status - users must verify email or Steam to chat
+    const verificationStatus = await checkBalanceAccess(session.user_id);
+    if (!verificationStatus.canUseBalances) {
+      console.error('❌ Chat message blocked - Verification failed:', {
+        userId: session.user_id,
+        verificationStatus
+      });
+      
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(session.user_id, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required to chat',
+        requiresVerification: true,
+        notificationCreated: true,
+        details: {
+          requiresEmailVerification: verificationStatus.requiresEmailVerification,
+          requiresSteamVerification: verificationStatus.requiresSteamVerification
+        }
+      }, { status: 403 });
     }
 
     const supabase = createServerSupabaseClient();

@@ -445,8 +445,11 @@ export default function CratesPage() {
                     ? activeCrate.items.map((item: any) => {
                         // CRITICAL: Convert ALL item IDs to numbers
                         const itemId = typeof item.id === 'string' ? parseInt(item.id) : item.id;
-                        const imageUrl = item.image_url || item.image || 
-                          `https://www.csgodatabase.com/images/skins/webp/${item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`;
+                        // PRIORITIZE database image_url - only use generated URL if database image is empty
+                        const dbImage = item.image_url || item.image;
+                        const imageUrl = dbImage && dbImage.trim() !== '' && !dbImage.includes('placeholder')
+                          ? dbImage
+                          : `https://www.csgodatabase.com/images/skins/webp/${item.name.replace(/\s*\|\s*/g, '_').replace(/\s+/g, '_')}.webp`;
                         
                         const mappedItem = {
                           id: itemId,

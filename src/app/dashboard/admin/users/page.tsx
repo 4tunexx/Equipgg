@@ -45,6 +45,7 @@ export default function AdminUsersPage() {
   const [showGiveKeysDialog, setShowGiveKeysDialog] = useState(false);
   const [userKeys, setUserKeys] = useState<Record<string, UserCrateKeys[]>>({});
   const [userRanks, setUserRanks] = useState<Record<string, string>>({});
+  const [userItemCounts, setUserItemCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (user) {
@@ -74,49 +75,146 @@ export default function AdminUsersPage() {
       // Fetch ranks for all users
       if (usersData) {
         const ranksMap: Record<string, string> = {};
-        for (const user of usersData) {
-          const computedLevel = getLevelFromXP(user.xp || 0);
-          const { data: rank } = await supabase
-            .from('ranks')
-            .select('name')
-            .lte('min_level', computedLevel)
-            .gte('max_level', computedLevel)
-            .maybeSingle();
-          ranksMap[user.id] = rank?.name || 'Silver I';
+        // Fetch all active ranks once for efficiency - order by min_level ASCENDING to find correct rank
+        const { data: allRanks, error: ranksError } = await supabase
+          .from('ranks')
+          .select('name, min_level, max_level')
+          .eq('is_active', true)
+          .order('min_level', { ascending: true }); // Order ascending to iterate correctly
+        
+        if (ranksError) {
+          console.error('Error fetching ranks:', ranksError);
+          // Set default rank for all users if ranks fetch fails
+          usersData.forEach((userData: any) => {
+            ranksMap[userData.id] = 'Silver I';
+          });
+        } else {
+          // Calculate rank for each user
+          for (const userData of usersData) {
+            const computedLevel = getLevelFromXP(userData.xp || 0);
+            
+            // Find the highest rank that matches the user's level
+            let userRank = 'Silver I'; // Default fallback
+            
+            if (allRanks && allRanks.length > 0) {
+              // Find the highest matching rank by checking from highest to lowest
+              // Reverse the array to check highest ranks first
+              const ranksReversed = [...allRanks].reverse();
+              
+              const matchingRank = ranksReversed.find(rank => {
+                const minMatches = (rank.min_level || 0) <= computedLevel;
+                const maxMatches = rank.max_level === null || rank.max_level >= computedLevel;
+                return minMatches && maxMatches;
+              });
+              
+              if (matchingRank) {
+                userRank = matchingRank.name;
+                console.log(`User ${userData.id} (level ${computedLevel}) -> Rank: ${userRank} (min: ${matchingRank.min_level}, max: ${matchingRank.max_level})`);
+              } else {
+                // If no match found, user might be below all ranks - use lowest rank
+                const lowestRank = allRanks[0];
+                if (lowestRank) {
+                  userRank = lowestRank.name;
+                  console.log(`User ${userData.id} (level ${computedLevel}) -> No matching rank, using lowest: ${userRank}`);
+                }
+              }
+            }
+            
+            ranksMap[userData.id] = userRank;
+          }
         }
         setUserRanks(ranksMap);
       }
 
+      // Fetch item counts for all users (sum quantities for stacked items)
+      if (usersData) {
+        const itemCountsMap: Record<string, number> = {};
+        
+        // Fetch inventory for all users at once
+        const userIds = usersData.map(u => u.id);
+        const { data: inventoryData, error: inventoryError } = await supabase
+          .from('user_inventory')
+          .select('user_id, quantity')
+          .in('user_id', userIds);
+        
+        if (inventoryError) {
+          console.error('Error fetching inventory:', inventoryError);
+          // Set 0 for all users if inventory fetch fails
+          usersData.forEach((userData: any) => {
+            itemCountsMap[userData.id] = 0;
+          });
+        } else if (inventoryData) {
+          // Sum quantities for each user
+          inventoryData.forEach((item: any) => {
+            const userId = item.user_id;
+            const quantity = item.quantity || 1; // Default to 1 if quantity is missing
+            
+            if (!itemCountsMap[userId]) {
+              itemCountsMap[userId] = 0;
+            }
+            itemCountsMap[userId] += quantity;
+          });
+          
+          // Set 0 for users with no inventory
+          usersData.forEach((userData: any) => {
+            if (!itemCountsMap[userData.id]) {
+              itemCountsMap[userData.id] = 0;
+            }
+          });
+        } else {
+          // No inventory data, set 0 for all users
+          usersData.forEach((userData: any) => {
+            itemCountsMap[userData.id] = 0;
+          });
+        }
+        
+        setUserItemCounts(itemCountsMap);
+      }
+
       // Fetch crate keys for all users
-      const { data: keysData } = await supabase
+      const { data: keysData, error: keysError } = await supabase
         .from('user_keys')
         .select('user_id, crate_id, keys_count, crate:crates(name)');
-
-      if (keysData) {
+      
+      if (keysError) {
+        console.error('Error fetching crate keys:', keysError);
+        // Continue without keys data - not critical, set empty map
+        setUserKeys({});
+      } else if (keysData) {
         const keysMap: Record<string, UserCrateKeys[]> = {};
         keysData.forEach((key: any) => {
           if (!keysMap[key.user_id]) {
             keysMap[key.user_id] = [];
           }
+          // Handle both single crate object and array (Supabase relation format)
+          const crateObj = Array.isArray(key.crate) ? key.crate[0] : key.crate;
           keysMap[key.user_id].push({
             crate_id: key.crate_id,
             keys_count: key.keys_count,
-            crate: key.crate
+            crate: crateObj
           });
         });
         setUserKeys(keysMap);
+      } else {
+        setUserKeys({});
       }
     } catch (error) {
-      console.error('Error fetching users:', error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "Failed to fetch users"
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
+        console.error('Error fetching users:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Failed to fetch users';
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: errorMessage
+        });
+        // Set empty arrays on error to prevent UI breaking
+        setUsers([]);
+        setUserRanks({});
+        setUserKeys({});
+        setUserItemCounts({});
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
   const filteredUsers = users.filter(u => 
     u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -186,7 +284,11 @@ export default function AdminUsersPage() {
                     <TableHead className="min-w-[120px]">Role</TableHead>
                     <TableHead className="min-w-[80px]">Level</TableHead>
                     <TableHead className="min-w-[120px]">Rank</TableHead>
+                    <TableHead className="min-w-[100px]">Items</TableHead>
                     <TableHead className="min-w-[100px]">Coins</TableHead>
+                    {users.some(u => u.gems !== undefined && u.gems !== null && u.gems > 0) && (
+                      <TableHead className="min-w-[100px]">Gems</TableHead>
+                    )}
                     <TableHead className="min-w-[100px]">Total Keys</TableHead>
                     <TableHead className="min-w-[150px]">Crate Keys</TableHead>
                     <TableHead className="text-right min-w-[150px] sticky right-0 bg-background">Actions</TableHead>
@@ -195,7 +297,7 @@ export default function AdminUsersPage() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={users.some(u => u.gems !== undefined && u.gems !== null && u.gems > 0) ? 10 : 9} className="text-center text-muted-foreground py-8">
                         No users found
                       </TableCell>
                     </TableRow>
@@ -226,12 +328,34 @@ export default function AdminUsersPage() {
                                   .from('users')
                                   .update({ role: newRole })
                                   .eq('id', user.id);
-                                if (!error) {
-                                  toast({ title: 'Role updated', description: `${user.username} is now ${newRole}` });
-                                  fetchUsers();
+                                
+                                if (error) {
+                                  throw error;
                                 }
+                                
+                                toast({ 
+                                  title: 'Role updated', 
+                                  description: `${user.username} is now ${newRole}` 
+                                });
+                                
+                                // Update local state immediately for better UX
+                                setUsers(prevUsers => 
+                                  prevUsers.map(u => 
+                                    u.id === user.id ? { ...u, role: newRole } : u
+                                  )
+                                );
+                                
+                                // Optionally refresh to get latest data
+                                // fetchUsers();
                               } catch (e) {
-                                toast({ variant: 'destructive', title: 'Error updating role' });
+                                console.error('Error updating role:', e);
+                                toast({ 
+                                  variant: 'destructive', 
+                                  title: 'Error updating role',
+                                  description: e instanceof Error ? e.message : 'Failed to update user role'
+                                });
+                                // Refresh to revert UI state
+                                fetchUsers();
                               }
                             }}
                           >
@@ -252,12 +376,22 @@ export default function AdminUsersPage() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="font-semibold">
-                            {userRanks[user.id] || 'Silver I'}
+                            {userRanks[user.id] || 'Calculating...'}
                           </Badge>
                         </TableCell>
                         <TableCell>
-                          <span className="font-mono">{user.coins.toLocaleString()}</span>
+                          <span className="font-semibold text-purple-400">
+                            {userItemCounts[user.id] !== undefined ? userItemCounts[user.id].toLocaleString() : '...'}
+                          </span>
                         </TableCell>
+                        <TableCell>
+                          <span className="font-mono text-green-400">{user.coins.toLocaleString()}</span>
+                        </TableCell>
+                        {users.some(u => u.gems !== undefined && u.gems !== null && u.gems > 0) && (
+                          <TableCell>
+                            <span className="font-mono text-cyan-400">{user.gems?.toLocaleString() || 0}</span>
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-1">
                             <Key className="w-4 h-4 text-primary" />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerSupabaseClient } from '@/lib/supabase'
+import { checkAndResetDailyMissions } from '@/lib/mission-integration'
 
 export async function GET(request: NextRequest) {
   try {
@@ -27,13 +28,25 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get daily missions (first 9 missions ordered by order_index)
+    // CRITICAL: Check and reset daily missions BEFORE fetching progress
+    // This ensures missions are reset every 24 hours
+    try {
+      console.log(`🔄 Daily missions endpoint - checking reset for user ${userId}`);
+      await checkAndResetDailyMissions(userId);
+      console.log(`✅ Daily missions reset check completed for user ${userId}`);
+    } catch (resetError) {
+      console.error('⚠️ Failed to reset daily missions in daily endpoint:', resetError);
+      // Continue anyway - don't block mission fetching
+    }
+
+    // Get DAILY missions only (filter by mission_type = 'daily')
+    // Note: order_index might not exist, so we order by id as fallback
     const { data: missions, error: missionsError } = await supabase
       .from('missions')
       .select('*')
       .eq('is_active', true)
-      .order('order_index', { ascending: true })
-      .limit(9)
+      .eq('mission_type', 'daily')
+      .order('id', { ascending: true }) // Use id instead of order_index (which might not exist)
 
     if (missionsError) {
       console.error('Missions error:', missionsError)

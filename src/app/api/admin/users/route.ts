@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerSupabaseClient } from "../../../../lib/supabase";
+import { getLevelFromXP } from "../../../../lib/xp-config";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,20 +21,40 @@ export async function GET(request: NextRequest) {
     // Get additional stats for each user
     const usersWithStats = await Promise.all(
       (users || []).map(async (user: any) => {
-        // Get inventory count
-        const { count: inventoryCount } = await supabase
+        // Get inventory count - SUM quantities (not just count rows)
+        const { data: inventoryData } = await supabase
           .from('user_inventory')
-          .select('*', { count: 'exact', head: true })
+          .select('quantity')
           .eq('user_id', user.id);
+        
+        // Sum all quantities for stacked items
+        const inventoryCount = inventoryData?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
 
-        // Get current rank based on level (not XP)
-        const { data: rankData } = await supabase
+        // Get current rank based on level
+        const userLevel = getLevelFromXP(user.xp || 0);
+        
+        // Fetch all active ranks ordered by min_level ascending
+        const { data: allRanks } = await supabase
           .from('ranks')
-          .select('name, tier, min_xp')
-          .lte('min_xp', user.level || 1)
-          .order('min_xp', { ascending: false })
-          .limit(1)
-          .single();
+          .select('name, tier, min_level, max_level')
+          .eq('is_active', true)
+          .order('min_level', { ascending: true });
+        
+        // Find the highest matching rank by checking from highest to lowest
+        let rankData: any = null;
+        if (allRanks && allRanks.length > 0) {
+          const ranksReversed = [...allRanks].reverse();
+          rankData = ranksReversed.find((rank: any) => {
+            const minMatches = (rank.min_level || 0) <= userLevel;
+            const maxMatches = rank.max_level === null || rank.max_level >= userLevel;
+            return minMatches && maxMatches;
+          });
+          
+          // If no match found, use lowest rank
+          if (!rankData && allRanks.length > 0) {
+            rankData = allRanks[0];
+          }
+        }
 
         return {
           ...user,

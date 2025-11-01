@@ -9,6 +9,7 @@ import { rarityGlow, fallbackImages } from "../lib/constants";
 import type { CrateItem } from '../types/crate';
 import ItemImage from "./ItemImage";
 import { Package } from 'lucide-react';
+import { getRarityColor } from '@/lib/rarity-utils';
 
 interface CrateOpeningAnimationProps {
   items: CrateItem[];
@@ -304,10 +305,10 @@ export function CrateOpeningAnimation({ items, wonItem, onAnimationEnd, crateIma
                       <img src={item.image || fallbackImages.item} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} onError={(e) => { (e.target as HTMLImageElement).src = fallbackImages.item; }} />
                     </div>
                     <div className="mt-1 truncate">
-                      <p className="text-sm font-bold truncate text-center leading-tight" title={item.name}>
+                      <p className={`text-sm font-bold truncate text-center leading-tight ${getRarityColor(item.rarity)}`} title={item.name}>
                         {item.name}
                       </p>
-                      <p className={`text-xs font-semibold text-center ${item.rarity === 'Legendary' ? 'text-yellow-500' : item.rarity === 'Exotic' ? 'text-purple-500' : item.rarity === 'Rare' ? 'text-blue-500' : item.rarity === 'Uncommon' ? 'text-green-500' : 'text-gray-500'}`}>
+                      <p className={`text-xs font-semibold text-center ${getRarityColor(item.rarity)}`}>
                         {item.rarity}
                       </p>
                       {/* DEBUG: Show item ID */}

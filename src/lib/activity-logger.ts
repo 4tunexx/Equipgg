@@ -66,25 +66,48 @@ export async function logActivity(data: ActivityLogData): Promise<void> {
         action = data.activityType;
     }
 
-    // Insert into activity_feed table using EXISTING structure
-    await supabase.from('activity_feed').insert([
-      {
-        user_id: data.userId,
-        action,
-        description,
-        metadata: {
-          amount: data.amount || 0,
-          xp: data.amount || 0,
-          itemName: data.itemName || null,
-          itemRarity: data.itemRarity || null,
-          gameType: data.gameType || null,
-          multiplier: data.multiplier || null,
-          activityData: data.activityData || null
-        },
-        created_at: timestamp,
-      },
-    ]);
-    console.log('Activity logged successfully');
+    // Insert into activity_feed table
+    // NOTE: Schema has: id, user_id (TEXT - supports both UUID and Steam IDs), action, item_id, xp, icon, created_at
+    // Also has: description, metadata (JSONB)
+    
+    // Get item_id if itemName is provided
+    let itemId = null;
+    if (data.itemName) {
+      // Try to find item by name
+      const { data: itemData } = await supabase
+        .from('items')
+        .select('id')
+        .eq('name', data.itemName)
+        .maybeSingle();
+      itemId = itemData?.id || null;
+    }
+    
+    const activityData: any = {
+      user_id: data.userId, // Now supports both UUID and TEXT (Steam IDs)
+      action,
+      item_id: itemId,
+      xp: data.amount || 0,
+      icon: null,
+      description: description || null,
+      metadata: data.activityData || null,
+      created_at: timestamp
+    };
+    
+    const { error: insertError } = await supabase.from('activity_feed').insert([activityData]);
+    
+    if (insertError) {
+      console.error('❌ Failed to log activity:', insertError);
+      console.error('Error details:', {
+        code: insertError.code,
+        message: insertError.message,
+        details: insertError.details,
+        hint: insertError.hint,
+        userId: data.userId,
+        userIdType: typeof data.userId
+      });
+    } else {
+      console.log('✅ Activity logged successfully');
+    }
   } catch (error) {
     console.error('Failed to log activity:', error);
   }

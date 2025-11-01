@@ -158,7 +158,7 @@ export function ShopItemCard({ item }: ShopItemCardProps) {
         <div className="relative w-32 h-32 mb-4 flex items-center justify-center bg-gradient-to-br from-gray-900 to-gray-800 rounded">
           {item.image || item.name ? (
             <img 
-              src={item.image || '/assets/placeholder.svg'}
+              src={item.image && item.image.trim() !== '' ? item.image : '/assets/placeholder.svg'}
               alt={item.name}
               className="w-full h-full object-contain p-2 transition-transform group-hover:scale-110"
               loading="lazy"

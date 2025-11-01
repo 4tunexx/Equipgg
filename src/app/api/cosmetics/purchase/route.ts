@@ -28,6 +28,13 @@ export async function POST(request: NextRequest) {
     // Check verification status first - ANTI-CHEAT
     const verificationStatus = await checkBalanceAccess(session.user_id);
     if (!verificationStatus.canUseBalances) {
+      console.error('❌ Cosmetics purchase blocked - Verification failed:', {
+        userId: session.user_id,
+        verificationStatus,
+        requiresEmail: verificationStatus.requiresEmailVerification,
+        requiresSteam: verificationStatus.requiresSteamVerification
+      });
+      
       // Create notification for user
       const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
       await createVerificationNotification(session.user_id, notificationType);
@@ -35,7 +42,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: verificationStatus.message || 'Account verification required',
         requiresVerification: true,
-        notificationCreated: true
+        notificationCreated: true,
+        details: {
+          requiresEmailVerification: verificationStatus.requiresEmailVerification,
+          requiresSteamVerification: verificationStatus.requiresSteamVerification
+        }
       }, { status: 403 });
     }
 
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest) {
     // Check user balance
     const { data: userData, error: userError } = await supabase
       .from('users')
-      .select('coins, steam_verified, email_verified, provider')
+      .select('coins, provider')
       .eq('id', session.user_id)
       .single();
 

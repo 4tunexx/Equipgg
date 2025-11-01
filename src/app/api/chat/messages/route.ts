@@ -3,6 +3,7 @@ import { getAuthSession } from "../../../../lib/auth-utils";
 import { supabase } from "../../../../lib/supabase";
 import { v4 as uuidv4 } from 'uuid';
 import { broadcastChatMessage } from "../../../../lib/supabase/realtime";
+import { checkBalanceAccess, createVerificationNotification } from "../../../../lib/verification-check";
 
 // Get chat messages for a channel
 export async function GET(request: NextRequest) {
@@ -65,6 +66,29 @@ export async function POST(request: NextRequest) {
     const session = await getAuthSession(request);
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Check verification status - users must verify email or Steam to chat
+    const verificationStatus = await checkBalanceAccess(session.user_id);
+    if (!verificationStatus.canUseBalances) {
+      console.error('❌ Chat message blocked - Verification failed:', {
+        userId: session.user_id,
+        verificationStatus
+      });
+      
+      // Create notification for user
+      const notificationType = verificationStatus.requiresEmailVerification ? 'email' : 'steam';
+      await createVerificationNotification(session.user_id, notificationType);
+      
+      return NextResponse.json({ 
+        error: verificationStatus.message || 'Account verification required to chat',
+        requiresVerification: true,
+        notificationCreated: true,
+        details: {
+          requiresEmailVerification: verificationStatus.requiresEmailVerification,
+          requiresSteamVerification: verificationStatus.requiresSteamVerification
+        }
+      }, { status: 403 });
     }
 
     const { content, channelId, type = 'text', replyTo } = await request.json();

@@ -50,6 +50,8 @@ export default function AdminDashboardPage() {
   const emptyGemPackage = { id: '', name: '', description: '', gems: 0, price: 0, currency: 'USD', enabled: true };
   const [newGemPackage, setNewGemPackage] = useState<any>({ ...emptyGemPackage });
   const [flashSales, setFlashSales] = useState<any[]>([]);
+  const [databaseInspection, setDatabaseInspection] = useState<any>(null);
+  const [inspecting, setInspecting] = useState(false);
   const [inlineStatus, setInlineStatus] = useState<{ type: 'success'|'error'|'loading'; message: string } | null>(null);
   const [showCreateFlashSale, setShowCreateFlashSale] = useState(false);
   const [showEditFlashSale, setShowEditFlashSale] = useState(false);
@@ -734,9 +736,53 @@ export default function AdminDashboardPage() {
                       <Archive className="w-5 h-5" />
                       <span className="text-sm">Flash Sales</span>
                     </Button>
+                    <Button variant="outline" className="h-auto py-4 flex flex-col gap-2" onClick={async () => {
+                      setInspecting(true);
+                      try {
+                        const res = await fetch('/api/admin/inspect-supabase', { credentials: 'include' });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setDatabaseInspection(data.inspection);
+                          toast({
+                            title: "✅ Database Inspection Complete",
+                            description: "Check the console or inspection panel for details",
+                          });
+                        } else {
+                          throw new Error('Inspection failed');
+                        }
+                      } catch (e: any) {
+                        toast({
+                          title: "❌ Inspection Failed",
+                          description: e.message || "Could not inspect database",
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setInspecting(false);
+                      }
+                    }}>
+                      <Cog className="w-5 h-5" />
+                      <span className="text-sm">{inspecting ? 'Inspecting...' : 'Inspect Database'}</span>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
+              
+              {/* Database Inspection Results */}
+              {databaseInspection && (
+                <Card>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-lg font-semibold">Database Inspection Results</h3>
+                      <Button variant="outline" size="sm" onClick={() => setDatabaseInspection(null)}>Close</Button>
+                    </div>
+                    <div className="space-y-4 max-h-[600px] overflow-y-auto">
+                      <pre className="bg-secondary p-4 rounded text-xs overflow-auto">
+                        {JSON.stringify(databaseInspection, null, 2)}
+                      </pre>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </div>
 
             {/* System Status & Active Matches */}
@@ -935,15 +981,23 @@ export default function AdminDashboardPage() {
                         </span>
                       </TableCell>
                       <TableCell>{getLevelFromXP(u.xp || 0)}</TableCell>
-                      <TableCell>{u.coins?.toLocaleString() || 0}</TableCell>
-                      <TableCell>{u.gems?.toLocaleString() || 0}</TableCell>
+                      <TableCell>
+                        <span className="font-mono text-green-400">{u.coins?.toLocaleString() || 0}</span>
+                      </TableCell>
+                      <TableCell>
+                        <span className="font-mono text-cyan-400">{u.gems?.toLocaleString() || 0}</span>
+                      </TableCell>
                       <TableCell>{u.xp?.toLocaleString() || 0}</TableCell>
                       <TableCell>
                         <span className="font-semibold text-primary">
-                          {u.rank_name || 'Silver I'}
+                          {u.rank_name || u.currentRank || 'Calculating...'}
                         </span>
                       </TableCell>
-                      <TableCell>{u.inventoryCount || 0}</TableCell>
+                      <TableCell>
+                        <span className="font-semibold text-purple-400">
+                          {u.inventoryCount || 0}
+                        </span>
+                      </TableCell>
                       <TableCell>{new Date(u.created_at).toLocaleDateString()}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
@@ -4681,6 +4735,16 @@ export default function AdminDashboardPage() {
             </div>
             <DialogFooter>
               <Button onClick={async () => {
+                // Validation
+                if (!newItem.name || !newItem.type || !newItem.rarity) {
+                  toast({
+                    title: "Validation Error",
+                    description: "Name, Type, and Rarity are required",
+                    variant: "destructive"
+                  });
+                  return;
+                }
+                
                 const res = await fetch('/api/admin/items', { 
                   method: 'POST', 
                   headers: { 'Content-Type': 'application/json' }, 
@@ -4688,10 +4752,11 @@ export default function AdminDashboardPage() {
                     name: newItem.name,
                     type: newItem.type,
                     rarity: newItem.rarity,
-                    value: newItem.value,
-                    image_url: newItem.image_url,
-                    is_equipable: newItem.is_equipable,
-                    for_crate: newItem.for_crate,
+                    value: newItem.value || 0,
+                    image_url: newItem.image_url || '',
+                    description: newItem.name + ' - ' + newItem.type,
+                    is_equipable: newItem.is_equipable !== undefined ? newItem.is_equipable : true,
+                    for_crate: newItem.for_crate || false,
                     featured: newItem.featured || false
                   }) 
                 });
@@ -4699,7 +4764,7 @@ export default function AdminDashboardPage() {
                   const data = await res.json();
                   toast({
                     title: "Success",
-                    description: "Item created successfully",
+                    description: "Item created successfully! Refreshing list...",
                   });
                   // Refetch all items to get fresh data
                   const refreshRes = await fetch('/api/admin/items');
@@ -4708,9 +4773,10 @@ export default function AdminDashboardPage() {
                     setItems(refreshData.items || []);
                   }
                   setShowCreateItem(false);
-                  setNewItem({ name: '', type: '', rarity: 'Common', value: 0, image_url: '', is_equipable: false, for_crate: false, featured: false });
+                  setNewItem({ name: '', type: '', rarity: 'Common', value: 0, image_url: '', is_equipable: true, for_crate: false, featured: false });
                 } else {
-                  const d = await res.json();
+                  const d = await res.json().catch(() => ({ error: 'Unknown error' }));
+                  console.error('Item creation error:', d);
                   toast({
                     title: "Error",
                     description: d.error || 'Create failed',
@@ -4873,7 +4939,7 @@ export default function AdminDashboardPage() {
                   setEditingItem(null);
                   toast({
                     title: "Success",
-                    description: "Item updated successfully",
+                    description: "Item updated successfully! Changes will reflect everywhere on the site.",
                   });
                 } else {
                   const data = await res.json();

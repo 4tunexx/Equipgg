@@ -24,7 +24,7 @@ export async function GET(request: NextRequest) {
       type: it.type,
       rarity: it.rarity,
       value: it.coin_price || it.value || 0,
-      image_url: it.image,
+      image_url: it.image_url || it.image || '', // Use image_url from database (the actual column)
       created_at: it.created_at,
       description: it.description,
       category: it.category,
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       rarity,
       coin_price: value || 0,
       gem_price: 0,
-      image: image_url || '/assets/placeholder.svg',
+      image_url: image_url || '/assets/placeholder.svg',
       description: description || `${name} - ${type} weapon`,
       is_tradeable: true,
       is_sellable: true,
@@ -136,20 +136,28 @@ export async function PUT(request: NextRequest) {
     
     const existingItem = existingItems[0];
     
-    // Update the item
-    await secureDb.update('items', { id }, {
+    // Update the item - use image_url (the actual database column)
+    const imageValue = image_url !== undefined ? image_url : existingItem.image_url || existingItem.image;
+    
+    const updateData: any = {
       name: name || existingItem.name,
       type: type || existingItem.type,
       category: category || type || existingItem.category,
       rarity: rarity || existingItem.rarity,
       coin_price: value !== undefined ? value : existingItem.coin_price,
-      image: image_url !== undefined ? image_url : existingItem.image, // Allow empty string to clear image
       description: description || existingItem.description,
       is_equipable: is_equipable !== undefined ? is_equipable : existingItem.is_equipable,
       for_crate: for_crate !== undefined ? for_crate : existingItem.for_crate,
       featured: featured !== undefined ? featured : existingItem.featured,
       updated_at: new Date().toISOString()
-    });
+    };
+    
+    // Update image_url (the actual database column name)
+    if (imageValue !== undefined && imageValue !== null) {
+      updateData.image_url = imageValue.trim() !== '' ? imageValue : null;
+    }
+    
+    await secureDb.update('items', { id }, updateData);
     
     return NextResponse.json({
       success: true,

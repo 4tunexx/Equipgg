@@ -154,11 +154,14 @@
 /* Faster marquee animation for activity feed */
 @keyframes marquee-faster {
   0% { transform: translateX(0%); }
-  100% { transform: translateX(-50%); }
+  100% { transform: translateX(-33.333%); }
 }
 
 .animate-marquee-faster {
-  animation: marquee-faster 20s linear infinite;
+  animation: marquee-faster 30s linear infinite;
+  will-change: transform;
+  backface-visibility: hidden;
+  transform: translateZ(0);
 }
 
 /* Landing page animations */

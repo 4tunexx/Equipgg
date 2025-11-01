@@ -153,22 +153,24 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
       const notificationChannel = supabase
         .channel(`notifications:${user.id}`)
         .on('postgres_changes', {
-          event: 'INSERT',
+          event: '*', // Listen to ALL changes (INSERT, UPDATE, DELETE)
           schema: 'public',
           table: 'notifications',
           filter: `user_id=eq.${user.id}`
         }, (payload: any) => {
-          console.log('🔔🔔🔔 BELL: New notification received via realtime:', payload.new);
+          console.log('🔔🔔🔔 BELL: Notification change received via realtime:', payload.eventType, payload.new || payload.old);
           
-          // Show toast notification
-          toast({
-            title: payload.new.title || '🔔 New Notification',
-            description: payload.new.message,
-            duration: 5000
-          });
+          // Show toast for new notifications only
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: payload.new.title || '🔔 New Notification',
+              description: payload.new.message,
+              duration: 5000
+            });
+          }
           
-          // Refresh notifications to update count
-          console.log('🔄 BELL: Refreshing notifications after realtime event');
+          // Refresh notifications to update count after ANY change (INSERT, UPDATE, DELETE)
+          console.log('🔄 BELL: Refreshing notifications after realtime event:', payload.eventType);
           fetchNotifications();
         })
         .subscribe((status: any) => {
@@ -181,10 +183,18 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
         fetchNotifications();
       }, 120000);
       
+      // Listen for custom event when notifications are cleared
+      const handleNotificationsCleared = () => {
+        console.log('🔄 BELL: Notifications cleared event received, refreshing...');
+        fetchNotifications();
+      };
+      window.addEventListener('notifications-cleared', handleNotificationsCleared);
+      
       return () => {
         console.log('🔔 BELL: Cleaning up notification system');
         notificationChannel.unsubscribe();
         clearInterval(interval);
+        window.removeEventListener('notifications-cleared', handleNotificationsCleared);
       };
     }
   }, [user]);
@@ -260,6 +270,7 @@ function DashboardSidebar({ children }: { children: React.ReactNode }) {
             
             // Update with mission data
             if (missionData) {
+              console.log('🎯 Updating mission summary:', missionData);
               setSummary(prev => prev ? {
                 ...prev,
                 dailyCompleted: missionData?.dailyCompleted || 0,

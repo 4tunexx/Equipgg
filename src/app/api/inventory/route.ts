@@ -134,7 +134,11 @@ export async function GET(request: NextRequest) {
       .filter(record => record.items) // Only include items with valid item data
       .map(record => {
         const item = record.items;
-        const imageUrl = getItemImageUrl(item.name, item.type || item.category, item.image_url || item.image);
+        // PRIORITIZE database image_url - only use generated URL if database image is empty
+        const dbImage = item.image_url || item.image;
+        const imageUrl = dbImage && dbImage.trim() !== '' && !dbImage.includes('placeholder') 
+          ? dbImage 
+          : getItemImageUrl(item.name, item.type || item.category);
         console.log(`📦 Item: ${item.name}, Type: ${item.type}, Generated Image: ${imageUrl}`);
         
         return {

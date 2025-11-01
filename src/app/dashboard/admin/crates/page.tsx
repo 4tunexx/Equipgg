@@ -463,6 +463,29 @@ export default function AdminCratesPage() {
                 onChange={(e) => setCrateImage(e.target.value)}
                 placeholder="/assets/crates/case1.png"
               />
+              {crateImage && (
+                <div className="mt-2 p-2 border rounded">
+                  <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                  <div className="relative w-32 h-32 flex items-center justify-center bg-muted rounded">
+                    <Image
+                      src={crateImage}
+                      alt="Crate preview"
+                      width={128}
+                      height={128}
+                      className="object-contain rounded"
+                      unoptimized
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          parent.innerHTML = '<div class="text-xs text-muted-foreground">Image failed to load</div>';
+                        }
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label>Rewards (when opening this crate)</Label>

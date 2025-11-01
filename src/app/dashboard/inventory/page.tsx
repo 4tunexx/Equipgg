@@ -897,7 +897,7 @@ export default function InventoryPage() {
                                   )}
                                 >
                                   <img
-                                    src={item.image || '/assets/placeholder.svg'}
+                                    src={(item.image && item.image.trim() !== '' && !item.image.includes('placeholder')) ? item.image : '/assets/placeholder.svg'}
                                     alt={item.name}
                                     className="w-14 h-10 object-contain transition-transform group-hover:scale-110 pointer-events-none"
                                     onError={(e) => {
